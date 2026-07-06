@@ -36,6 +36,12 @@ export default async function HomePage() {
             </>
           )}
         </div>
+
+        <p className="mt-12 text-sm text-zinc-400">
+          <Link href="/design-system" className="hover:text-emerald-600">
+            Ver biblioteca de componentes →
+          </Link>
+        </p>
       </div>
     </main>
   );

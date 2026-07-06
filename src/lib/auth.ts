@@ -2,6 +2,7 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/lib/auth.config";
+import { syncTokenWithUser } from "@/lib/session-user";
 import { loginSchema } from "@/lib/validators";
 import { prisma } from "@/lib/db";
 
@@ -9,8 +10,24 @@ class EmailNotVerifiedError extends CredentialsSignin {
   code = "EMAIL_NOT_VERIFIED";
 }
 
+class AccountDisabledError extends CredentialsSignin {
+  code = "ACCOUNT_DISABLED";
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
+  callbacks: {
+    ...authConfig.callbacks,
+    jwt: async ({ token, user }) => {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+        token.active = user.active;
+      }
+
+      return syncTokenWithUser(token);
+    },
+  },
   providers: [
     Credentials({
       name: "credentials",
@@ -30,6 +47,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
+        if (!user.active) {
+          throw new AccountDisabledError();
+        }
+
         if (!user.emailVerified) {
           throw new EmailNotVerifiedError();
         }
@@ -38,6 +59,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
+          active: user.active,
         };
       },
     }),

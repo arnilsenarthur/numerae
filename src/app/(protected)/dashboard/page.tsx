@@ -1,63 +1,81 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { SignOutButton } from "@/components/auth/sign-out-button";
+import { Badge } from "@/components/ui/badge";
+import { isAdminRole } from "@/lib/user-roles";
+import { getModulesForCountry } from "@/modules/registry";
 
 export default async function DashboardPage() {
   const session = await auth();
+  const isAdmin = isAdminRole(session?.user?.role);
+  const modules = getModulesForCountry("BR");
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-emerald-600">Numerae</p>
-          <h1 className="text-3xl font-semibold tracking-tight">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+      <div>
+        <p className="text-sm text-emerald-600">Painel</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h2 className="text-3xl font-semibold tracking-tight">
             Olá, {session?.user?.name ?? "usuário"}
-          </h1>
-          <p className="mt-2 text-zinc-500">
-            Base do app pronta. Em breve: metas, orçamentos e relatórios.
-          </p>
+          </h2>
+          {isAdmin ? <Badge variant="default">Admin</Badge> : null}
         </div>
-        <SignOutButton />
-      </header>
+        <p className="mt-2 text-zinc-500">
+          Módulos para entender, simular e cuidar melhor do seu dinheiro — PJ ou PF.
+        </p>
+      </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {[
-          {
-            title: "Contas",
-            description: "Organize saldos e contas bancárias.",
-          },
-          {
-            title: "Metas",
-            description: "Defina objetivos financeiros com prazos.",
-          },
-          {
-            title: "Relatórios",
-            description: "Acompanhe entradas, saídas e tendências.",
-          },
-        ].map((item) => (
-          <article
-            key={item.title}
-            className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
-          >
-            <h2 className="text-lg font-medium">{item.title}</h2>
-            <p className="mt-2 text-sm text-zinc-500">{item.description}</p>
-            <p className="mt-4 text-xs uppercase tracking-wide text-zinc-400">
-              Em breve
-            </p>
-          </article>
-        ))}
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
+          Módulos
+        </h3>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {modules.map((module) => (
+            <article
+              key={module.id}
+              className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              <h4 className="text-lg font-medium">{module.name}</h4>
+              <p className="mt-2 flex-1 text-sm text-zinc-500">{module.description}</p>
+              <div className="mt-4">
+                <Link
+                  href={module.href}
+                  className="inline-flex h-8 items-center justify-center rounded-lg bg-emerald-600 px-2.5 text-xs font-medium text-white shadow-sm shadow-emerald-600/20 transition-all hover:bg-emerald-500"
+                >
+                  Abrir
+                </Link>
+              </div>
+            </article>
+          ))}
+
+          {[
+            {
+              title: "Contas",
+              description: "Organize saldos e contas bancárias.",
+            },
+            {
+              title: "Metas",
+              description: "Defina objetivos financeiros com prazos.",
+            },
+            {
+              title: "Open Finance",
+              description: "Conecte bancos e automatize lançamentos.",
+            },
+          ].map((item) => (
+            <article
+              key={item.title}
+              className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 dark:border-zinc-800 dark:bg-zinc-900/20"
+            >
+              <h4 className="text-lg font-medium text-zinc-700 dark:text-zinc-300">
+                {item.title}
+              </h4>
+              <p className="mt-2 text-sm text-zinc-500">{item.description}</p>
+              <p className="mt-4 text-xs uppercase tracking-wide text-zinc-400">
+                Em breve
+              </p>
+            </article>
+          ))}
+        </div>
       </section>
-
-      <p className="text-sm text-zinc-500">
-        Conectado como{" "}
-        <span className="font-medium text-zinc-700 dark:text-zinc-300">
-          {session?.user?.email}
-        </span>
-        .{" "}
-        <Link href="/" className="text-emerald-600 hover:underline">
-          Voltar ao início
-        </Link>
-      </p>
     </div>
   );
 }

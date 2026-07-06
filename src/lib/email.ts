@@ -7,10 +7,21 @@ const resend = process.env.RESEND_API_KEY
 const fromAddress =
   process.env.EMAIL_FROM ?? "Numerae <onboarding@resend.dev>";
 
+type SendResult =
+  | { sent: true }
+  | { sent: false; error: string };
+
 export async function sendVerificationCode(
   email: string,
   code: string,
-): Promise<{ sent: boolean; devCode?: string }> {
+): Promise<SendResult> {
+  if (!resend) {
+    return {
+      sent: false,
+      error: "Serviço de e-mail não configurado.",
+    };
+  }
+
   const subject = "Seu código de verificação — Numerae";
   const html = `
     <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
@@ -21,19 +32,20 @@ export async function sendVerificationCode(
     </div>
   `;
 
-  if (resend) {
-    await resend.emails.send({
-      from: fromAddress,
-      to: email,
-      subject,
-      html,
-    });
-    return { sent: true };
+  const { error } = await resend.emails.send({
+    from: fromAddress,
+    to: email,
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error("[Numerae] Erro ao enviar e-mail:", error);
+    return {
+      sent: false,
+      error: "Não foi possível enviar o e-mail. Tente novamente em instantes.",
+    };
   }
 
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Numerae] Código de verificação para ${email}: ${code}`);
-  }
-
-  return { sent: false, devCode: process.env.NODE_ENV === "development" ? code : undefined };
+  return { sent: true };
 }

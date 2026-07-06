@@ -13,7 +13,11 @@ export default auth((req) => {
     pathname.startsWith("/register") ||
     pathname.startsWith("/verify");
 
-  const isProtected = pathname.startsWith("/dashboard");
+  const isProtected =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/calculator") ||
+    pathname.startsWith("/design-system") ||
+    pathname.startsWith("/admin");
 
   if (isProtected && !isLoggedIn) {
     const loginUrl = new URL("/login", req.url);
@@ -29,5 +33,13 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/register", "/verify"],
+  matcher: [
+    "/dashboard/:path*",
+    "/calculator",
+    "/design-system",
+    "/admin/:path*",
+    "/login",
+    "/register",
+    "/verify",
+  ],
 };

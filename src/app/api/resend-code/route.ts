@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const { email } = parsed.data;
     const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user || user.emailVerified) {
+    if (!user || user.emailVerified || !user.active) {
       return NextResponse.json({
         success: true,
         message: "Se o e-mail existir, enviaremos um novo código.",
@@ -54,12 +54,13 @@ export async function POST(request: Request) {
 
     const emailResult = await sendVerificationCode(email, code);
 
+    if (!emailResult.sent) {
+      return NextResponse.json({ error: emailResult.error }, { status: 503 });
+    }
+
     return NextResponse.json({
       success: true,
-      message: emailResult.sent
-        ? "Novo código enviado."
-        : "Novo código gerado (modo desenvolvimento).",
-      devCode: emailResult.devCode,
+      message: "Novo código enviado para seu e-mail.",
     });
   } catch {
     return NextResponse.json(

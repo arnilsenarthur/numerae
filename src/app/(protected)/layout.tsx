@@ -1,9 +1,21 @@
-export default function ProtectedLayout({
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { AppShell } from "@/components/layout/app-shell";
+
+export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-full flex-1 bg-zinc-50 dark:bg-black">{children}</div>
-  );
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login?callbackUrl=/dashboard");
+  }
+
+  if (!session.user.active) {
+    redirect("/login?error=disabled");
+  }
+
+  return <AppShell>{children}</AppShell>;
 }

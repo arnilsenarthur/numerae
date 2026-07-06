@@ -1,35 +1,72 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { AuthStepIndicator } from "@/components/auth/auth-step-indicator";
+import { ui } from "@/components/ui/tokens";
+import { cn } from "@/lib/utils";
+
+export const authLinkClass =
+  "font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300";
 
 type AuthCardProps = {
   title: string;
   subtitle: string;
   children: ReactNode;
   footer?: ReactNode;
+  className?: string;
+  step?: {
+    current: number;
+    total: number;
+    labels?: string[];
+  };
 };
 
-export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
+export function AuthCard({
+  title,
+  subtitle,
+  children,
+  footer,
+  className,
+  step,
+}: AuthCardProps) {
   return (
-    <div className="mx-auto w-full max-w-md">
-      <div className="mb-8 text-center">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-lg font-bold text-white">
+    <div className={cn("mx-auto w-full max-w-md", className)}>
+      <div className="mb-8 animate-fade-in-down text-center">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]"
+        >
+          <span
+            className={cn(
+              "flex h-10 w-10 items-center justify-center bg-emerald-600 text-lg font-bold text-white shadow-lg shadow-emerald-600/25",
+              ui.innerRadius,
+            )}
+          >
             N
           </span>
           <span className="text-2xl font-semibold tracking-tight">Numerae</span>
         </Link>
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          {subtitle}
-        </p>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>
       </div>
 
-      <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+      <div
+        className={cn(
+          "animate-scale-in border border-zinc-200/80 bg-white/90 p-6 shadow-xl shadow-zinc-900/5 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/90 dark:shadow-black/20",
+          ui.surfaceRadius,
+        )}
+      >
+        {step ? (
+          <AuthStepIndicator
+            current={step.current}
+            total={step.total}
+            labels={step.labels}
+          />
+        ) : null}
         {children}
       </div>
 
       {footer ? (
-        <div className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+        <div className="animate-fade-in mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
           {footer}
         </div>
       ) : null}

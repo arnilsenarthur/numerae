@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { sendVerificationCode } from "@/lib/email";
 import { rateLimit } from "@/lib/rate-limit";
+import { resolveBootstrapRole } from "@/lib/user-roles";
 import { registerSchema } from "@/lib/validators";
 
 function generateCode(): string {
@@ -37,9 +38,23 @@ export async function POST(request: Request) {
     const existing = await prisma.user.findUnique({ where: { email } });
 
     if (existing?.emailVerified) {
+      if (!existing.active) {
+        return NextResponse.json(
+          { error: "Esta conta está desativada. Entre em contato com o suporte." },
+          { status: 403 },
+        );
+      }
+
       return NextResponse.json(
         { error: "Este e-mail já está cadastrado." },
         { status: 409 },
+      );
+    }
+
+    if (existing && !existing.active) {
+      return NextResponse.json(
+        { error: "Esta conta está desativada. Entre em contato com o suporte." },
+        { status: 403 },
       );
     }
 
@@ -50,8 +65,16 @@ export async function POST(request: Request) {
     await prisma.$transaction([
       prisma.user.upsert({
         where: { email },
-        create: { name, email, passwordHash },
-        update: { name, passwordHash, emailVerified: null },
+        create: {
+          name,
+          email,
+          passwordHash,
+          role: resolveBootstrapRole(email),
+        },
+        update: {
+          name,
+          passwordHash,
+        },
       }),
       prisma.emailVerification.deleteMany({ where: { email } }),
       prisma.emailVerification.create({
@@ -61,13 +84,14 @@ export async function POST(request: Request) {
 
     const emailResult = await sendVerificationCode(email, code);
 
+    if (!emailResult.sent) {
+      return NextResponse.json({ error: emailResult.error }, { status: 503 });
+    }
+
     return NextResponse.json({
       success: true,
       email,
-      message: emailResult.sent
-        ? "Enviamos um código de verificação para seu e-mail."
-        : "Conta criada. Verifique seu e-mail (ou use o código exibido em desenvolvimento).",
-      devCode: emailResult.devCode,
+      message: "Enviamos um código de verificação para seu e-mail.",
     });
   } catch {
     return NextResponse.json(

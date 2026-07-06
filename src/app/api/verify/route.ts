@@ -29,6 +29,29 @@ export async function POST(request: Request) {
 
     const { email, code } = parsed.data;
 
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Conta não encontrada." },
+        { status: 404 },
+      );
+    }
+
+    if (user.emailVerified) {
+      return NextResponse.json(
+        { error: "Este e-mail já foi verificado. Faça login." },
+        { status: 409 },
+      );
+    }
+
+    if (!user.active) {
+      return NextResponse.json(
+        { error: "Esta conta está desativada. Entre em contato com o suporte." },
+        { status: 403 },
+      );
+    }
+
     const verification = await prisma.emailVerification.findFirst({
       where: {
         email,
@@ -45,15 +68,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Conta não encontrada." },
-        { status: 404 },
-      );
-    }
-
     await prisma.$transaction([
       prisma.user.update({
         where: { email },
@@ -64,7 +78,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "E-mail verificado com sucesso. Você já pode entrar.",
+      message: "E-mail verificado com sucesso.",
     });
   } catch {
     return NextResponse.json(

@@ -7,6 +7,7 @@ export function SignOutButton() {
   return (
     <Button
       variant="secondary"
+      className="w-full"
       onClick={() => signOut({ callbackUrl: "/" })}
     >
       Sair

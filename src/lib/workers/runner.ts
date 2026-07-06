@@ -1,0 +1,245 @@
+import "server-only";
+
+import type { WorkerRunTrigger } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db";
+import {
+  getWorkerDefinition,
+  isWorkerProviderId,
+  WORKER_IDS,
+  type WorkerProviderId,
+} from "@/lib/workers/registry";
+import { runUsdRateWorker } from "@/lib/workers/tasks";
+import {
+  getWorkerScheduleMeta,
+  type SerializedWorker,
+  type SerializedWorkerRun,
+} from "@/lib/workers/workers.shared";
+
+export type { SerializedWorker, SerializedWorkerRun } from "@/lib/workers/workers.shared";
+
+type WorkerRecord = {
+  id: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  primaryProvider: string;
+  secondaryProvider: string | null;
+  intervalSeconds: number;
+  lastRunAt: Date | null;
+  lastRunStatus: string | null;
+  lastRunProvider: string | null;
+  lastRunError: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  runs?: WorkerRunRecord[];
+};
+
+type WorkerRunRecord = {
+  id: string;
+  workerId: string;
+  status: string;
+  trigger: string;
+  provider: string | null;
+  fallbackUsed: boolean;
+  attemptedProviders: unknown;
+  durationMs: number | null;
+  summary: unknown;
+  error: string | null;
+  createdAt: Date;
+};
+
+export function serializeWorkerRun(record: WorkerRunRecord): SerializedWorkerRun {
+  return {
+    id: record.id,
+    workerId: record.workerId,
+    status: record.status,
+    trigger: record.trigger,
+    provider: record.provider,
+    fallbackUsed: record.fallbackUsed,
+    attemptedProviders: Array.isArray(record.attemptedProviders)
+      ? (record.attemptedProviders as SerializedWorkerRun["attemptedProviders"])
+      : null,
+    durationMs: record.durationMs,
+    summary:
+      record.summary && typeof record.summary === "object"
+        ? (record.summary as Record<string, unknown>)
+        : null,
+    error: record.error,
+    createdAt: record.createdAt.toISOString(),
+  };
+}
+
+export function serializeWorker(record: WorkerRecord): SerializedWorker {
+  const definition = getWorkerDefinition(record.id);
+  const schedule = getWorkerScheduleMeta({
+    enabled: record.enabled,
+    lastRunAt: record.lastRunAt?.toISOString() ?? null,
+    intervalSeconds: record.intervalSeconds,
+  });
+
+  return {
+    id: record.id,
+    name: record.name,
+    description: record.description,
+    enabled: record.enabled,
+    primaryProvider: record.primaryProvider,
+    secondaryProvider: record.secondaryProvider,
+    intervalSeconds: record.intervalSeconds,
+    lastRunAt: record.lastRunAt?.toISOString() ?? null,
+    lastRunStatus: record.lastRunStatus,
+    lastRunProvider: record.lastRunProvider,
+    lastRunError: record.lastRunError,
+    nextRunAt: schedule.nextRunAt,
+    isDue: schedule.isDue,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    allowedProviders: definition?.allowedProviders ?? [],
+    recentRuns: record.runs?.map(serializeWorkerRun),
+  };
+}
+
+async function executeWorkerTask(
+  workerId: string,
+  primaryProvider: WorkerProviderId,
+  secondaryProvider: WorkerProviderId | null,
+  trigger: WorkerRunTrigger,
+) {
+  switch (workerId) {
+    case WORKER_IDS.USD_RATE:
+      return runUsdRateWorker({ primaryProvider, secondaryProvider, trigger });
+    default:
+      throw new Error(`Worker desconhecido: ${workerId}`);
+  }
+}
+
+export async function runWorkerById(
+  workerId: string,
+  trigger: WorkerRunTrigger,
+): Promise<{ worker: SerializedWorker; run: SerializedWorkerRun }> {
+  const worker = await prisma.worker.findUnique({ where: { id: workerId } });
+
+  if (!worker) {
+    throw new Error("Worker não encontrado.");
+  }
+
+  if (!worker.enabled && trigger !== "MANUAL") {
+    const run = await prisma.workerRun.create({
+      data: {
+        workerId: worker.id,
+        status: "SKIPPED",
+        trigger,
+        provider: null,
+        fallbackUsed: false,
+        attemptedProviders: [],
+        durationMs: 0,
+        summary: { reason: "Automático desligado." },
+        error: "Automático desligado.",
+      },
+    });
+
+    const updatedWorker = await prisma.worker.update({
+      where: { id: worker.id },
+      data: {
+        lastRunAt: new Date(),
+        lastRunStatus: "SKIPPED",
+        lastRunProvider: null,
+        lastRunError: "Automático desligado.",
+      },
+    });
+
+    return {
+      worker: serializeWorker(updatedWorker),
+      run: serializeWorkerRun(run),
+    };
+  }
+
+  const primaryProvider = isWorkerProviderId(worker.primaryProvider)
+    ? worker.primaryProvider
+    : "frankfurter";
+
+  const secondaryProvider =
+    worker.secondaryProvider && isWorkerProviderId(worker.secondaryProvider)
+      ? worker.secondaryProvider
+      : null;
+
+  const started = Date.now();
+
+  const result = await executeWorkerTask(
+    worker.id,
+    primaryProvider,
+    secondaryProvider,
+    trigger,
+  );
+
+  const durationMs = Date.now() - started;
+
+  const run = await prisma.workerRun.create({
+    data: {
+      workerId: worker.id,
+      status: result.status,
+      trigger,
+      provider: result.provider,
+      fallbackUsed: result.fallbackUsed,
+      attemptedProviders: result.attemptedProviders,
+      durationMs,
+      summary: result.summary,
+      error: result.error ?? null,
+    },
+  });
+
+  const updatedWorker = await prisma.worker.update({
+    where: { id: worker.id },
+    data: {
+      lastRunAt: new Date(),
+      lastRunStatus: result.status,
+      lastRunProvider: result.provider,
+      lastRunError: result.error ?? null,
+    },
+  });
+
+  return {
+    worker: serializeWorker(updatedWorker),
+    run: serializeWorkerRun(run),
+  };
+}
+
+export async function runDueWorkers(trigger: WorkerRunTrigger) {
+  const workers = await prisma.worker.findMany({ where: { enabled: true } });
+  const now = Date.now();
+  const results: { workerId: string; run: SerializedWorkerRun }[] = [];
+
+  for (const worker of workers) {
+    const due =
+      !worker.lastRunAt ||
+      now - worker.lastRunAt.getTime() >= worker.intervalSeconds * 1000;
+
+    if (!due) continue;
+
+    const { run } = await runWorkerById(worker.id, trigger);
+    results.push({ workerId: worker.id, run });
+  }
+
+  return results;
+}
+
+export async function ensureWorkersSeeded() {
+  const definitions = Object.values(WORKER_IDS);
+  for (const id of definitions) {
+    const def = getWorkerDefinition(id);
+    if (!def) continue;
+
+    await prisma.worker.upsert({
+      where: { id },
+      create: {
+        id,
+        name: def.name,
+        description: def.description,
+        enabled: true,
+        primaryProvider: def.defaultPrimaryProvider,
+        secondaryProvider: def.defaultSecondaryProvider,
+        intervalSeconds: def.defaultIntervalSeconds,
+      },
+      update: {},
+    });
+  }
+}

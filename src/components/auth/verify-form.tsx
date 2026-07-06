@@ -2,50 +2,145 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { AuthCard } from "@/components/auth/auth-card";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
+import { authLinkClass, AuthCard } from "@/components/auth/auth-card";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
+import { FormField } from "@/components/ui/form-field";
+import { OtpInput } from "@/components/ui/otp-input";
+import { useResendCooldown } from "@/hooks/use-resend-cooldown";
+import { consumePendingAuth } from "@/lib/auth-pending";
+import { maskEmail } from "@/lib/mask-email";
+
+function VerifyMissingEmail() {
+  return (
+    <AuthCard
+      title="Verificar e-mail"
+      subtitle="Precisamos do seu e-mail para enviar o código de verificação."
+      footer={
+        <>
+          <Link href="/register" className={authLinkClass}>
+            Criar conta
+          </Link>
+          {" · "}
+          <Link href="/login" className={authLinkClass}>
+            Entrar
+          </Link>
+        </>
+      }
+    >
+      <Alert variant="warning">
+        Volte ao cadastro ou faça login para continuar a verificação.
+      </Alert>
+    </AuthCard>
+  );
+}
 
 export function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialEmail = searchParams.get("email") ?? "";
-  const devCode = searchParams.get("devCode");
+  const email = searchParams.get("email")?.trim().toLowerCase() ?? "";
 
-  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const { cooldown, startCooldown, canResend } = useResendCooldown(60);
+  const submitLock = useRef(false);
+  const lastSubmittedCode = useRef<string | null>(null);
+
+  const verifyCode = useCallback(
+    async (nextCode: string) => {
+      if (
+        !email ||
+        nextCode.length !== 6 ||
+        submitLock.current ||
+        lastSubmittedCode.current === nextCode
+      ) {
+        return;
+      }
+
+      setCodeError(null);
+      setError(null);
+      setMessage(null);
+      setLoading(true);
+      submitLock.current = true;
+      lastSubmittedCode.current = nextCode;
+
+      try {
+        const response = await fetch("/api/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, code: nextCode }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          lastSubmittedCode.current = null;
+
+          if (response.status === 409) {
+            router.push(
+              `/login?email=${encodeURIComponent(email)}&verified=1`,
+            );
+            return;
+          }
+
+          setError(data.error ?? "Erro ao verificar código.");
+          return;
+        }
+
+        setMessage("Conta verificada. Entrando…");
+
+        const pendingPassword = consumePendingAuth(email);
+        if (pendingPassword) {
+          const result = await signIn("credentials", {
+            email,
+            password: pendingPassword,
+            redirect: false,
+          });
+
+          if (!result?.error) {
+            router.push("/dashboard");
+            router.refresh();
+            return;
+          }
+        }
+
+        router.push(`/login?email=${encodeURIComponent(email)}&verified=1`);
+        router.refresh();
+      } finally {
+        setLoading(false);
+        submitLock.current = false;
+      }
+    },
+    [email, router],
+  );
+
+  useEffect(() => {
+    if (code.length === 6 && !loading && !resending) {
+      void verifyCode(code);
+    }
+  }, [code, loading, resending, verifyCode]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setMessage(null);
-    setLoading(true);
 
-    const response = await fetch("/api/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
-    });
-
-    const data = await response.json();
-    setLoading(false);
-
-    if (!response.ok) {
-      setError(data.error ?? "Erro ao verificar código.");
+    if (code.length !== 6) {
+      setCodeError("Digite os 6 dígitos do código.");
       return;
     }
 
-    setMessage(data.message);
-    setTimeout(() => router.push("/login"), 1500);
+    await verifyCode(code);
   }
 
   async function handleResend() {
+    if (!email || !canResend || resending) return;
+
     setError(null);
     setMessage(null);
     setResending(true);
@@ -61,85 +156,86 @@ export function VerifyForm() {
 
     if (!response.ok) {
       setError(data.error ?? "Erro ao reenviar código.");
+      if (response.status === 429) startCooldown();
       return;
     }
 
-    setMessage(
-      data.devCode
-        ? `${data.message} Código: ${data.devCode}`
-        : data.message,
-    );
+    setMessage(data.message);
+    setCode("");
+    setCodeError(null);
+    lastSubmittedCode.current = null;
+    startCooldown();
+  }
+
+  if (!email) {
+    return <VerifyMissingEmail />;
   }
 
   return (
     <AuthCard
       title="Verificar e-mail"
-      subtitle="Digite o código de 6 dígitos enviado para seu e-mail."
+      subtitle={`Enviamos um código de 6 dígitos para ${maskEmail(email)}.`}
+      step={{
+        current: 2,
+        total: 2,
+        labels: ["Dados da conta", "Verificação de e-mail"],
+      }}
       footer={
-        <Link href="/login" className="font-medium text-emerald-600">
+        <Link href="/login" className={authLinkClass}>
           Voltar para login
         </Link>
       }
     >
-      {devCode ? (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          Modo desenvolvimento — código:{" "}
-          <span className="font-mono font-semibold">{devCode}</span>
-        </div>
-      ) : null}
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <FormField delay={80}>
+          <Field
+            label="Código de verificação"
+            state={codeError ? "error" : "default"}
+            message={codeError ?? undefined}
+          >
+            <div className="mt-1">
+              <OtpInput
+                value={code}
+                onChange={(next) => {
+                  setCode(next);
+                  if (codeError) setCodeError(null);
+                }}
+                disabled={loading}
+              />
+            </div>
+          </Field>
+        </FormField>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-        </div>
+        <p className="text-center text-xs text-zinc-500">
+          O código expira em 15 minutos. Confira também a pasta de spam.
+        </p>
 
-        <div>
-          <Label htmlFor="code">Código</Label>
-          <Input
-            id="code"
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="000000"
-            value={code}
-            onChange={(event) =>
-              setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-            }
-            required
-          />
-        </div>
+        {error ? <Alert variant="error">{error}</Alert> : null}
+        {message ? <Alert variant="success">{message}</Alert> : null}
 
-        {error ? (
-          <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </p>
-        ) : null}
+        <FormField delay={160}>
+          <Button
+            type="submit"
+            className="w-full"
+            loading={loading}
+            disabled={code.length !== 6}
+          >
+            Verificar
+          </Button>
+        </FormField>
 
-        {message ? (
-          <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-            {message}
-          </p>
-        ) : null}
-
-        <Button type="submit" className="w-full" loading={loading}>
-          Verificar
-        </Button>
-
-        <Button
-          type="button"
-          variant="secondary"
-          className="w-full"
-          loading={resending}
-          onClick={handleResend}
-        >
-          Reenviar código
-        </Button>
+        <FormField delay={210}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            loading={resending}
+            disabled={!canResend || resending}
+            onClick={handleResend}
+          >
+            {canResend ? "Reenviar código" : `Reenviar em ${cooldown}s`}
+          </Button>
+        </FormField>
       </form>
     </AuthCard>
   );

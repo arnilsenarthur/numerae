@@ -7,14 +7,79 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum AdminAuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum InstitutionType {
+  BANK
+  FINTECH
+  BROKER
+  REMITTANCE
+  EXCHANGE
+  OTHER
+}
+
+enum InstitutionProductKind {
+  CHECKING
+  SAVINGS
+  INVESTMENT
+  CREDIT
+  PAYMENT
+  OTHER
+}
+
+enum WorkerRunStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+  SKIPPED
+}
+
+enum WorkerRunTrigger {
+  MANUAL
+  CRON
+  SYSTEM
+}
+
 model User {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String     @unique
   emailVerified DateTime?
   passwordHash  String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          UserRole   @default(USER)
+  active        Boolean    @default(true)
+  countryCode   String     @default("BR")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  cnpjs         UserCnpj[]
+  auditLogs     AdminAuditLog[]
+}
+
+model UserCnpj {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cnpj            String
+  label           String
+  cnaeCode        String?
+  cnaeDescription String?
+  taxRegime       String   @default("simples")
+  taxRate         Decimal  @db.Decimal(5, 2)
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, cnpj])
+  @@index([userId])
 }
 
 model EmailVerification {
@@ -25,4 +90,152 @@ model EmailVerification {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+model Country {
+  code          String        @id @db.Char(2)
+  name          String
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  currencies    Currency[]
+  institutions  Institution[]
+
+  @@index([active])
+}
+
+model Currency {
+  id                String    @id @default(cuid())
+  code              String    @db.VarChar(8)
+  name              String
+  countryCode       String    @db.Char(2)
+  country           Country   @relation(fields: [countryCode], references: [code])
+  symbol            String?
+  usdRate           Decimal?  @db.Decimal(18, 8)
+  usdRateUpdatedAt  DateTime?
+  usdRateTtlSeconds Int       @default(3600)
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([code, countryCode])
+  @@index([countryCode])
+}
+
+model Institution {
+  id            String                  @id @default(cuid())
+  slug          String                  @unique
+  name          String
+  type          InstitutionType         @default(OTHER)
+  countryCode   String                  @db.Char(2)
+  country       Country                 @relation(fields: [countryCode], references: [code])
+  website       String?
+  logoUrl       String?
+  brandColor    String?
+  description   String?
+  active        Boolean                 @default(true)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  exchangeRates InstitutionExchangeRate[]
+  products      InstitutionProduct[]
+
+  @@index([type])
+  @@index([countryCode])
+}
+
+model InstitutionProduct {
+  id            String                 @id @default(cuid())
+  institutionId String
+  institution   Institution            @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String
+  kind          InstitutionProductKind @default(OTHER)
+  currencyCode  String?                @db.VarChar(8)
+  description   String?
+  active        Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([institutionId, slug])
+  @@index([institutionId])
+}
+
+model AdminAuditLog {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      AdminAuditAction
+  entityType  String
+  entityId    String
+  entityLabel String?
+  parentType  String?
+  parentId    String?
+  before      Json?
+  after       Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([parentType, parentId])
+  @@index([createdAt])
+}
+
+model InstitutionExchangeRate {
+  id                String      @id @default(cuid())
+  institutionId     String
+  institution       Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  fromCurrency      String      @db.VarChar(8)
+  toCurrency        String      @db.VarChar(8)
+  rate              Decimal     @db.Decimal(18, 8)
+  rateUpdatedAt     DateTime?
+  rateTtlSeconds    Int         @default(3600)
+  spreadPercent     Decimal     @default(0) @db.Decimal(8, 4)
+  spreadUpdatedAt   DateTime?
+  spreadTtlSeconds  Int         @default(3600)
+  feeFixed          Decimal?    @db.Decimal(12, 2)
+  feePercent        Decimal?    @db.Decimal(8, 4)
+  notes             String?
+  active            Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([institutionId, fromCurrency, toCurrency])
+  @@index([institutionId])
+}
+
+model Worker {
+  id                String           @id
+  name              String
+  description       String?
+  enabled           Boolean          @default(true)
+  primaryProvider   String           @default("frankfurter")
+  secondaryProvider String?
+  intervalSeconds   Int              @default(3600)
+  lastRunAt         DateTime?
+  lastRunStatus     WorkerRunStatus?
+  lastRunProvider   String?
+  lastRunError      String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  runs              WorkerRun[]
+
+  @@index([enabled])
+}
+
+model WorkerRun {
+  id                 String            @id @default(cuid())
+  workerId           String
+  worker             Worker            @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  status             WorkerRunStatus
+  trigger            WorkerRunTrigger
+  provider           String?
+  fallbackUsed       Boolean           @default(false)
+  attemptedProviders Json?
+  durationMs         Int?
+  summary            Json?
+  error              String?
+  createdAt          DateTime          @default(now())
+
+  @@index([workerId, createdAt])
+  @@index([createdAt])
 }

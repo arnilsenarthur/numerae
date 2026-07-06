@@ -1,0 +1,15 @@
+import { cn } from "@/lib/utils";
+import { HTMLAttributes } from "react";
+
+export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "animate-pulse rounded-md bg-zinc-200/80 dark:bg-zinc-800/80",
+        className,
+      )}
+      aria-hidden
+      {...props}
+    />
+  );
+}
