@@ -62,6 +62,7 @@ model User {
   updatedAt     DateTime   @updatedAt
   cnpjs         UserCnpj[]
   auditLogs     AdminAuditLog[]
+  moneyMaps     MoneyMap[]
 }
 
 model UserCnpj {
@@ -238,4 +239,42 @@ model WorkerRun {
 
   @@index([workerId, createdAt])
   @@index([createdAt])
+}
+
+enum MoneyMapNodeType {
+  INCOME
+  CONVERSION
+  TAX_PJ
+  EXPENSE
+  INVESTMENT
+  SPLIT
+}
+
+model MoneyMap {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  templateId    String?
+  horizonMonths Int            @default(12)
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  nodes         MoneyMapNode[]
+
+  @@index([userId])
+}
+
+model MoneyMapNode {
+  id        String           @id @default(cuid())
+  mapId     String
+  map       MoneyMap         @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  type      MoneyMapNodeType
+  label     String?
+  sortOrder Int              @default(0)
+  config    Json
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([mapId, sortOrder])
 }

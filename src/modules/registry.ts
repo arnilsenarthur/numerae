@@ -11,6 +11,15 @@ export type AppModule = {
 
 export const appModules: AppModule[] = [
   {
+    id: "money-map",
+    name: "Mapa do dinheiro",
+    description:
+      "Planeje entradas, conversão, impostos e projeção mensal — o caminho do seu dinheiro.",
+    href: "/money-map",
+    countries: ["BR"],
+    badge: "Principal",
+  },
+  {
     id: "calculator",
     name: "Calculadora",
     description: "Compare CLT e PJ, simule impostos e entenda seu líquido.",

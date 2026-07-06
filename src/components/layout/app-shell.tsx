@@ -7,7 +7,17 @@ import { AppSidebar, SidebarItem } from "@/components/layout/app-sidebar";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { Dimmer } from "@/components/ui/dimmer";
-import { IconBank, IconCoins, IconComponents, IconExchange, IconLayoutDashboard, IconPercent, IconReceipt, IconSettings } from "@/components/ui/icons";
+import {
+  IconBank,
+  IconCoins,
+  IconComponents,
+  IconExchange,
+  IconLayoutDashboard,
+  IconPercent,
+  IconReceipt,
+  IconSettings,
+  IconTarget,
+} from "@/components/ui/icons";
 import { isAdminRole } from "@/lib/user-roles";
 
 const sidebarItems: SidebarItem[] = [
@@ -15,6 +25,11 @@ const sidebarItems: SidebarItem[] = [
     href: "/dashboard",
     label: "Painel",
     icon: <IconLayoutDashboard size="sm" />,
+  },
+  {
+    href: "/money-map",
+    label: "Mapa do dinheiro",
+    icon: <IconTarget size="sm" />,
   },
   {
     href: "/calculator",

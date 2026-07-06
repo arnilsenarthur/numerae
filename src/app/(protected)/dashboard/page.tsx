@@ -20,7 +20,7 @@ export default async function DashboardPage() {
           {isAdmin ? <Badge variant="default">Admin</Badge> : null}
         </div>
         <p className="mt-2 text-zinc-500">
-          Módulos para entender, simular e cuidar melhor do seu dinheiro — PJ ou PF.
+          Planeje o caminho do seu dinheiro — entradas, câmbio, impostos e projeções.
         </p>
       </div>
 
@@ -32,9 +32,18 @@ export default async function DashboardPage() {
           {modules.map((module) => (
             <article
               key={module.id}
-              className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+              className={
+                module.id === "money-map"
+                  ? "flex flex-col rounded-xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/80 to-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-emerald-800/40 dark:from-emerald-950/30 dark:to-zinc-950"
+                  : "flex flex-col rounded-xl border border-zinc-200 bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+              }
             >
-              <h4 className="text-lg font-medium">{module.name}</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-lg font-medium">{module.name}</h4>
+                {module.badge ? (
+                  <Badge variant="success">{module.badge}</Badge>
+                ) : null}
+              </div>
               <p className="mt-2 flex-1 text-sm text-zinc-500">{module.description}</p>
               <div className="mt-4">
                 <Link

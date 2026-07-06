@@ -15,6 +15,7 @@ export default auth((req) => {
 
   const isProtected =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/money-map") ||
     pathname.startsWith("/calculator") ||
     pathname.startsWith("/design-system") ||
     pathname.startsWith("/admin");
@@ -35,6 +36,7 @@ export default auth((req) => {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/money-map/:path*",
     "/calculator",
     "/design-system",
     "/admin/:path*",
