@@ -12,6 +12,10 @@ function isAuthorizedCron(request: Request) {
   return request.headers.get("x-cron-secret") === secret;
 }
 
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
