@@ -101,8 +101,7 @@ function periodSuffix(period: MoneyPeriod) {
 
 function rowAccentClass(row: EntryRow, editingId: string | null) {
   if (row.id === editingId) return "bg-zinc-100/80 dark:bg-zinc-900/60";
-  if (row.kind === "INCOME") return "border-l-2 border-l-emerald-500/70";
-  return "border-l-2 border-l-rose-400/70";
+  return "";
 }
 
 export function PlanEntries({
@@ -270,13 +269,8 @@ function EntryEditor({
       ? INCOME_CATEGORY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
       : EXPENSE_CATEGORY_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
 
-  const accent =
-    kind === "INCOME"
-      ? "border-emerald-500/40 bg-emerald-50/30 dark:bg-emerald-950/10"
-      : "border-rose-400/40 bg-rose-50/30 dark:bg-rose-950/10";
-
   return (
-    <section className={`mt-4 border-t-2 pt-4 ${accent}`}>
+    <section className="mt-4 border-t border-zinc-200/80 pt-4 dark:border-zinc-800/80">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium">

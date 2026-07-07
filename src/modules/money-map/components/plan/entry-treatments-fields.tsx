@@ -6,6 +6,13 @@ import { MultiSelect, Select } from "@/components/ui";
 import { NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  RegistryPicker,
+  type RegistryPickerItem,
+} from "@/components/ui/registry-picker";
+import { IconBuilding, IconPercent } from "@/components/ui/icons";
+import { formatCnpj } from "@/lib/cnpj";
+import type { SavedCompany } from "@/types/user-company";
+import {
   Table,
   TableBody,
   TableCell,
@@ -32,6 +39,25 @@ const CURRENCY_OPTIONS = [
   { value: "EUR", label: "EUR" },
 ];
 
+const MANUAL_COMPANY_ID = "__manual__";
+
+function formatCompanyDescription(company: SavedCompany) {
+  const registration =
+    company.countryCode === "BR" && company.registrationKind === "CNPJ"
+      ? formatCnpj(company.registrationId)
+      : company.registrationId;
+  return `${registration} · ${company.taxRate.toLocaleString("pt-BR")}%`;
+}
+
+function buildCompanyPickerItems(companies: SavedCompany[]): RegistryPickerItem[] {
+  return companies.map((company) => ({
+    id: company.id,
+    label: company.label,
+    description: formatCompanyDescription(company),
+    icon: <IconBuilding size="sm" />,
+  }));
+}
+
 type EntryTreatmentsFieldsProps = {
   treatments: PlanTreatment[];
   onChange: (treatments: PlanTreatment[]) => void;
@@ -53,9 +79,9 @@ export function EntryTreatmentsFields({
   catalog,
   quotes = [],
 }: EntryTreatmentsFieldsProps) {
-  const companyOptions = useMemo(
-    () => [{ value: "", label: "Manual (sem empresa)" }, ...catalog.companyOptions],
-    [catalog.companyOptions],
+  const companyPickerItems = useMemo(
+    () => buildCompanyPickerItems(catalog.companies),
+    [catalog.companies],
   );
 
   const preview = useMemo(() => {
@@ -192,7 +218,7 @@ export function EntryTreatmentsFields({
                   <TreatmentFields
                     treatment={treatment}
                     catalog={catalog}
-                    companyOptions={companyOptions}
+                    companyPickerItems={companyPickerItems}
                     onCompanyChange={(companyId) =>
                       treatment.type === "tax_pj" && applyCompany(treatment, companyId)
                     }
@@ -239,13 +265,13 @@ export function EntryTreatmentsFields({
 function TreatmentFields({
   treatment,
   catalog,
-  companyOptions,
+  companyPickerItems,
   onCompanyChange,
   onChange,
 }: {
   treatment: PlanTreatment;
   catalog: MoneyMapCatalogData;
-  companyOptions: { value: string; label: string }[];
+  companyPickerItems: RegistryPickerItem[];
   onCompanyChange: (companyId: string) => void;
   onChange: (patch: Partial<PlanTreatment>) => void;
 }) {
@@ -277,14 +303,24 @@ function TreatmentFields({
   if (treatment.type === "tax_pj") {
     return (
       <div className="grid gap-2 sm:grid-cols-3">
-        <div className="space-y-1 sm:col-span-3">
-          <Label className="text-xs">Empresa</Label>
-          <Select
-            size="sm"
-            options={companyOptions}
-            value={treatment.companyId ?? ""}
-            onChange={onCompanyChange}
+        <div className="sm:col-span-3">
+          <RegistryPicker
+            label="Empresa"
             placeholder="Selecione a empresa…"
+            items={companyPickerItems}
+            valueId={treatment.companyId ?? MANUAL_COMPANY_ID}
+            onSelect={(id) => onCompanyChange(id === MANUAL_COMPANY_ID ? "" : id)}
+            loading={catalog.loading}
+            searchPlaceholder="Buscar empresa ou registro…"
+            emptyMessage="Nenhuma empresa cadastrada."
+            specialOptions={[
+              {
+                id: MANUAL_COMPANY_ID,
+                label: "Manual (sem empresa)",
+                description: "Informe alíquota e regime abaixo",
+                icon: <IconPercent size="sm" />,
+              },
+            ]}
           />
         </div>
         <div className="space-y-1">
