@@ -64,6 +64,10 @@ model User {
   auditLogs     AdminAuditLog[]
   moneyMaps     MoneyMap[]
   goals         FinancialGoal[]
+  accounts      FinancialAccount[]
+  transactions  Transaction[]
+  investmentPlans InvestmentPlan[]
+  recurringTransactions RecurringTransaction[]
 }
 
 enum CompanyRegistrationKind {
@@ -151,23 +155,26 @@ model Institution {
   updatedAt     DateTime                @updatedAt
   exchangeRates InstitutionExchangeRate[]
   products      InstitutionProduct[]
+  accounts      FinancialAccount[]
 
   @@index([type])
   @@index([countryCode])
 }
 
 model InstitutionProduct {
-  id            String                 @id @default(cuid())
-  institutionId String
-  institution   Institution            @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  name          String
-  slug          String
-  kind          InstitutionProductKind @default(OTHER)
-  currencyCode  String?                @db.VarChar(8)
-  description   String?
-  active        Boolean                @default(true)
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  id                 String                 @id @default(cuid())
+  institutionId      String
+  institution        Institution            @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name               String
+  slug               String
+  kind               InstitutionProductKind @default(OTHER)
+  currencyCode       String?                @db.VarChar(8)
+  description        String?
+  annualRatePercent  Decimal?               @db.Decimal(8, 4)
+  riskLevel          String?
+  active             Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
   @@unique([institutionId, slug])
   @@index([institutionId])
@@ -332,4 +339,174 @@ model MoneyMapNode {
   updatedAt DateTime         @updatedAt
 
   @@index([mapId, sortOrder])
+}
+
+// ── Controle financeiro (contas + lançamentos) ──────────────────────
+
+enum FinancialAccountKind {
+  CHECKING
+  SAVINGS
+  INVESTMENT
+  CREDIT_CARD
+  CASH
+  OTHER
+}
+
+model FinancialAccount {
+  id            String               @id @default(cuid())
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId String?
+  institution   Institution?         @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  name          String
+  kind          FinancialAccountKind @default(CHECKING)
+  currencyCode  String               @db.VarChar(8)
+  countryCode   String               @default("BR") @db.Char(2)
+  initialBalance Decimal             @default(0) @db.Decimal(18, 2)
+  color         String?
+  icon          String?
+  archived      Boolean              @default(false)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  transactions  Transaction[]
+  recurringTransactions RecurringTransaction[] @relation("RecurringTransactionAccount")
+  counterRecurring      RecurringTransaction[] @relation("RecurringTransferCounterAccount")
+
+  @@index([userId, archived])
+}
+
+enum TransactionKind {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+model Transaction {
+  id                String                @id @default(cuid())
+  userId            String
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId         String
+  account           FinancialAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind              TransactionKind
+  amount            Decimal               @db.Decimal(18, 2)
+  currencyCode      String                @db.VarChar(8)
+  category          String                @default("other")
+  description       String
+  date              DateTime
+  counterAccountId  String?
+  counterAmount     Decimal?              @db.Decimal(18, 2)
+  planEntryId       String?
+  recurringId       String?
+  recurring         RecurringTransaction? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+  notes             String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([userId, date])
+  @@index([accountId, date])
+  @@index([userId, category])
+  @@index([recurringId])
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model RecurringTransaction {
+  id               String           @id @default(cuid())
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId        String
+  account          FinancialAccount @relation("RecurringTransactionAccount", fields: [accountId], references: [id], onDelete: Cascade)
+  kind             TransactionKind
+  amount           Decimal          @db.Decimal(18, 2)
+  currencyCode     String           @db.VarChar(8)
+  category         String           @default("other")
+  description      String
+  recurrence       RecurrenceType
+  // para MONTHLY: dia do mês (1-28); para WEEKLY: dia da semana (0=dom..6=sáb)
+  dayOfPeriod      Int              @default(1)
+  nextDueAt        DateTime
+  endAt            DateTime?
+  active           Boolean          @default(true)
+  counterAccountId String?
+  counterAccount   FinancialAccount? @relation("RecurringTransferCounterAccount", fields: [counterAccountId], references: [id], onDelete: SetNull)
+  counterAmount    Decimal?         @db.Decimal(18, 2)
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  transactions     Transaction[]
+
+  @@index([userId, active])
+  @@index([nextDueAt])
+}
+
+// ── Mercado (ativos e cotações via worker) ──────────────────────────
+
+enum MarketAssetKind {
+  STOCK
+  ETF
+  FII
+  CRYPTO
+  INDEX
+  COMMODITY
+}
+
+model MarketAsset {
+  id              String          @id @default(cuid())
+  symbol          String          @unique
+  name            String
+  kind            MarketAssetKind @default(STOCK)
+  exchange        String?
+  currencyCode    String          @default("USD") @db.VarChar(8)
+  countryCode     String?         @db.Char(2)
+  logoUrl         String?
+  active          Boolean         @default(true)
+  price           Decimal?        @db.Decimal(18, 6)
+  priceUpdatedAt  DateTime?
+  priceTtlSeconds Int             @default(3600)
+  changePercent   Decimal?        @db.Decimal(10, 4)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  quotes          MarketQuote[]
+
+  @@index([kind, active])
+}
+
+model MarketQuote {
+  id        String      @id @default(cuid())
+  assetId   String
+  asset     MarketAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  price     Decimal     @db.Decimal(18, 6)
+  quotedAt  DateTime
+  createdAt DateTime    @default(now())
+
+  @@unique([assetId, quotedAt])
+  @@index([assetId, quotedAt])
+}
+
+// ── Plano de investimento ───────────────────────────────────────────
+
+model InvestmentPlan {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  currencyCode    String   @default("BRL") @db.VarChar(8)
+  initialAmount   Decimal  @default(0) @db.Decimal(18, 2)
+  monthlyDeposit  Decimal  @default(0) @db.Decimal(18, 2)
+  horizonMonths   Int      @default(60)
+  riskProfile     String   @default("moderate")
+  targetAmount    Decimal? @db.Decimal(18, 2)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, active])
 }

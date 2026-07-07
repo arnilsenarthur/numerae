@@ -140,7 +140,7 @@ export function PlanEntries({
           <div>
             <span className="font-medium">{row.label}</span>
             {row.treatmentCount > 0 ? (
-              <span className="ml-2 text-xs text-zinc-500">{row.treatmentCount} trat.</span>
+              <span className="ml-2 text-xs text-zinc-500">{row.treatmentCount} otim.</span>
             ) : null}
           </div>
         ),
@@ -201,7 +201,7 @@ export function PlanEntries({
     <div className="space-y-0">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Lançamentos do plano — clique em Editar para ajustar valores e tratamentos.
+          Lançamentos do plano — clique em Editar para ajustar valores e otimizações (câmbio, impostos, investimento).
         </p>
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => onAdd("INCOME")}>
@@ -342,22 +342,24 @@ function EntryEditor({
           type="button"
           disabled={saving}
           onClick={() =>
-            void onSave({
-              label: label.trim() || undefined,
-              patch: {
-                amount: Number(amount) || 0,
-                currency,
-                period,
-                category,
-                onceMonth: period === "once" ? Number(onceMonth) || 1 : undefined,
-                movement: true,
-                source: "manual",
-              },
-              treatments:
-                kind === "INCOME"
-                  ? treatments.map((t) => ({ ...t, id: t.id || newTreatmentId() }))
-                  : undefined,
-            }).then(() => onClose())
+            void Promise.resolve(
+              onSave({
+                label: label.trim() || undefined,
+                patch: {
+                  amount: Number(amount) || 0,
+                  currency,
+                  period,
+                  category,
+                  onceMonth: period === "once" ? Number(onceMonth) || 1 : undefined,
+                  movement: true,
+                  source: "manual",
+                },
+                treatments:
+                  kind === "INCOME"
+                    ? treatments.map((t) => ({ ...t, id: t.id || newTreatmentId() }))
+                    : undefined,
+              }),
+            ).then(() => onClose())
           }
         >
           {saving ? "Salvando…" : "Salvar"}

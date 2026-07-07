@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { CalculatorApp } from "@/modules/calculator/components/calculator-app";
 
 export default function CalculatorPage() {
-  redirect("/money-map?tab=calculadoras");
+  return <CalculatorApp />;
 }

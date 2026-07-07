@@ -27,7 +27,12 @@ function isClientCurrent(client: PrismaClient) {
     typeof client.userCompany?.findMany === "function" &&
     typeof client.worker?.findMany === "function" &&
     typeof client.moneyMap?.findMany === "function" &&
-    typeof client.moneyMapEdge?.findMany === "function"
+    typeof client.moneyMapEdge?.findMany === "function" &&
+    typeof client.financialAccount?.findMany === "function" &&
+    typeof client.transaction?.findMany === "function" &&
+    typeof client.recurringTransaction?.findMany === "function" &&
+    typeof client.marketAsset?.findMany === "function" &&
+    typeof client.investmentPlan?.findMany === "function"
   );
 }
 

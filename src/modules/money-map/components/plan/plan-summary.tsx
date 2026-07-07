@@ -55,8 +55,8 @@ export function PlanSummary({ simulation, simulating, goals, hasTreatments }: Pl
     <div className="space-y-6">
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
         {hasTreatments
-          ? `Projeção com tratamentos lineares. ${simulation.recommendation.summary}`
-          : "Projeção direta dos lançamentos — sem tratamentos nas entradas."}
+          ? `Projeção com otimizações aplicadas. ${simulation.recommendation.summary}`
+          : "Projeção direta dos lançamentos — sem otimizações nas entradas."}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

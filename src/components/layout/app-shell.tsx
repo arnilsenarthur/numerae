@@ -10,26 +10,32 @@ import { Dimmer } from "@/components/ui/dimmer";
 import {
   IconBank,
   IconBuilding,
+  IconChart,
   IconCoins,
   IconComponents,
   IconExchange,
-  IconLayoutDashboard,
+  IconPercent,
   IconReceipt,
   IconSettings,
-  IconTarget,
+  IconWallet,
 } from "@/components/ui/icons";
 import { isAdminRole } from "@/lib/user-roles";
 
 const sidebarItems: SidebarItem[] = [
   {
-    href: "/dashboard",
-    label: "Painel",
-    icon: <IconLayoutDashboard size="sm" />,
+    href: "/finance",
+    label: "Finanças",
+    icon: <IconWallet size="sm" />,
   },
   {
-    href: "/money-map",
-    label: "Plano financeiro",
-    icon: <IconTarget size="sm" />,
+    href: "/investments",
+    label: "Investimentos",
+    icon: <IconChart size="sm" />,
+  },
+  {
+    href: "/calculator",
+    label: "Calculadoras",
+    icon: <IconPercent size="sm" />,
   },
   {
     href: "/companies",
@@ -53,6 +59,11 @@ const adminItems: SidebarItem[] = [
     href: "/admin/currencies",
     label: "Moedas",
     icon: <IconCoins size="sm" />,
+  },
+  {
+    href: "/admin/market-assets",
+    label: "Ativos",
+    icon: <IconChart size="sm" />,
   },
   {
     href: "/admin/workers",

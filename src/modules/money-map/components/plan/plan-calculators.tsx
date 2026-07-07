@@ -59,8 +59,8 @@ export function PlanCalculators({ entries, onApplyPreset }: PlanCalculatorsProps
   return (
     <div className="space-y-4">
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        Atalhos que adicionam tratamentos lineares numa entrada — sem grafo, só lista ordenada. Depois
-        ajuste valores e instituições em Movimentos → Tratamentos.
+        Atalhos que adicionam otimizações numa entrada — câmbio, imposto PJ e investimento em sequência.
+        Depois ajuste valores e instituições em Movimentos.
       </p>
 
       {incomes.length === 0 ? (
@@ -104,7 +104,7 @@ export function PlanCalculators({ entries, onApplyPreset }: PlanCalculatorsProps
                   disabled={!entryId}
                   onClick={() => entryId && onApplyPreset(entryId, card.id)}
                 >
-                  Adicionar tratamentos
+                  Adicionar otimizações
                 </Button>
               </CardContent>
             </Card>

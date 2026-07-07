@@ -11,13 +11,37 @@ export type AppModule = {
 
 export const appModules: AppModule[] = [
   {
+    id: "finance",
+    name: "Finanças",
+    description:
+      "Controle de entradas e saídas com contas em vários bancos e moedas, relatórios por categoria e evolução mensal.",
+    href: "/finance",
+    countries: [],
+    badge: "Principal",
+  },
+  {
     id: "money-map",
     name: "Plano financeiro",
     description:
-      "Entradas e saídas com projeção futura, tratamentos lineares e realizado via Open Finance.",
+      "Projeção de renda recorrente com otimização automática: melhor câmbio por instituição, impostos PJ e investimento.",
     href: "/money-map",
-    countries: ["BR"],
-    badge: "Principal",
+    countries: [],
+  },
+  {
+    id: "investments",
+    name: "Investimentos",
+    description:
+      "Planos por perfil de risco com comparação de caminhos e acompanhamento de ações, ETFs e cripto.",
+    href: "/investments",
+    countries: [],
+  },
+  {
+    id: "calculator",
+    name: "Calculadoras",
+    description:
+      "Conversão de moedas em tempo real, comparação de regimes tributários PJ e otimização de recebimento de salário do exterior.",
+    href: "/calculator",
+    countries: [],
   },
   {
     id: "companies",

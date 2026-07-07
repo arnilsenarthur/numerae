@@ -22,8 +22,8 @@ export default async function HomePage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           {session ? (
-            <Link href="/dashboard">
-              <Button>Ir para o painel</Button>
+            <Link href="/finance">
+              <Button>Ir para finanças</Button>
             </Link>
           ) : (
             <>

@@ -8,7 +8,11 @@ import {
   WORKER_IDS,
   type WorkerProviderId,
 } from "@/lib/workers/registry";
-import { runUsdRateWorker } from "@/lib/workers/tasks";
+import {
+  runMarketQuotesWorker,
+  runRecurringTransactionWorker,
+  runUsdRateWorker,
+} from "@/lib/workers/tasks";
 import {
   getWorkerScheduleMeta,
   type SerializedWorker,
@@ -107,6 +111,10 @@ async function executeWorkerTask(
   switch (workerId) {
     case WORKER_IDS.USD_RATE:
       return runUsdRateWorker({ primaryProvider, secondaryProvider, trigger });
+    case WORKER_IDS.MARKET_QUOTES:
+      return runMarketQuotesWorker({ primaryProvider, secondaryProvider, trigger });
+    case WORKER_IDS.RECURRING_TXN:
+      return runRecurringTransactionWorker({ trigger });
     default:
       throw new Error(`Worker desconhecido: ${workerId}`);
   }

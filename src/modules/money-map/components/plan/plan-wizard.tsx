@@ -24,8 +24,8 @@ export function PlanWizard({ saving, onComplete, onCancel }: PlanWizardProps) {
       <div>
         <h3 className="text-lg font-semibold tracking-tight">Novo plano</h3>
         <p className="mt-1 text-sm text-zinc-500">
-          Sem valores pré-preenchidos. Depois cadastre entradas e saídas; tratamentos lineares ficam em
-          cada entrada.
+          Sem valores pré-preenchidos. Depois cadastre entradas e saídas; as otimizações (câmbio,
+          impostos, investimento) ficam em cada entrada.
         </p>
       </div>
 

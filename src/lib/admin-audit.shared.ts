@@ -6,6 +6,7 @@ export const ADMIN_ENTITY = {
   INSTITUTION_PRODUCT: "institution_product",
   COUNTRY: "country",
   CURRENCY: "currency",
+  MARKET_ASSET: "market_asset",
 } as const;
 
 export type AdminEntityType = (typeof ADMIN_ENTITY)[keyof typeof ADMIN_ENTITY];
@@ -74,4 +75,5 @@ export const ADMIN_ENTITY_LABEL: Record<string, string> = {
   [ADMIN_ENTITY.INSTITUTION_PRODUCT]: "Produto / conta",
   [ADMIN_ENTITY.COUNTRY]: "País",
   [ADMIN_ENTITY.CURRENCY]: "Moeda",
+  [ADMIN_ENTITY.MARKET_ASSET]: "Ativo de mercado",
 };

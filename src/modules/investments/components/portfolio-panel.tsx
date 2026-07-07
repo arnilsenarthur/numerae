@@ -1,0 +1,452 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NumberInput } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Money } from "@/components/ui/money";
+import { BarChart } from "@/components/ui/chart";
+import { fetchJson } from "@/lib/fetch-json";
+import { formatMoney } from "@/lib/format-money";
+import { RISK_PROFILES, riskProfileMeta, type SerializedMarketAsset } from "@/types/market";
+
+const STORAGE_KEY = "numerae:portfolio-profile";
+
+function loadProfile(): { monthlyBudget: string; profile: string; currency: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as { monthlyBudget: string; profile: string; currency: string }) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveProfile(monthlyBudget: string, profile: string, currency: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ monthlyBudget, profile, currency }));
+  } catch {
+    // ignore
+  }
+}
+
+/** Current approximate Brazilian market reference rates (educational) */
+const MARKET_INDICES = [
+  { label: "Selic", value: "10,75% a.a.", description: "Taxa básica de juros (Banco Central)" },
+  { label: "CDI", value: "~10,65% a.a.", description: "Referência renda fixa" },
+  { label: "IPCA", value: "~5,5% a.a.", description: "Inflação oficial (acum. 12m)" },
+  { label: "IBOV (5a)", value: "~12% a.a.", description: "Ibovespa — retorno histórico 5 anos" },
+  { label: "S&P 500 (USD)", value: "~10% a.a.", description: "Retorno histórico real de longo prazo" },
+];
+
+/** Alocação alvo por classe de ativo e perfil de risco (% do portfólio). */
+const ALLOCATION_TEMPLATES: Record<
+  string,
+  { label: string; pct: number; classes: string[]; color?: string }[]
+> = {
+  conservative: [
+    { label: "Renda fixa (CDI/Tesouro)", pct: 55, classes: ["BOND", "FIXED"], color: "bg-emerald-500" },
+    { label: "Ações brasileiras (B3)", pct: 15, classes: ["STOCK_BR"], color: "bg-sky-500" },
+    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "bg-violet-500" },
+    { label: "FIIs", pct: 10, classes: ["FII"], color: "bg-amber-500" },
+    { label: "Cripto", pct: 5, classes: ["CRYPTO"], color: "bg-rose-500" },
+  ],
+  moderate: [
+    { label: "Renda fixa (CDI/Tesouro)", pct: 30, classes: ["BOND", "FIXED"], color: "bg-emerald-500" },
+    { label: "Ações brasileiras (B3)", pct: 25, classes: ["STOCK_BR"], color: "bg-sky-500" },
+    { label: "Ações globais (EUA)", pct: 20, classes: ["STOCK_US"], color: "bg-blue-500" },
+    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "bg-violet-500" },
+    { label: "FIIs", pct: 5, classes: ["FII"], color: "bg-amber-500" },
+    { label: "Cripto", pct: 5, classes: ["CRYPTO"], color: "bg-rose-500" },
+  ],
+  aggressive: [
+    { label: "Renda fixa (reserva)", pct: 10, classes: ["BOND", "FIXED"], color: "bg-emerald-500" },
+    { label: "Ações brasileiras (B3)", pct: 25, classes: ["STOCK_BR"], color: "bg-sky-500" },
+    { label: "Ações globais (EUA)", pct: 30, classes: ["STOCK_US"], color: "bg-blue-500" },
+    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "bg-violet-500" },
+    { label: "FIIs", pct: 5, classes: ["FII"], color: "bg-amber-500" },
+    { label: "Cripto", pct: 15, classes: ["CRYPTO"], color: "bg-rose-500" },
+  ],
+};
+
+/** Mapa de sugestões de ativos por categoria. */
+const CATEGORY_ASSET_HINTS: Record<
+  string,
+  { items: string[]; benchmark: string; institutions?: string[] }
+> = {
+  "Renda fixa (CDI/Tesouro)": {
+    benchmark: "CDI (~10,65% a.a.) / IPCA+6%",
+    items: [
+      "Tesouro Selic — liquidez diária, risco zero",
+      "Tesouro IPCA+ 2035 — proteção real de longo prazo",
+      "CDB 100-115% CDI (Nubank, Inter, C6)",
+      "LCI/LCA — isenção IR pessoa física",
+      "CRA/CRI — isenção IR, risco crédito privado",
+    ],
+    institutions: ["BTG Pactual (renda fixa privada)", "XP (Tesouro Direto)", "Nubank (CDB automático)"],
+  },
+  "Ações brasileiras (B3)": {
+    benchmark: "IBOV (~12% a.a. histórico 5a)",
+    items: [
+      "VALE3, PETR4 — commodities, dividendos",
+      "ITUB4, BBDC4, BBAS3 — bancos, dividendos",
+      "WEGE3, RENT3, RADL3 — crescimento",
+      "BPAC11 — BTG, gestão de ativos",
+      "PRIO3, CSAN3 — energia e combustíveis",
+    ],
+    institutions: ["BTG (análise)", "XP (carteira recomendada)", "Clear (B3 direto)"],
+  },
+  "Ações globais (EUA)": {
+    benchmark: "S&P 500 (~10% a.a. USD histórico)",
+    items: [
+      "AAPL, MSFT, GOOGL, NVDA — Big Tech",
+      "BRK-B, JNJ, PG — defensivos/dividendos",
+      "AMZN, META — crescimento",
+      "BDRs via B3: AAPL34, AMZO34, MSFT34",
+    ],
+    institutions: ["Avenue (conta USD)", "Nomad (conta USD)", "BTG Global (via B3/BDR)"],
+  },
+  "ETFs globais": {
+    benchmark: "Blended (IBOV + S&P + DM)",
+    items: [
+      "IVVB11 — S&P 500 em BRL (B3)",
+      "BOVA11 — Ibovespa index fund",
+      "HASH11 — cripto diversificado",
+      "VT / VTI — mercado global/EUA total (USD)",
+      "QQQ — Nasdaq 100 (USD)",
+    ],
+    institutions: ["XP (maior variedade ETFs)", "BTG", "Avenue (ETFs USD)"],
+  },
+  "Renda fixa (reserva)": {
+    benchmark: "CDI (~10,65% a.a.)",
+    items: [
+      "Tesouro Selic — liquidez imediata",
+      "CDB liquidez diária 100%+ CDI",
+      "Fundo DI taxa zero (grandes bancos digitais)",
+    ],
+    institutions: ["Nubank (rendimento automático)", "Inter", "C6 Bank"],
+  },
+  "FIIs": {
+    benchmark: "IFIX (~8-10% a.a. + DY ~8%)",
+    items: [
+      "MXRF11 — papel, alta distribuição",
+      "HGLG11 — logística, boa gestão",
+      "XPML11 — shoppings",
+      "KNRI11 — diversificado",
+      "KNCR11 — papel pós-fixado (CDI+)",
+    ],
+    institutions: ["XP (maior cobertura FII)", "BTG (FIIs próprios)"],
+  },
+  "Cripto": {
+    benchmark: "BTC (referência do setor)",
+    items: [
+      "BTC — reserva de valor, 50-60% da posição",
+      "ETH — smart contracts, 20-25%",
+      "SOL, BNB — ecossistemas tier-2",
+      "Stablecoins (USDC/USDT) — liquidez cripto",
+    ],
+    institutions: ["Binance (maior liquidez)", "Mercado Bitcoin (regulado BR)", "Coinbase (USD)"],
+  },
+};
+
+const PROFILE_OPTIONS = RISK_PROFILES.map((p) => ({
+  value: p.value,
+  label: `${p.label} (~${p.annualRatePercent}% a.a.)`,
+}));
+
+const CURRENCY_OPTIONS = [
+  { value: "BRL", label: "BRL — Real" },
+  { value: "USD", label: "USD — Dólar" },
+];
+
+export function PortfolioPanel() {
+  const saved = typeof window !== "undefined" ? loadProfile() : null;
+  const [monthlyBudget, setMonthlyBudget] = useState(saved?.monthlyBudget ?? "1000");
+  const [profile, setProfile] = useState(saved?.profile ?? "moderate");
+  const [currency, setCurrency] = useState(saved?.currency ?? "BRL");
+  const [assets, setAssets] = useState<SerializedMarketAsset[]>([]);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [savedFeedback, setSavedFeedback] = useState(false);
+
+  useEffect(() => {
+    fetchJson<{ assets?: SerializedMarketAsset[] }>("/api/market")
+      .then(({ response, data }) => {
+        if (response.ok) setAssets(data?.assets ?? []);
+      })
+      .catch(() => {});
+  }, []);
+
+  function handleSaveProfile() {
+    saveProfile(monthlyBudget, profile, currency);
+    setSavedFeedback(true);
+    setTimeout(() => setSavedFeedback(false), 2000);
+  }
+
+  const allocation = ALLOCATION_TEMPLATES[profile] ?? ALLOCATION_TEMPLATES.moderate!;
+  const budget = Math.max(0, Number(monthlyBudget) || 0);
+  const profileMeta = riskProfileMeta(profile);
+
+  const barData = useMemo(
+    () =>
+      allocation.map((item) => ({
+        label: item.label.length > 22 ? item.label.slice(0, 20) + "…" : item.label,
+        value: item.pct,
+        color: item.color,
+      })),
+    [allocation],
+  );
+
+  function assetsForCategory(classes: string[]): SerializedMarketAsset[] {
+    const kindMap: Record<string, string> = {
+      STOCK_BR: "STOCK",
+      STOCK_US: "STOCK",
+      ETF: "ETF",
+      FII: "FII",
+      CRYPTO: "CRYPTO",
+    };
+    const targetKinds = new Set(classes.map((c) => kindMap[c] ?? c));
+    const isBR = classes.includes("STOCK_BR");
+    const isUS = classes.includes("STOCK_US");
+
+    return assets.filter((a) => {
+      if (!targetKinds.has(a.kind)) return false;
+      if (a.kind === "STOCK") {
+        if (isBR && !isUS) return a.countryCode === "BR";
+        if (isUS && !isBR) return a.countryCode !== "BR";
+      }
+      return true;
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Config row */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1">
+              <Label>Aporte mensal</Label>
+              <div className="flex items-center gap-2">
+                <div className="w-24">
+                  <Select options={CURRENCY_OPTIONS} value={currency} onChange={setCurrency} size="sm" />
+                </div>
+                <div className="w-36">
+                  <NumberInput
+                    value={monthlyBudget}
+                    onChange={(e) => setMonthlyBudget(e.target.value)}
+                    placeholder="1.000"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Perfil de risco</Label>
+              <div className="w-56">
+                <Select options={PROFILE_OPTIONS} value={profile} onChange={setProfile} />
+              </div>
+            </div>
+            <div className="pb-1">
+              <Badge variant="success">{profileMeta.label}</Badge>
+              <p className="mt-0.5 text-xs text-zinc-500">{profileMeta.description}</p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleSaveProfile}
+              className="mb-0.5"
+            >
+              {savedFeedback ? "Salvo ✓" : "Salvar perfil"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Market reference indices */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Índices de referência (Brasil · estimativas)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {MARKET_INDICES.map((idx) => (
+              <div key={idx.label} className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+                <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{idx.label}</p>
+                <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{idx.value}</p>
+                <p className="text-[10px] text-zinc-500">{idx.description}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-zinc-400">Valores aproximados para referência. Atualize-os ao planejar.</p>
+        </CardContent>
+      </Card>
+
+      {/* Allocation bars */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Distribuição sugerida</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BarChart
+              data={barData}
+              max={100}
+              formatValue={(v) => `${v}%`}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Quanto investir este mês —{" "}
+              {formatMoney(budget, { currency })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {allocation.map((item) => {
+                const value = (budget * item.pct) / 100;
+                return (
+                  <div key={item.label} className="flex items-center justify-between py-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.color ?? "bg-zinc-400"}`} />
+                      <span className="text-sm text-zinc-700 dark:text-zinc-300">{item.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <Money value={value} currency={currency} />
+                      <p className="text-xs text-zinc-400">{item.pct}%</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Per-category deep dive */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Onde investir em cada categoria
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {allocation.map((item) => {
+            const categoryAssets = assetsForCategory(item.classes);
+            const hints = CATEGORY_ASSET_HINTS[item.label] ?? null;
+            const isExpanded = expanded === item.label;
+            const monthlyValue = (budget * item.pct) / 100;
+
+            return (
+              <Card
+                key={item.label}
+                className="cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() => setExpanded(isExpanded ? null : item.label)}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-3 w-3 shrink-0 rounded-full ${item.color ?? "bg-zinc-400"}`} />
+                      <CardTitle className="text-sm leading-tight">{item.label}</CardTitle>
+                    </div>
+                    <Badge variant="default" className="shrink-0 text-[10px]">
+                      {item.pct}%
+                    </Badge>
+                  </div>
+                  {budget > 0 ? (
+                    <p className="text-xs text-zinc-500">
+                      <Money value={monthlyValue} currency={currency} /> / mês
+                    </p>
+                  ) : null}
+                  {hints ? (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                      Benchmark: {hints.benchmark}
+                    </p>
+                  ) : null}
+                </CardHeader>
+
+                {isExpanded ? (
+                  <CardContent className="pt-0 space-y-3">
+                    {/* Live assets from database */}
+                    {categoryAssets.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                          Cotações cadastradas
+                        </p>
+                        {categoryAssets.slice(0, 6).map((asset) => (
+                          <div key={asset.id} className="flex items-center justify-between text-xs">
+                            <div>
+                              <span className="font-medium">{asset.symbol}</span>
+                              <span className="ml-1 text-zinc-500 truncate max-w-[100px] inline-block">
+                                {asset.name}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              {asset.price !== null ? (
+                                <Money value={asset.price} currency={asset.currencyCode} size="sm" />
+                              ) : (
+                                <span className="text-zinc-400">—</span>
+                              )}
+                              {asset.changePercent !== null ? (
+                                <span
+                                  className={`ml-1 text-[10px] ${asset.changePercent >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                                >
+                                  {asset.changePercent >= 0 ? "+" : ""}
+                                  {asset.changePercent.toFixed(2)}%
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* Curated hints */}
+                    {hints?.items.length ? (
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                          Sugestões de ativos
+                        </p>
+                        {hints.items.map((hint) => (
+                          <p key={hint} className="text-xs text-zinc-600 dark:text-zinc-400">
+                            • {hint}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* Institution hints */}
+                    {hints?.institutions?.length ? (
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                          Onde investir
+                        </p>
+                        {hints.institutions.map((inst) => (
+                          <p key={inst} className="text-xs text-zinc-600 dark:text-zinc-400">
+                            → {inst}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                ) : (
+                  <CardContent className="pt-0">
+                    <p className="text-xs text-zinc-400">Clique para ver sugestões →</p>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-zinc-400">
+        * Sugestões baseadas em alocações típicas por perfil. Não constituem recomendação de
+        investimento. Consulte um assessor financeiro antes de investir.
+      </p>
+    </div>
+  );
+}

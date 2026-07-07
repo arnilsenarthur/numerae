@@ -154,6 +154,17 @@ function defaultFormatValue(value: number) {
   return String(value);
 }
 
+/** Compact label for axis ticks — avoids currency symbols and long decimals. */
+function compactAxisLabel(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}${Math.round(abs / 1_000)}k`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(1)}k`;
+  return `${sign}${Math.round(abs)}`;
+}
+
 function resolveSeries(data: ChartPoint[], series?: ChartSeries[]): ChartSeries[] {
   if (series?.length) return series;
   return [{ id: "default", label: "Valor", data }];
@@ -674,7 +685,7 @@ function ColumnChartView({
               textAnchor="end"
               className="fill-zinc-400 text-[8px] tabular-nums"
             >
-              {formatValue(tick)}
+              {compactAxisLabel(tick)}
             </text>
           </g>
         );
@@ -1180,6 +1191,8 @@ function LineChartView({
       return { ...item, points, linePath, areaPath };
     });
 
+    const labelStep = Math.max(1, Math.ceil(categories.length / Math.floor(plotWidth / 32)));
+
     return {
       width,
       height,
@@ -1192,6 +1205,7 @@ function LineChartView({
       range,
       lines,
       categories,
+      labelStep,
       pathKey: lines.map((line) => line.linePath).join("|"),
     };
   }, [resolvedSeries, showArea, chartWidth]);
@@ -1228,7 +1242,7 @@ function LineChartView({
   }
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="w-full space-y-1.5">
       <ChartSvgRoot
       viewWidth={layout.width}
       viewHeight={layout.height}
@@ -1294,7 +1308,7 @@ function LineChartView({
                     hasHover && "opacity-50",
                   )}
                 >
-                  {formatValue(tick)}
+                  {compactAxisLabel(tick)}
                 </text>
               </g>
             );
@@ -1376,6 +1390,8 @@ function LineChartView({
       {layout.lines[0].points.map(({ x, label, index }) => {
         const isActive = activeIndex === index;
         const isDimmed = hasHover && !isActive;
+        const isLastPoint = index === layout.categories.length - 1;
+        if (!isActive && !isLastPoint && index % layout.labelStep !== 0) return null;
 
         return (
           <text
@@ -1395,6 +1411,30 @@ function LineChartView({
         );
       })}
     </ChartSvgRoot>
+
+      {resolvedSeries.length > 1 ? (
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-0.5">
+          {resolvedSeries.map((item) => (
+            <div key={item.id} className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <svg
+                width="14"
+                height="3"
+                viewBox="0 0 14 3"
+                className="shrink-0 overflow-visible"
+              >
+                <path
+                  d="M 0 1.5 L 14 1.5"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  fill="none"
+                  className={item.strokeClassName}
+                />
+              </svg>
+              {item.label}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

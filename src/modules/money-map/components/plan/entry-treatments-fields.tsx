@@ -181,7 +181,7 @@ export function EntryTreatmentsFields({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tratamentos</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Otimizações</p>
         <div className="flex flex-wrap gap-1">
           <Button type="button" variant="secondary" size="sm" onClick={() => addTreatment("conversion")}>
             <IconPlus size="sm" /> Conversão

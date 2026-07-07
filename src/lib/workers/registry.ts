@@ -1,5 +1,7 @@
 export const WORKER_IDS = {
   USD_RATE: "usd_rate",
+  MARKET_QUOTES: "market_quotes",
+  RECURRING_TXN: "recurring_txn",
 } as const;
 
 export type WorkerId = (typeof WORKER_IDS)[keyof typeof WORKER_IDS];
@@ -26,6 +28,14 @@ export const WORKER_PROVIDERS = {
     external: false,
     requiresApiKey: false,
   },
+  marketdata_auto: {
+    id: "marketdata_auto",
+    label: "Mercado automático (brapi + stooq + CoinGecko)",
+    description:
+      "Roteia por tipo de ativo: brapi (B3), stooq (ações globais), CoinGecko (cripto). Sem chave; BRAPI_API_KEY opcional.",
+    external: true,
+    requiresApiKey: false,
+  },
 } as const;
 
 export type WorkerProviderId = keyof typeof WORKER_PROVIDERS;
@@ -44,6 +54,26 @@ export const WORKER_DEFINITIONS = {
     defaultPrimaryProvider: "frankfurter" as WorkerProviderId,
     defaultSecondaryProvider: "openexchangerates" as WorkerProviderId,
     allowedProviders: ["frankfurter", "openexchangerates", "database"] as WorkerProviderId[],
+    defaultIntervalSeconds: 3600,
+  },
+  [WORKER_IDS.MARKET_QUOTES]: {
+    id: WORKER_IDS.MARKET_QUOTES,
+    name: "Cotações de mercado (ativos)",
+    description:
+      "Atualiza preços de ações, ETFs, FIIs e cripto cadastrados em MarketAsset e grava histórico.",
+    defaultPrimaryProvider: "marketdata_auto" as WorkerProviderId,
+    defaultSecondaryProvider: "database" as WorkerProviderId,
+    allowedProviders: ["marketdata_auto", "database"] as WorkerProviderId[],
+    defaultIntervalSeconds: 3600,
+  },
+  [WORKER_IDS.RECURRING_TXN]: {
+    id: WORKER_IDS.RECURRING_TXN,
+    name: "Lançamentos recorrentes",
+    description:
+      "Cria automaticamente os lançamentos a partir das recorrências vencidas de cada usuário.",
+    defaultPrimaryProvider: "database" as WorkerProviderId,
+    defaultSecondaryProvider: null,
+    allowedProviders: ["database"] as WorkerProviderId[],
     defaultIntervalSeconds: 3600,
   },
 } as const;
