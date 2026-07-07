@@ -48,6 +48,7 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
       if (!response.ok) {
         setLookup(null);
         setLookupError(data.error ?? "Não foi possível consultar o CNPJ.");
+        lastLookupRef.current = "";
         return;
       }
 

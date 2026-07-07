@@ -1,5 +1,13 @@
 import type { MoneyMapNodeType } from "@/modules/money-map/engines/types";
 
+export type SerializedMoneyMapEdge = {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+};
+
 export type SerializedMoneyMapNode = {
   id: string;
   type: MoneyMapNodeType;
@@ -13,10 +21,12 @@ export type SerializedMoneyMap = {
   name: string;
   templateId: string | null;
   horizonMonths: number;
+  viewMode?: string;
   active: boolean;
   createdAt: string;
   updatedAt: string;
   nodes: SerializedMoneyMapNode[];
+  edges: SerializedMoneyMapEdge[];
 };
 
 type MoneyMapRecord = {
@@ -24,6 +34,7 @@ type MoneyMapRecord = {
   name: string;
   templateId: string | null;
   horizonMonths: number;
+  viewMode?: string;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +45,13 @@ type MoneyMapRecord = {
     sortOrder: number;
     config: unknown;
   }[];
+  edges?: {
+    id: string;
+    fromNodeId: string;
+    toNodeId: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+  }[];
 };
 
 export function serializeMoneyMap(record: MoneyMapRecord): SerializedMoneyMap {
@@ -42,6 +60,7 @@ export function serializeMoneyMap(record: MoneyMapRecord): SerializedMoneyMap {
     name: record.name,
     templateId: record.templateId,
     horizonMonths: record.horizonMonths,
+    viewMode: record.viewMode,
     active: record.active,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
@@ -54,5 +73,12 @@ export function serializeMoneyMap(record: MoneyMapRecord): SerializedMoneyMap {
         sortOrder: node.sortOrder,
         config: (node.config ?? {}) as Record<string, unknown>,
       })),
+    edges: (record.edges ?? []).map((edge) => ({
+      id: edge.id,
+      fromNodeId: edge.fromNodeId,
+      toNodeId: edge.toNodeId,
+      sourceHandle: edge.sourceHandle ?? "out-valor",
+      targetHandle: edge.targetHandle ?? "in-valor",
+    })),
   };
 }

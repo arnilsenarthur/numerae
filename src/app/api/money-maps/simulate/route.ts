@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { serializeMoneyMap } from "@/lib/money-map-serializer";
 import { moneyMapSimulateSchema } from "@/lib/validators-money-map";
-import type { ConversionNodeConfig, MoneyMapNodeInput } from "@/modules/money-map/engines/types";
 import { simulateMoneyMap } from "@/modules/money-map/engines/simulation";
-import { loadRouteQuotes } from "@/modules/money-map/lib/quotes";
+import type { MoneyMapEdgeInput, MoneyMapNodeInput } from "@/modules/money-map/engines/types";
+import { loadQuotesForNodes } from "@/modules/money-map/lib/load-quotes-for-nodes";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -26,11 +25,15 @@ export async function POST(request: Request) {
   try {
     let horizonMonths = parsed.data.horizonMonths ?? 12;
     let nodes: MoneyMapNodeInput[] = parsed.data.nodes ?? [];
+    let edges: MoneyMapEdgeInput[] = parsed.data.edges ?? [];
 
     if (parsed.data.mapId) {
       const map = await prisma.moneyMap.findFirst({
         where: { id: parsed.data.mapId, userId: session.user.id, active: true },
-        include: { nodes: { orderBy: { sortOrder: "asc" } } },
+        include: {
+          nodes: { orderBy: { sortOrder: "asc" } },
+          edges: true,
+        },
       });
 
       if (!map) {
@@ -38,6 +41,7 @@ export async function POST(request: Request) {
       }
 
       horizonMonths = parsed.data.horizonMonths ?? map.horizonMonths;
+
       if (!parsed.data.nodes) {
         nodes = map.nodes.map((node) => ({
           id: node.id,
@@ -47,16 +51,19 @@ export async function POST(request: Request) {
           config: node.config as MoneyMapNodeInput["config"],
         }));
       }
+
+      if (!parsed.data.edges) {
+        edges = map.edges.map((edge) => ({
+          id: edge.id,
+          fromNodeId: edge.fromNodeId,
+          toNodeId: edge.toNodeId,
+          sourceHandle: edge.sourceHandle ?? "out-valor",
+          targetHandle: edge.targetHandle ?? "in-valor",
+        }));
+      }
     }
 
-    const conversionNode = nodes.find((node) => node.type === "CONVERSION");
-    const conversion = (conversionNode?.config ?? {}) as ConversionNodeConfig;
-
-    const quotes = await loadRouteQuotes({
-      institutionIds: conversion.institutionIds ?? [],
-      fromCurrency: conversion.fromCurrency ?? "USD",
-      toCurrency: conversion.toCurrency ?? "BRL",
-    });
+    const quotes = await loadQuotesForNodes(nodes);
 
     const simulation = simulateMoneyMap({
       horizonMonths,
@@ -64,7 +71,7 @@ export async function POST(request: Request) {
       quotes,
     });
 
-    return NextResponse.json({ simulation });
+    return NextResponse.json({ simulation, quotes });
   } catch (error) {
     console.error("[POST /api/money-maps/simulate]", error);
     return NextResponse.json({ error: "Erro ao simular mapa." }, { status: 500 });

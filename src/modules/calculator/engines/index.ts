@@ -21,4 +21,17 @@ export function calculatePj(countryCode: CountryCode, input: PjInput): SalaryCal
   }
 }
 
+export { calculatePjToPfBr, optimizeProLaboreForMinTax } from "@/modules/calculator/engines/br/pj-to-pf";
+export type {
+  PjToPfInput,
+  PjToPfMode,
+  PjToPfResult,
+  PjToPfOptimization,
+} from "@/modules/calculator/engines/br/pj-to-pf";
+export {
+  calculateFatorR,
+  minProLaboreForFatorR,
+  FATOR_R_THRESHOLD,
+} from "@/modules/calculator/engines/br/fator-r";
+
 export { CNAE_CATALOG_BR, findCnaePreset } from "@/modules/calculator/engines/br/cnae-catalog";

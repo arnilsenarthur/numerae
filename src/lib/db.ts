@@ -24,8 +24,10 @@ function isClientCurrent(client: PrismaClient) {
     typeof client.institution?.findMany === "function" &&
     typeof client.institutionProduct?.findMany === "function" &&
     typeof client.adminAuditLog?.findMany === "function" &&
+    typeof client.userCompany?.findMany === "function" &&
     typeof client.worker?.findMany === "function" &&
-    typeof client.moneyMap?.findMany === "function"
+    typeof client.moneyMap?.findMany === "function" &&
+    typeof client.moneyMapEdge?.findMany === "function"
   );
 }
 

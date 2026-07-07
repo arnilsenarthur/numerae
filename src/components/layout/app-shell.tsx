@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Dimmer } from "@/components/ui/dimmer";
 import {
   IconBank,
+  IconBuilding,
   IconCoins,
   IconComponents,
   IconExchange,
   IconLayoutDashboard,
-  IconPercent,
   IconReceipt,
   IconSettings,
   IconTarget,
@@ -28,13 +28,13 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     href: "/money-map",
-    label: "Mapa do dinheiro",
+    label: "Plano financeiro",
     icon: <IconTarget size="sm" />,
   },
   {
-    href: "/calculator",
-    label: "Calculadora",
-    icon: <IconPercent size="sm" />,
+    href: "/companies",
+    label: "Empresas",
+    icon: <IconBuilding size="sm" />,
   },
 ];
 

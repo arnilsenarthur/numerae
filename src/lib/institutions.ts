@@ -81,6 +81,11 @@ export function decimalToNumber(value: { toNumber(): number } | number | null | 
   return typeof value === "number" ? value : value.toNumber();
 }
 
+/**
+ * Customer-facing rate: destination per 1 source, after institution spread.
+ * Higher spread → less received (e.g. USD→BRL: 5.40 × (1 − 2.8%) ≈ 5.25).
+ */
 export function effectiveExchangeRate(rate: number, spreadPercent: number) {
-  return rate * (1 + spreadPercent / 100);
+  const spread = Math.min(100, Math.max(0, spreadPercent));
+  return rate * (1 - spread / 100);
 }

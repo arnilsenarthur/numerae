@@ -4,8 +4,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { serializeMoneyMap } from "@/lib/money-map-serializer";
 import { moneyMapCreateSchema } from "@/lib/validators-money-map";
-import { createTemplateNodes } from "@/modules/money-map/engines/simulation";
-import { MONEY_MAP_TEMPLATES } from "@/modules/money-map/engines/types";
 
 export async function GET() {
   const session = await auth();
@@ -18,6 +16,7 @@ export async function GET() {
     orderBy: { updatedAt: "desc" },
     include: {
       nodes: { orderBy: { sortOrder: "asc" } },
+      edges: true,
     },
   });
 
@@ -41,22 +40,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const templateId = parsed.data.templateId ?? null;
-    const nodes =
+    const template =
       parsed.data.nodes.length > 0
-        ? parsed.data.nodes
-        : templateId
-          ? createTemplateNodes(templateId)
-          : createTemplateNodes(MONEY_MAP_TEMPLATES.PJ_USD_INCOME);
+        ? { nodes: parsed.data.nodes, edges: parsed.data.edges ?? [] }
+        : { nodes: [], edges: [] };
 
     const record = await prisma.moneyMap.create({
       data: {
         userId: session.user.id,
         name: parsed.data.name,
-        templateId,
+        templateId: parsed.data.templateId ?? null,
         horizonMonths: parsed.data.horizonMonths,
+        viewMode: parsed.data.viewMode ?? "simple",
         nodes: {
-          create: nodes.map((node) => ({
+          create: template.nodes.map((node) => ({
+            ...(node.id ? { id: node.id } : {}),
             type: node.type,
             label: node.label ?? null,
             sortOrder: node.sortOrder,
@@ -64,11 +62,29 @@ export async function POST(request: Request) {
           })),
         },
       },
-      include: { nodes: { orderBy: { sortOrder: "asc" } } },
+      include: { nodes: { orderBy: { sortOrder: "asc" } }, edges: true },
     });
 
-    return NextResponse.json({ map: serializeMoneyMap(record) });
-  } catch {
+    if (template.edges.length > 0) {
+      await prisma.moneyMapEdge.createMany({
+        data: template.edges.map((edge) => ({
+          mapId: record.id,
+          fromNodeId: edge.fromNodeId,
+          toNodeId: edge.toNodeId,
+          sourceHandle: edge.sourceHandle ?? "out-valor",
+          targetHandle: edge.targetHandle ?? "in-valor",
+        })),
+      });
+    }
+
+    const full = await prisma.moneyMap.findUniqueOrThrow({
+      where: { id: record.id },
+      include: { nodes: { orderBy: { sortOrder: "asc" } }, edges: true },
+    });
+
+    return NextResponse.json({ map: serializeMoneyMap(full) });
+  } catch (error) {
+    console.error("[POST /api/money-maps]", error);
     return NextResponse.json({ error: "Erro ao criar mapa." }, { status: 500 });
   }
 }

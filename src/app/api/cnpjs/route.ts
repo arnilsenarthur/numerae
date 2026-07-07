@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { serializeCompanyAsCnpj } from "@/lib/company-serializer";
 import { stripCnpj, isValidCnpj } from "@/lib/cnpj";
 import { prisma } from "@/lib/db";
 import { findCnaePreset } from "@/modules/calculator/engines";
@@ -15,43 +16,22 @@ const createCnpjSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-function serializeCnpj(record: {
-  id: string;
-  cnpj: string;
-  label: string;
-  cnaeCode: string | null;
-  cnaeDescription: string | null;
-  taxRegime: string;
-  taxRate: { toNumber(): number } | number;
-  isDefault: boolean;
-}) {
-  return {
-    id: record.id,
-    cnpj: record.cnpj,
-    label: record.label,
-    cnaeCode: record.cnaeCode,
-    cnaeDescription: record.cnaeDescription,
-    taxRegime: record.taxRegime,
-    taxRate:
-      typeof record.taxRate === "number" ? record.taxRate : record.taxRate.toNumber(),
-    isDefault: record.isDefault,
-  };
-}
-
+/** Legacy endpoint — retorna empresas brasileiras no formato antigo de CNPJ. */
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const cnpjs = await prisma.userCnpj.findMany({
-    where: { userId: session.user.id },
+  const companies = await prisma.userCompany.findMany({
+    where: { userId: session.user.id, countryCode: "BR" },
     orderBy: [{ isDefault: "desc" }, { label: "asc" }],
   });
 
-  return NextResponse.json({ cnpjs: cnpjs.map(serializeCnpj) });
+  return NextResponse.json({ cnpjs: companies.map(serializeCompanyAsCnpj) });
 }
 
+/** Legacy endpoint — cadastra empresa BR (CNPJ). */
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -75,48 +55,51 @@ export async function POST(request: Request) {
     }
 
     const preset = parsed.data.cnaeCode ? findCnaePreset(parsed.data.cnaeCode) : undefined;
-    const cnaeDescription =
+    const activityDescription =
       parsed.data.cnaeDescription ?? preset?.description ?? null;
 
     if (parsed.data.isDefault) {
-      await prisma.userCnpj.updateMany({
+      await prisma.userCompany.updateMany({
         where: { userId: session.user.id },
         data: { isDefault: false },
       });
     }
 
-    const existingCount = await prisma.userCnpj.count({
+    const existingCount = await prisma.userCompany.count({
       where: { userId: session.user.id },
     });
 
-    const record = await prisma.userCnpj.upsert({
+    const record = await prisma.userCompany.upsert({
       where: {
-        userId_cnpj: {
+        userId_countryCode_registrationId: {
           userId: session.user.id,
-          cnpj: digits,
+          countryCode: "BR",
+          registrationId: digits,
         },
       },
       create: {
         userId: session.user.id,
-        cnpj: digits,
+        countryCode: "BR",
         label: parsed.data.label,
-        cnaeCode: preset?.code ?? parsed.data.cnaeCode ?? null,
-        cnaeDescription,
+        registrationId: digits,
+        registrationKind: "CNPJ",
+        activityCode: preset?.code ?? parsed.data.cnaeCode ?? null,
+        activityDescription,
         taxRegime: parsed.data.taxRegime,
         taxRate: parsed.data.taxRate,
         isDefault: parsed.data.isDefault ?? existingCount === 0,
       },
       update: {
         label: parsed.data.label,
-        cnaeCode: preset?.code ?? parsed.data.cnaeCode ?? null,
-        cnaeDescription,
+        activityCode: preset?.code ?? parsed.data.cnaeCode ?? null,
+        activityDescription,
         taxRegime: parsed.data.taxRegime,
         taxRate: parsed.data.taxRate,
         ...(parsed.data.isDefault ? { isDefault: true } : {}),
       },
     });
 
-    return NextResponse.json({ cnpj: serializeCnpj(record) });
+    return NextResponse.json({ cnpj: serializeCompanyAsCnpj(record) });
   } catch {
     return NextResponse.json({ error: "Erro ao salvar CNPJ." }, { status: 500 });
   }

@@ -20,7 +20,7 @@ export default async function DashboardPage() {
           {isAdmin ? <Badge variant="default">Admin</Badge> : null}
         </div>
         <p className="mt-2 text-zinc-500">
-          Planeje o caminho do seu dinheiro — entradas, câmbio, impostos e projeções.
+          Planeje suas finanças — renda, gastos, metas, investimentos e impostos em um só lugar.
         </p>
       </div>
 
@@ -60,10 +60,6 @@ export default async function DashboardPage() {
             {
               title: "Contas",
               description: "Organize saldos e contas bancárias.",
-            },
-            {
-              title: "Metas",
-              description: "Defina objetivos financeiros com prazos.",
             },
             {
               title: "Open Finance",

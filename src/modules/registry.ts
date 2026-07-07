@@ -12,19 +12,19 @@ export type AppModule = {
 export const appModules: AppModule[] = [
   {
     id: "money-map",
-    name: "Mapa do dinheiro",
+    name: "Plano financeiro",
     description:
-      "Planeje entradas, conversão, impostos e projeção mensal — o caminho do seu dinheiro.",
+      "Entradas e saídas com projeção futura, tratamentos lineares e realizado via Open Finance.",
     href: "/money-map",
     countries: ["BR"],
     badge: "Principal",
   },
   {
-    id: "calculator",
-    name: "Calculadora",
-    description: "Compare CLT e PJ, simule impostos e entenda seu líquido.",
-    href: "/calculator",
-    countries: ["BR"],
+    id: "companies",
+    name: "Empresas",
+    description: "Cadastre CNPJ, EIN, VAT e outras empresas para impostos e simulações.",
+    href: "/companies",
+    countries: [],
   },
 ];
 
@@ -33,5 +33,7 @@ export function getModule(id: string): AppModule | undefined {
 }
 
 export function getModulesForCountry(countryCode: CountryCode): AppModule[] {
-  return appModules.filter((module) => module.countries.includes(countryCode));
+  return appModules.filter(
+    (module) => module.countries.length === 0 || module.countries.includes(countryCode),
+  );
 }

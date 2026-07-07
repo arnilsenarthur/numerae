@@ -36,7 +36,10 @@ export async function lookupCnpjFromBrasilApi(
   cnpjDigits: string,
 ): Promise<CnpjLookupResult | null> {
   const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjDigits}`, {
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Numerae/1.0 (+https://numerae.app)",
+    },
     next: { revalidate: 60 * 60 * 24 },
   });
 

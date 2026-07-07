@@ -1,10 +1,1 @@
-export type SavedCnpj = {
-  id: string;
-  cnpj: string;
-  label: string;
-  cnaeCode: string | null;
-  cnaeDescription: string | null;
-  taxRegime: string;
-  taxRate: number;
-  isDefault: boolean;
-};
+export type { SavedCompany, SavedCnpj, CompanyRegistrationKind, TaxRegime } from "@/types/user-company";

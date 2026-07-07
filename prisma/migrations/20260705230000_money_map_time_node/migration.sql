@@ -1,0 +1,1 @@
+ALTER TYPE "MoneyMapNodeType" ADD VALUE 'TIME';

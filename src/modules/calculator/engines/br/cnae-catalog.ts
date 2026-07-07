@@ -3,6 +3,9 @@ export type CnaePreset = {
   description: string;
   annex: string;
   rate: number;
+  /** Anexo/alíquota quando Fator R < 28% (tipicamente Anexo V). */
+  annexIfLowFatorR?: string;
+  rateIfLowFatorR?: number;
   hint?: string;
 };
 
@@ -13,25 +16,33 @@ export const CNAE_CATALOG_BR: CnaePreset[] = [
     description: "Desenvolvimento de programas sob encomenda",
     annex: "III",
     rate: 6,
-    hint: "Anexo III — serviços intelectuais",
+    annexIfLowFatorR: "V",
+    rateIfLowFatorR: 15.5,
+    hint: "Anexo III com Fator R ≥ 28%",
   },
   {
     code: "6202-3/00",
     description: "Desenvolvimento e licenciamento de programas de computador",
     annex: "III",
     rate: 6,
+    annexIfLowFatorR: "V",
+    rateIfLowFatorR: 15.5,
   },
   {
     code: "6203-1/00",
     description: "Desenvolvimento e licenciamento de programas customizáveis",
     annex: "III",
     rate: 6,
+    annexIfLowFatorR: "V",
+    rateIfLowFatorR: 15.5,
   },
   {
     code: "6204-0/00",
     description: "Consultoria em tecnologia da informação",
     annex: "III",
     rate: 6,
+    annexIfLowFatorR: "V",
+    rateIfLowFatorR: 15.5,
   },
   {
     code: "6311-9/00",

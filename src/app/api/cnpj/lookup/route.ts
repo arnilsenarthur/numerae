@@ -38,7 +38,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ data: result });
-  } catch {
+  } catch (error) {
+    console.error("[GET /api/cnpj/lookup]", error);
     return NextResponse.json(
       { error: "Não foi possível consultar o CNPJ agora." },
       { status: 503 },

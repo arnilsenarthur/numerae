@@ -145,6 +145,7 @@ export { OtpInput } from "./otp-input";
 export { Progress, StackedProgress, type ProgressFill } from "./progress";
 export { RegistryPicker, type RegistryPickerItem, type RegistryPickerSpecialOption } from "./registry-picker";
 export { CnpjInlineCreate } from "./cnpj-inline-create";
+export { MultiSelect } from "./multi-select";
 export { Select, type SelectOption } from "./select";
 export { Separator } from "./separator";
 export {

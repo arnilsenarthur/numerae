@@ -60,26 +60,38 @@ model User {
   countryCode   String     @default("BR")
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  cnpjs         UserCnpj[]
+  companies     UserCompany[]
   auditLogs     AdminAuditLog[]
   moneyMaps     MoneyMap[]
+  goals         FinancialGoal[]
 }
 
-model UserCnpj {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cnpj            String
-  label           String
-  cnaeCode        String?
-  cnaeDescription String?
-  taxRegime       String   @default("simples")
-  taxRate         Decimal  @db.Decimal(5, 2)
-  isDefault       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+enum CompanyRegistrationKind {
+  CNPJ
+  EIN
+  VAT_ID
+  COMPANY_NUMBER
+  OTHER
+}
 
-  @@unique([userId, cnpj])
+model UserCompany {
+  id                  String                  @id @default(cuid())
+  userId              String
+  user                User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  countryCode         String                  @default("BR") @db.Char(2)
+  label               String
+  legalName           String?
+  registrationId      String
+  registrationKind    CompanyRegistrationKind @default(CNPJ)
+  activityCode        String?
+  activityDescription String?
+  taxRegime           String                  @default("simples")
+  taxRate             Decimal                 @db.Decimal(5, 2)
+  isDefault           Boolean                 @default(false)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  @@unique([userId, countryCode, registrationId])
   @@index([userId])
 }
 
@@ -245,9 +257,15 @@ enum MoneyMapNodeType {
   INCOME
   CONVERSION
   TAX_PJ
+  PJ_TO_PF
+  MAX
+  MIN
+  SUM
   EXPENSE
   INVESTMENT
   SPLIT
+  INTEREST
+  TIME
 }
 
 model MoneyMap {
@@ -257,12 +275,49 @@ model MoneyMap {
   name          String
   templateId    String?
   horizonMonths Int            @default(12)
+  viewMode      String         @default("simple")
   active        Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   nodes         MoneyMapNode[]
+  edges         MoneyMapEdge[]
+  goals         FinancialGoal[]
 
   @@index([userId])
+}
+
+model FinancialGoal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moneyMapId    String?
+  moneyMap      MoneyMap? @relation(fields: [moneyMapId], references: [id], onDelete: SetNull)
+  title         String
+  targetAmount  Float
+  currentAmount Float     @default(0)
+  currency      String    @default("BRL") @db.Char(3)
+  deadline      DateTime?
+  category      String    @default("other")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, active])
+  @@index([moneyMapId])
+}
+
+model MoneyMapEdge {
+  id           String   @id @default(cuid())
+  mapId        String
+  map          MoneyMap @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  fromNodeId   String
+  toNodeId     String
+  sourceHandle String   @default("out-valor")
+  targetHandle String   @default("in-valor")
+  createdAt    DateTime @default(now())
+
+  @@unique([mapId, fromNodeId, toNodeId, sourceHandle, targetHandle])
+  @@index([mapId])
 }
 
 model MoneyMapNode {

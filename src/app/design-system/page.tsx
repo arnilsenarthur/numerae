@@ -42,6 +42,7 @@ import {
   Loader,
   Modal,
   Money,
+  MultiSelect,
   NumberInput,
   OtpInput,
   Progress,
@@ -137,7 +138,10 @@ const navGroups: NavGroup[] = [
       },
       { id: "pickers", label: "Date & Time" },
       { id: "otp", label: "OTP" },
-      { id: "select", label: "Dropdown" },
+      { id: "select", label: "Dropdown", items: [
+          { id: "select-single", label: "Select" },
+          { id: "select-multi", label: "MultiSelect" },
+        ] },
       { id: "choices", label: "Checkbox & Radio" },
       { id: "accordion", label: "Accordion" },
       { id: "tabs", label: "Tabs" },
@@ -204,6 +208,14 @@ const categoryOptions = [
   { value: "transport", label: "Transporte", icon: categoryIcons.transport, description: "Uber, combustível, etc." },
   { value: "housing", label: "Moradia", icon: categoryIcons.housing },
   { value: "leisure", label: "Lazer", icon: categoryIcons.leisure },
+];
+
+const institutionOptions = [
+  { value: "inst_wise", label: "Wise", description: "Spread ~0,4%" },
+  { value: "inst_inter", label: "Banco Inter", description: "Conta global" },
+  { value: "inst_btg", label: "BTG Pactual", description: "Private" },
+  { value: "inst_avenue", label: "Avenue", description: "Investimentos EUA" },
+  { value: "inst_nomad", label: "Nomad", description: "Conta USD" },
 ];
 
 const budgetSegments = [
@@ -518,6 +530,8 @@ const transactionColumns: DataTableColumn<(typeof sampleTransactions)[number]>[]
 export default function DesignSystemPage() {
   const { toast } = useToast();
   const [selectValue, setSelectValue] = useState("food");
+  const [multiSelectValue, setMultiSelectValue] = useState<string[]>(["inst_wise", "inst_avenue"]);
+  const [multiSelectEmpty, setMultiSelectEmpty] = useState<string[]>([]);
   const [sliderValue, setSliderValue] = useState(40);
   const [otpValue, setOtpValue] = useState("");
   const [notifications, setNotifications] = useState(true);
@@ -1706,16 +1720,68 @@ export default function DesignSystemPage() {
           <section id="select" className="scroll-mt-24 space-y-4">
             <SectionHeader
               title="Dropdown"
-              description="Select customizado com ícones, descrições e destaque suave."
+              description="Select para valor único e MultiSelect para múltipla escolha com tags removíveis."
             />
-            <Card>
-              <CardContent className="max-w-sm pt-6">
+
+            <Card id="select-single" className="scroll-mt-24">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Select</CardTitle>
+                <CardDescription>
+                  Valor único — ícones, descrições e destaque suave no menu.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="max-w-sm pt-0">
                 <Select
                   label="Categoria"
                   options={categoryOptions}
                   value={selectValue}
                   onChange={setSelectValue}
                 />
+                <p className="mt-3 text-xs text-zinc-500">
+                  Selecionado: <code className="text-[0.7rem]">{selectValue}</code>
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card id="select-multi" className="scroll-mt-24">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">MultiSelect</CardTitle>
+                <CardDescription>
+                  Múltipla escolha com tags removíveis, checkboxes no menu e portal acima de modais.
+                  Usado em tratamentos de conversão (comparar instituições).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-6 pt-0 md:grid-cols-2">
+                <div className="space-y-4">
+                  <MultiSelect
+                    label="Instituições"
+                    placeholder="Escolha instituições…"
+                    options={institutionOptions}
+                    value={multiSelectValue}
+                    onChange={setMultiSelectValue}
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Selecionadas:{" "}
+                    {multiSelectValue.length > 0 ? (
+                      <code className="text-[0.7rem]">{multiSelectValue.join(", ")}</code>
+                    ) : (
+                      "nenhuma"
+                    )}
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <MultiSelect
+                    size="sm"
+                    label="Vazio (sm)"
+                    placeholder="Comparar rotas…"
+                    options={institutionOptions}
+                    value={multiSelectEmpty}
+                    onChange={setMultiSelectEmpty}
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Clique nas tags para remover · menu com checkbox por opção
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </section>

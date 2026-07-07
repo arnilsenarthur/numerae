@@ -13,12 +13,28 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const deleted = await prisma.userCnpj.deleteMany({
+  const existing = await prisma.userCompany.findFirst({
     where: { id, userId: session.user.id },
   });
 
-  if (deleted.count === 0) {
-    return NextResponse.json({ error: "CNPJ não encontrado." }, { status: 404 });
+  if (!existing) {
+    return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
+  }
+
+  await prisma.userCompany.delete({ where: { id } });
+
+  if (existing.isDefault) {
+    const next = await prisma.userCompany.findFirst({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (next) {
+      await prisma.userCompany.update({
+        where: { id: next.id },
+        data: { isDefault: true },
+      });
+    }
   }
 
   return NextResponse.json({ success: true });

@@ -187,7 +187,7 @@ export function InstitutionExchangeRates({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Pares de câmbio</CardTitle>
           <p className="text-sm text-zinc-500">
-            Taxa efetiva = taxa × (1 + spread%). Taxa e spread expiram em 1 hora após salvar.
+            Taxa efetiva = taxa × (1 − spread%). Taxa e spread expiram em 1 hora após salvar.
           </p>
         </CardHeader>
         <CardContent className="pt-0">
