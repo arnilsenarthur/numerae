@@ -62,6 +62,13 @@ export async function POST(request: Request) {
     const code = generateCode();
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
+    // Envia o e-mail antes de persistir — evita conta criada sem código entregue.
+    const emailResult = await sendVerificationCode(email, code);
+
+    if (!emailResult.sent) {
+      return NextResponse.json({ error: emailResult.error }, { status: 503 });
+    }
+
     await prisma.$transaction([
       prisma.user.upsert({
         where: { email },
@@ -82,18 +89,13 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    const emailResult = await sendVerificationCode(email, code);
-
-    if (!emailResult.sent) {
-      return NextResponse.json({ error: emailResult.error }, { status: 503 });
-    }
-
     return NextResponse.json({
       success: true,
       email,
       message: "Enviamos um código de verificação para seu e-mail.",
     });
-  } catch {
+  } catch (error) {
+    console.error("[POST /api/register]", error);
     return NextResponse.json(
       { error: "Erro ao criar conta. Tente novamente." },
       { status: 500 },

@@ -9,7 +9,28 @@ const fromAddress =
 
 type SendResult =
   | { sent: true }
-  | { sent: false; error: string };
+  | { sent: false; error: string; code?: "domain_not_verified" | "not_configured" };
+
+function mapResendError(error: { message?: string; name?: string; statusCode?: number }): SendResult {
+  const message = error.message ?? "";
+
+  if (
+    message.includes("only send testing emails") ||
+    message.includes("verify a domain")
+  ) {
+    return {
+      sent: false,
+      code: "domain_not_verified",
+      error:
+        "O envio de e-mail em produção ainda não está liberado. Verifique um domínio no Resend (resend.com/domains) e configure EMAIL_FROM com esse domínio.",
+    };
+  }
+
+  return {
+    sent: false,
+    error: "Não foi possível enviar o e-mail. Tente novamente em instantes.",
+  };
+}
 
 export async function sendVerificationCode(
   email: string,
@@ -18,6 +39,7 @@ export async function sendVerificationCode(
   if (!resend) {
     return {
       sent: false,
+      code: "not_configured",
       error: "Serviço de e-mail não configurado.",
     };
   }
@@ -41,10 +63,7 @@ export async function sendVerificationCode(
 
   if (error) {
     console.error("[Numerae] Erro ao enviar e-mail:", error);
-    return {
-      sent: false,
-      error: "Não foi possível enviar o e-mail. Tente novamente em instantes.",
-    };
+    return mapResendError(error);
   }
 
   return { sent: true };
