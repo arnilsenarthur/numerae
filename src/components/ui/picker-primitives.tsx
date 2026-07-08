@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
+import { HoverTooltip } from "@/components/ui/tooltip";
 
 type SegmentBoxProps = {
   value: string;
@@ -104,23 +105,25 @@ export function PickerTrigger({
       </div>
 
       {clearable && hasValue ? (
-        <button
-          type="button"
-          aria-label="Limpar"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClear?.();
-          }}
-          className={cn(
-            "ml-1.5 flex h-6 w-6 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800",
-            ui.iconButton,
-            ui.innerRadius,
-          )}
-        >
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <HoverTooltip label="Limpar">
+          <button
+            type="button"
+            aria-label="Limpar"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClear?.();
+            }}
+            className={cn(
+              "ml-1.5 flex h-6 w-6 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800",
+              ui.iconButton,
+              ui.innerRadius,
+            )}
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </HoverTooltip>
       ) : (
         <svg
           className={cn(

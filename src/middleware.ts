@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
+import { legacyTabRedirectPath } from "@/lib/app-routes";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -8,17 +9,28 @@ export default auth((req) => {
   const isLoggedIn = Boolean(req.auth?.user?.id);
   const { pathname } = req.nextUrl;
 
+  const legacyRedirect = legacyTabRedirectPath(pathname);
+  if (legacyRedirect && legacyRedirect !== pathname) {
+    return NextResponse.redirect(new URL(legacyRedirect, req.url));
+  }
+
   const isAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
-    pathname.startsWith("/verify");
+    pathname.startsWith("/verify") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
+
+  if (pathname === "/" && isLoggedIn) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
 
   const isProtected =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/finance") ||
     pathname.startsWith("/investments") ||
+    pathname.startsWith("/market") ||
     pathname.startsWith("/companies") ||
-    pathname.startsWith("/money-map") ||
     pathname.startsWith("/calculator") ||
     pathname.startsWith("/design-system") ||
     pathname.startsWith("/admin");
@@ -30,7 +42,7 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isAuthRoute) {
-    return NextResponse.redirect(new URL("/finance", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();
@@ -38,16 +50,20 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/finance/:path*",
     "/investments/:path*",
+    "/market",
+    "/market/:path*",
     "/companies/:path*",
-    "/money-map/:path*",
-    "/calculator",
+    "/calculator/:path*",
     "/design-system",
     "/admin/:path*",
     "/login",
     "/register",
     "/verify",
+    "/forgot-password",
+    "/reset-password",
   ],
 };

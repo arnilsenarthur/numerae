@@ -17,6 +17,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   const verified = searchParams.get("verified") === "1";
+  const reset = searchParams.get("reset") === "1";
   const disabled = searchParams.get("error") === "disabled";
   const emailParam = searchParams.get("email") ?? "";
 
@@ -106,6 +107,12 @@ export function LoginForm() {
           </Alert>
         ) : null}
 
+        {reset ? (
+          <Alert variant="success">
+            Senha redefinida com sucesso. Entre com sua nova senha.
+          </Alert>
+        ) : null}
+
         <FormField delay={80}>
           <Field
             label="E-mail"
@@ -153,6 +160,12 @@ export function LoginForm() {
             Entrar
           </Button>
         </FormField>
+
+        <p className="text-center text-sm">
+          <Link href="/forgot-password" className={authLinkClass}>
+            Esqueci minha senha
+          </Link>
+        </p>
       </form>
     </AuthCard>
   );

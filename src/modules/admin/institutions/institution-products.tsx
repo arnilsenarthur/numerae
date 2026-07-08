@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { SmartTable, SmartTableModalFields } from "@/components/ui/smart-table";
-import { IconX } from "@/components/ui/icons";
+import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   buildCurrencySelectOptions,
   type SerializedCurrency,
@@ -31,6 +32,7 @@ export function InstitutionProducts({
   const [products, setProducts] = useState<SerializedInstitutionProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<InstitutionProductForm>(emptyProductForm());
   const [creating, setCreating] = useState(false);
@@ -151,7 +153,13 @@ export function InstitutionProducts({
   }
 
   async function deleteProduct(product: SerializedInstitutionProduct) {
-    if (!confirm(`Excluir "${product.name}"?`)) return;
+    const ok = await confirm({
+      title: "Excluir produto",
+      message: `Excluir "${product.name}"?`,
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
 
     setError(null);
     const { response, data } = await fetchJson<{ ok?: boolean; error?: string }>(
@@ -278,7 +286,7 @@ export function InstitutionProducts({
               onClick={() => editProduct && void deleteProduct(editProduct)}
               disabled={savingEdit}
             >
-              <IconX size="sm" />
+              <IconTrash size="sm" />
               Excluir
             </Button>
             <Button
@@ -305,6 +313,7 @@ export function InstitutionProducts({
           />
         ) : null}
       </Modal>
+      {dialog}
     </>
   );
 }

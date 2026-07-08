@@ -11,8 +11,9 @@ import {
   SmartTableModalFields,
   type SmartTableColumn,
 } from "@/components/ui/smart-table";
-import { IconX } from "@/components/ui/icons";
+import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import { DEFAULT_SPOILABLE_TTL_SECONDS } from "@/lib/spoilable-field";
 import {
   MARKET_ASSET_KIND_LABELS,
@@ -56,6 +57,7 @@ export function MarketAssetsAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const loadAssets = useCallback(async (kind?: string) => {
     setLoading(true);
@@ -163,9 +165,14 @@ export function MarketAssetsAdmin() {
   }
 
   async function remove() {
-    if (!editingId || !confirm("Excluir este ativo? O histórico de cotações será apagado.")) {
-      return;
-    }
+    if (!editingId) return;
+    const ok = await confirm({
+      title: "Excluir ativo",
+      message: "Excluir este ativo? O histórico de cotações será apagado.",
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const { response, data } = await fetchJson<{ error?: string }>(
@@ -384,7 +391,7 @@ export function MarketAssetsAdmin() {
                 onClick={() => void remove()}
                 disabled={saving}
               >
-                <IconX size="sm" />
+                <IconTrash size="sm" />
                 Excluir
               </Button>
             ) : null}
@@ -416,6 +423,7 @@ export function MarketAssetsAdmin() {
           saving={saving}
         />
       </Modal>
+      {dialog}
     </div>
   );
 }

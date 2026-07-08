@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { SmartTable, SmartTableModalFields, type SmartTableColumn } from "@/components/ui/smart-table";
-import { IconX } from "@/components/ui/icons";
+import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   buildCountrySelectOptions,
   type SerializedCountry,
@@ -42,6 +43,7 @@ export function CurrenciesAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const countryOptions = useMemo(
     () => buildCountrySelectOptions(countries, true),
@@ -166,7 +168,14 @@ export function CurrenciesAdmin() {
   }
 
   async function remove() {
-    if (!editingId || !confirm("Excluir esta moeda?")) return;
+    if (!editingId) return;
+    const ok = await confirm({
+      title: "Excluir moeda",
+      message: "Excluir esta moeda?",
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const { response, data } = await fetchJson<{ error?: string }>(
@@ -352,7 +361,7 @@ export function CurrenciesAdmin() {
             </Button>
             {!isCreating ? (
               <Button type="button" variant="danger" onClick={() => void remove()} disabled={saving}>
-                <IconX size="sm" />
+                <IconTrash size="sm" />
                 Excluir
               </Button>
             ) : null}
@@ -384,6 +393,7 @@ export function CurrenciesAdmin() {
           saving={saving}
         />
       </Modal>
+      {dialog}
     </div>
   );
 }

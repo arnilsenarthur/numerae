@@ -8,7 +8,9 @@ import { NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Money } from "@/components/ui/money";
-import { BarChart } from "@/components/ui/chart";
+import { cardClickable } from "@/components/ui/card";
+import { DonutChart } from "@/components/ui/chart";
+import { IconChevronDown } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
 import { RISK_PROFILES, riskProfileMeta, type SerializedMarketAsset } from "@/types/market";
@@ -47,27 +49,27 @@ const ALLOCATION_TEMPLATES: Record<
   { label: string; pct: number; classes: string[]; color?: string }[]
 > = {
   conservative: [
-    { label: "Renda fixa (CDI/Tesouro)", pct: 55, classes: ["BOND", "FIXED"], color: "bg-emerald-500" },
-    { label: "Ações brasileiras (B3)", pct: 15, classes: ["STOCK_BR"], color: "bg-sky-500" },
-    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "bg-violet-500" },
-    { label: "FIIs", pct: 10, classes: ["FII"], color: "bg-amber-500" },
-    { label: "Cripto", pct: 5, classes: ["CRYPTO"], color: "bg-rose-500" },
+    { label: "Renda fixa (CDI/Tesouro)", pct: 55, classes: ["BOND", "FIXED"], color: "#10b981" },
+    { label: "Ações brasileiras (B3)", pct: 15, classes: ["STOCK_BR"], color: "#0ea5e9" },
+    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "#8b5cf6" },
+    { label: "FIIs", pct: 10, classes: ["FII"], color: "#f59e0b" },
+    { label: "Cripto", pct: 5, classes: ["CRYPTO"], color: "#f43f5e" },
   ],
   moderate: [
-    { label: "Renda fixa (CDI/Tesouro)", pct: 30, classes: ["BOND", "FIXED"], color: "bg-emerald-500" },
-    { label: "Ações brasileiras (B3)", pct: 25, classes: ["STOCK_BR"], color: "bg-sky-500" },
-    { label: "Ações globais (EUA)", pct: 20, classes: ["STOCK_US"], color: "bg-blue-500" },
-    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "bg-violet-500" },
-    { label: "FIIs", pct: 5, classes: ["FII"], color: "bg-amber-500" },
-    { label: "Cripto", pct: 5, classes: ["CRYPTO"], color: "bg-rose-500" },
+    { label: "Renda fixa (CDI/Tesouro)", pct: 30, classes: ["BOND", "FIXED"], color: "#10b981" },
+    { label: "Ações brasileiras (B3)", pct: 25, classes: ["STOCK_BR"], color: "#0ea5e9" },
+    { label: "Ações globais (EUA)", pct: 20, classes: ["STOCK_US"], color: "#3b82f6" },
+    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "#8b5cf6" },
+    { label: "FIIs", pct: 5, classes: ["FII"], color: "#f59e0b" },
+    { label: "Cripto", pct: 5, classes: ["CRYPTO"], color: "#f43f5e" },
   ],
   aggressive: [
-    { label: "Renda fixa (reserva)", pct: 10, classes: ["BOND", "FIXED"], color: "bg-emerald-500" },
-    { label: "Ações brasileiras (B3)", pct: 25, classes: ["STOCK_BR"], color: "bg-sky-500" },
-    { label: "Ações globais (EUA)", pct: 30, classes: ["STOCK_US"], color: "bg-blue-500" },
-    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "bg-violet-500" },
-    { label: "FIIs", pct: 5, classes: ["FII"], color: "bg-amber-500" },
-    { label: "Cripto", pct: 15, classes: ["CRYPTO"], color: "bg-rose-500" },
+    { label: "Renda fixa (reserva)", pct: 10, classes: ["BOND", "FIXED"], color: "#10b981" },
+    { label: "Ações brasileiras (B3)", pct: 25, classes: ["STOCK_BR"], color: "#0ea5e9" },
+    { label: "Ações globais (EUA)", pct: 30, classes: ["STOCK_US"], color: "#3b82f6" },
+    { label: "ETFs globais", pct: 15, classes: ["ETF"], color: "#8b5cf6" },
+    { label: "FIIs", pct: 5, classes: ["FII"], color: "#f59e0b" },
+    { label: "Cripto", pct: 15, classes: ["CRYPTO"], color: "#f43f5e" },
   ],
 };
 
@@ -188,14 +190,14 @@ export function PortfolioPanel() {
   const budget = Math.max(0, Number(monthlyBudget) || 0);
   const profileMeta = riskProfileMeta(profile);
 
-  const barData = useMemo(
+  const donutData = useMemo(
     () =>
       allocation.map((item) => ({
-        label: item.label.length > 22 ? item.label.slice(0, 20) + "…" : item.label,
-        value: item.pct,
+        label: item.label,
+        value: (budget * item.pct) / 100,
         color: item.color,
       })),
-    [allocation],
+    [allocation, budget],
   );
 
   function assetsForCategory(classes: string[]): SerializedMarketAsset[] {
@@ -283,49 +285,22 @@ export function PortfolioPanel() {
         </CardContent>
       </Card>
 
-      {/* Allocation bars */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Distribuição sugerida</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart
-              data={barData}
-              max={100}
-              formatValue={(v) => `${v}%`}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              Quanto investir este mês —{" "}
-              {formatMoney(budget, { currency })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {allocation.map((item) => {
-                const value = (budget * item.pct) / 100;
-                return (
-                  <div key={item.label} className="flex items-center justify-between py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.color ?? "bg-zinc-400"}`} />
-                      <span className="text-sm text-zinc-700 dark:text-zinc-300">{item.label}</span>
-                    </div>
-                    <div className="text-right">
-                      <Money value={value} currency={currency} />
-                      <p className="text-xs text-zinc-400">{item.pct}%</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Allocation donut */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Distribuição sugerida — {formatMoney(budget, { currency })}/mês
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DonutChart
+            segments={donutData}
+            size={150}
+            formatValue={(v) => formatMoney(v, { currency })}
+            animateKey={`${profile}-${budget}`}
+          />
+        </CardContent>
+      </Card>
 
       {/* Per-category deep dive */}
       <div className="space-y-3">
@@ -342,13 +317,16 @@ export function PortfolioPanel() {
             return (
               <Card
                 key={item.label}
-                className="cursor-pointer transition-shadow hover:shadow-md"
+                className={`${cardClickable} ${isExpanded ? "border-emerald-500/50 ring-1 ring-emerald-400/30" : ""}`}
                 onClick={() => setExpanded(isExpanded ? null : item.label)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <div className={`h-3 w-3 shrink-0 rounded-full ${item.color ?? "bg-zinc-400"}`} />
+                      <div
+                        className="h-3 w-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: item.color ?? "#a1a1aa" }}
+                      />
                       <CardTitle className="text-sm leading-tight">{item.label}</CardTitle>
                     </div>
                     <Badge variant="default" className="shrink-0 text-[10px]">
@@ -433,7 +411,10 @@ export function PortfolioPanel() {
                   </CardContent>
                 ) : (
                   <CardContent className="pt-0">
-                    <p className="text-xs text-zinc-400">Clique para ver sugestões →</p>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                      Ver sugestões
+                      <IconChevronDown size="xs" />
+                    </span>
                   </CardContent>
                 )}
               </Card>

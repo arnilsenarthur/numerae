@@ -21,6 +21,8 @@ export type SerializedWorker = {
   secondaryProvider: string | null;
   intervalSeconds: number;
   lastRunAt: string | null;
+  runningSince: string | null;
+  isRunning: boolean;
   lastRunStatus: string | null;
   lastRunProvider: string | null;
   lastRunError: string | null;
@@ -45,13 +47,32 @@ export const WORKER_RUN_TRIGGER_LABEL: Record<string, string> = {
   SYSTEM: "Sistema",
 };
 
+/** Reclaim workers stuck in "running" after a crash or timeout. */
+export const WORKER_STALE_LOCK_MS = 30 * 60 * 1000;
+
+export function isWorkerRunning(runningSince: Date | null, now = Date.now()) {
+  if (!runningSince) return false;
+  return now - runningSince.getTime() < WORKER_STALE_LOCK_MS;
+}
+
 export function getWorkerScheduleMeta(
-  worker: Pick<SerializedWorker, "enabled" | "lastRunAt" | "intervalSeconds">,
+  worker: Pick<
+    SerializedWorker,
+    "enabled" | "lastRunAt" | "intervalSeconds" | "runningSince"
+  >,
   now = Date.now(),
 ) {
   if (!worker.enabled) {
     return {
       automatic: false,
+      isDue: false,
+      nextRunAt: null as string | null,
+    };
+  }
+
+  if (isWorkerRunning(worker.runningSince ? new Date(worker.runningSince) : null, now)) {
+    return {
+      automatic: true,
       isDue: false,
       nextRunAt: null as string | null,
     };
@@ -70,11 +91,18 @@ export function getWorkerScheduleMeta(
 }
 
 export function formatWorkerNextRunLabel(
-  worker: Pick<SerializedWorker, "enabled" | "lastRunAt" | "intervalSeconds" | "nextRunAt" | "isDue">,
+  worker: Pick<
+    SerializedWorker,
+    "enabled" | "lastRunAt" | "intervalSeconds" | "nextRunAt" | "isDue" | "isRunning"
+  >,
   formatWhen: (iso: string | null) => string,
 ) {
   if (!worker.enabled) {
     return "Automático desligado";
+  }
+
+  if (worker.isRunning) {
+    return "Executando agora…";
   }
 
   if (worker.isDue) {

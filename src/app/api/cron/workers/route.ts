@@ -3,6 +3,10 @@ import { ensureWorkersSeeded, runDueWorkers, runWorkerById } from "@/lib/workers
 import { prisma } from "@/lib/db";
 
 function isAuthorizedCron(request: Request) {
+  if (request.headers.get("x-vercel-cron") === "1") {
+    return true;
+  }
+
   const secret = process.env.CRON_SECRET?.trim();
   if (!secret) return false;
 
@@ -32,8 +36,10 @@ export async function POST(request: Request) {
       const results = [];
 
       for (const worker of workers) {
-        const result = await runWorkerById(worker.id, "CRON");
-        results.push({ workerId: worker.id, run: result.run });
+        const result = await runWorkerById(worker.id, "CRON", { bypassDue: true });
+        if (result) {
+          results.push({ workerId: worker.id, run: result.run });
+        }
       }
 
       return NextResponse.json({ ok: true, runs: results });

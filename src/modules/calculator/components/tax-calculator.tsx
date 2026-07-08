@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { CompanyPicker, MANUAL_COMPANY_ID } from "@/components/ui/company-picker";
 import { Money } from "@/components/ui/money";
 import { formatMoney } from "@/lib/format-money";
 import { useCompanies } from "@/modules/calculator/hooks/use-companies";
@@ -114,15 +114,28 @@ function companyRegimeDefault(company: SavedCompany): { regimeHint: string; rate
 
 export function TaxCalculator() {
   const { companies, loading: loadingCompanies } = useCompanies();
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("manual");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(MANUAL_COMPANY_ID);
   const [monthlyRevenue, setMonthlyRevenue] = useState("10000");
   const [prolabore, setProlabore] = useState("");
   const [manualRate, setManualRate] = useState(""); // for manual regime
+  const didAutoSelectCompany = useRef(false);
 
   // Derived: apply company data when selection changes
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId) ?? null;
-  // regimeHint used for badge highlighting only
-  void (selectedCompany ? companyRegimeDefault(selectedCompany) : null);
+  const selectedCompany =
+    selectedCompanyId === MANUAL_COMPANY_ID
+      ? null
+      : (companies.find((c) => c.id === selectedCompanyId) ?? null);
+  const isManualCompany =
+    selectedCompanyId === MANUAL_COMPANY_ID || selectedCompany?.taxRegime === "manual";
+
+  useEffect(() => {
+    if (loadingCompanies || didAutoSelectCompany.current || companies.length === 0) return;
+    const defaultCompany = companies.find((c) => c.isDefault) ?? companies[0];
+    if (defaultCompany) {
+      setSelectedCompanyId(defaultCompany.id);
+      didAutoSelectCompany.current = true;
+    }
+  }, [companies, loadingCompanies]);
 
   useEffect(() => {
     if (selectedCompany) {
@@ -130,14 +143,6 @@ export function TaxCalculator() {
       if (rateHint !== null) setManualRate(String(rateHint));
     }
   }, [selectedCompany]);
-
-  const companyOptions = [
-    { value: "manual", label: "Inserir manualmente" },
-    ...companies.map((c) => ({
-      value: c.id,
-      label: `${c.label}${c.legalName ? ` (${c.legalName})` : ""}`,
-    })),
-  ];
 
   const monthly = Math.max(0, Number(monthlyRevenue) || 0);
   const annual = monthly * 12;
@@ -304,15 +309,15 @@ export function TaxCalculator() {
         <CardContent className="pt-4 space-y-4">
           {/* Company picker */}
           <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1">
-              <Label>Empresa</Label>
-              <div className="w-72">
-                <Select
-                  options={loadingCompanies ? [{ value: "manual", label: "Carregando…" }] : companyOptions}
-                  value={selectedCompanyId}
-                  onChange={setSelectedCompanyId}
-                />
-              </div>
+            <div className="w-80">
+              <CompanyPicker
+                companies={companies}
+                loading={loadingCompanies}
+                valueId={selectedCompanyId}
+                onSelect={(company) =>
+                  setSelectedCompanyId(company?.id ?? MANUAL_COMPANY_ID)
+                }
+              />
             </div>
             {selectedCompany && (
               <div className="pb-1 space-y-0.5">
@@ -323,7 +328,7 @@ export function TaxCalculator() {
                 <p className="text-xs text-zinc-400">{selectedCompany.registrationKind}: {selectedCompany.registrationId}</p>
               </div>
             )}
-            {selectedCompany?.taxRegime === "manual" && (
+            {isManualCompany && (
               <div className="space-y-1">
                 <Label>Alíquota manual (%)</Label>
                 <div className="w-28">

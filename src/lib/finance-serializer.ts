@@ -19,7 +19,7 @@ function num(value: Decimalish): number {
 type AccountRecord = {
   id: string;
   institutionId: string | null;
-  institution?: { name: string; logoUrl: string | null } | null;
+  institution?: { name: string; logoUrl: string | null; type: string; brandColor: string | null } | null;
   name: string;
   kind: string;
   currencyCode: string;
@@ -39,6 +39,8 @@ export function serializeAccount(record: AccountRecord, balance?: number): Seria
     institutionId: record.institutionId,
     institutionName: record.institution?.name ?? null,
     institutionLogoUrl: record.institution?.logoUrl ?? null,
+    institutionType: record.institution?.type ?? null,
+    institutionBrandColor: record.institution?.brandColor ?? null,
     name: record.name,
     kind: record.kind as FinancialAccountKind,
     currencyCode: record.currencyCode,
@@ -62,6 +64,7 @@ type TransactionRecord = {
   currencyCode: string;
   category: string;
   description: string;
+  icon: string | null;
   date: Date;
   counterAccountId: string | null;
   counterAmount: Decimalish;
@@ -81,6 +84,7 @@ export function serializeTransaction(record: TransactionRecord): SerializedTrans
     currencyCode: record.currencyCode,
     category: record.category,
     description: record.description,
+    icon: record.icon,
     date: record.date.toISOString(),
     counterAccountId: record.counterAccountId,
     counterAmount: record.counterAmount === null ? null : num(record.counterAmount),
@@ -100,6 +104,7 @@ type RecurringRecord = {
   currencyCode: string;
   category: string;
   description: string;
+  icon: string | null;
   recurrence: string;
   dayOfPeriod: number;
   nextDueAt: Date;
@@ -122,6 +127,7 @@ export function serializeRecurring(record: RecurringRecord): SerializedRecurring
     currencyCode: record.currencyCode,
     category: record.category,
     description: record.description,
+    icon: record.icon,
     recurrence: record.recurrence as RecurrenceType,
     dayOfPeriod: record.dayOfPeriod,
     nextDueAt: record.nextDueAt.toISOString(),

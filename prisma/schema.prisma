@@ -62,12 +62,31 @@ model User {
   updatedAt     DateTime   @updatedAt
   companies     UserCompany[]
   auditLogs     AdminAuditLog[]
-  moneyMaps     MoneyMap[]
-  goals         FinancialGoal[]
   accounts      FinancialAccount[]
   transactions  Transaction[]
-  investmentPlans InvestmentPlan[]
+  investmentPlans     InvestmentPlan[]
+  investmentPositions InvestmentPosition[]
   recurringTransactions RecurringTransaction[]
+  goals         FinancialGoal[]
+}
+
+model FinancialGoal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  targetAmount  Decimal   @db.Decimal(18, 2)
+  currentAmount Decimal   @default(0) @db.Decimal(18, 2)
+  currency      String    @default("BRL") @db.VarChar(8)
+  deadline      DateTime?
+  category      String    @default("other")
+  notes         String?
+  icon          String?
+  achieved      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, achieved])
 }
 
 enum CompanyRegistrationKind {
@@ -100,6 +119,16 @@ model UserCompany {
 }
 
 model EmailVerification {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model PasswordReset {
   id        String   @id @default(cuid())
   email     String
   code      String
@@ -232,6 +261,7 @@ model Worker {
   secondaryProvider String?
   intervalSeconds   Int              @default(3600)
   lastRunAt         DateTime?
+  runningSince      DateTime?
   lastRunStatus     WorkerRunStatus?
   lastRunProvider   String?
   lastRunError      String?
@@ -240,6 +270,7 @@ model Worker {
   runs              WorkerRun[]
 
   @@index([enabled])
+  @@index([runningSince])
 }
 
 model WorkerRun {
@@ -258,87 +289,6 @@ model WorkerRun {
 
   @@index([workerId, createdAt])
   @@index([createdAt])
-}
-
-enum MoneyMapNodeType {
-  INCOME
-  CONVERSION
-  TAX_PJ
-  PJ_TO_PF
-  MAX
-  MIN
-  SUM
-  EXPENSE
-  INVESTMENT
-  SPLIT
-  INTEREST
-  TIME
-}
-
-model MoneyMap {
-  id            String         @id @default(cuid())
-  userId        String
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  templateId    String?
-  horizonMonths Int            @default(12)
-  viewMode      String         @default("simple")
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  nodes         MoneyMapNode[]
-  edges         MoneyMapEdge[]
-  goals         FinancialGoal[]
-
-  @@index([userId])
-}
-
-model FinancialGoal {
-  id            String    @id @default(cuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  moneyMapId    String?
-  moneyMap      MoneyMap? @relation(fields: [moneyMapId], references: [id], onDelete: SetNull)
-  title         String
-  targetAmount  Float
-  currentAmount Float     @default(0)
-  currency      String    @default("BRL") @db.Char(3)
-  deadline      DateTime?
-  category      String    @default("other")
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([userId, active])
-  @@index([moneyMapId])
-}
-
-model MoneyMapEdge {
-  id           String   @id @default(cuid())
-  mapId        String
-  map          MoneyMap @relation(fields: [mapId], references: [id], onDelete: Cascade)
-  fromNodeId   String
-  toNodeId     String
-  sourceHandle String   @default("out-valor")
-  targetHandle String   @default("in-valor")
-  createdAt    DateTime @default(now())
-
-  @@unique([mapId, fromNodeId, toNodeId, sourceHandle, targetHandle])
-  @@index([mapId])
-}
-
-model MoneyMapNode {
-  id        String           @id @default(cuid())
-  mapId     String
-  map       MoneyMap         @relation(fields: [mapId], references: [id], onDelete: Cascade)
-  type      MoneyMapNodeType
-  label     String?
-  sortOrder Int              @default(0)
-  config    Json
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-
-  @@index([mapId, sortOrder])
 }
 
 // ── Controle financeiro (contas + lançamentos) ──────────────────────
@@ -392,6 +342,7 @@ model Transaction {
   currencyCode      String                @db.VarChar(8)
   category          String                @default("other")
   description       String
+  icon              String?
   date              DateTime
   counterAccountId  String?
   counterAmount     Decimal?              @db.Decimal(18, 2)
@@ -406,6 +357,7 @@ model Transaction {
   @@index([accountId, date])
   @@index([userId, category])
   @@index([recurringId])
+  @@unique([recurringId, date])
 }
 
 enum RecurrenceType {
@@ -429,6 +381,7 @@ model RecurringTransaction {
   currencyCode     String           @db.VarChar(8)
   category         String           @default("other")
   description      String
+  icon             String?
   recurrence       RecurrenceType
   // para MONTHLY: dia do mês (1-28); para WEEKLY: dia da semana (0=dom..6=sáb)
   dayOfPeriod      Int              @default(1)
@@ -445,6 +398,47 @@ model RecurringTransaction {
 
   @@index([userId, active])
   @@index([nextDueAt])
+}
+
+// ── Posições reais de investimento ─────────────────────────────────
+
+enum InvestmentEntryKind {
+  DEPOSIT
+  WITHDRAWAL
+  BALANCE_UPDATE
+}
+
+model InvestmentPosition {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  assetSymbol    String?
+  category       String   @default("OTHER")
+  currencyCode   String   @default("BRL") @db.VarChar(8)
+  institution    String?
+  color          String?
+  currentBalance Decimal  @default(0) @db.Decimal(18, 2)
+  archived       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  entries        InvestmentEntry[]
+
+  @@index([userId, archived])
+}
+
+model InvestmentEntry {
+  id         String              @id @default(cuid())
+  positionId String
+  position   InvestmentPosition  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  kind       InvestmentEntryKind
+  amount     Decimal             @db.Decimal(18, 2)
+  balance    Decimal?            @db.Decimal(18, 2)
+  date       DateTime
+  notes      String?
+  createdAt  DateTime            @default(now())
+
+  @@index([positionId, date])
 }
 
 // ── Mercado (ativos e cotações via worker) ──────────────────────────

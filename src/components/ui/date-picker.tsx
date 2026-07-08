@@ -11,14 +11,18 @@ import {
   isSameDay,
   parseDate,
 } from "@/lib/date-time";
-import {
-  PickerPopup,
-  PickerTrigger,
-  SegmentBox,
-  SegmentSeparator,
-} from "@/components/ui/picker-primitives";
+import { PickerTrigger, SegmentBox, SegmentSeparator } from "@/components/ui/picker-primitives";
 import { Label } from "@/components/ui/label";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { registerDropdownEscapeLock } from "@/hooks/use-dropdown-escape-lock";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 
 type DatePickerProps = {
   value?: string;
@@ -29,7 +33,35 @@ type DatePickerProps = {
   clearable?: boolean;
   embedded?: boolean;
   className?: string;
+  menuZIndex?: number;
 };
+
+const POPUP_GAP = 6;
+const POPUP_MIN_HEIGHT = 320;
+
+type PopupPosition = {
+  top: number;
+  left: number;
+  width: number;
+  placement: "above" | "below";
+};
+
+function getPopupPosition(trigger: HTMLElement): PopupPosition {
+  const rect = trigger.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const placement =
+    spaceBelow < POPUP_MIN_HEIGHT + POPUP_GAP && spaceAbove > spaceBelow
+      ? "above"
+      : "below";
+
+  return {
+    top: placement === "below" ? rect.bottom + POPUP_GAP : rect.top - POPUP_GAP,
+    left: rect.left,
+    width: Math.max(rect.width, 320),
+    placement,
+  };
+}
 
 export function DatePicker({
   value,
@@ -40,9 +72,15 @@ export function DatePicker({
   clearable = true,
   embedded = false,
   className,
+  menuZIndex = ui.dropdownZIndex,
 }: DatePickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const popupId = useId();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [popupPosition, setPopupPosition] = useState<PopupPosition | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
 
   const selected = parseDate(value);
@@ -51,22 +89,62 @@ export function DatePicker({
   const [viewDate, setViewDate] = useState(() => selected ?? new Date());
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (selected) setViewDate(selected);
   }, [value]);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) {
+      setPopupPosition(null);
+      return;
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    function updatePosition() {
+      if (!triggerRef.current) return;
+      setPopupPosition(getPopupPosition(triggerRef.current));
+    }
+
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, viewMode]);
+
+  useEffect(() => {
+    if (!open) return;
+    return registerDropdownEscapeLock();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (popupRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [open]);
 
   const segments = formatDateDisplay(selected);
 
@@ -264,32 +342,64 @@ export function DatePicker({
     return <div className={className}>{calendar}</div>;
   }
 
+  const popup =
+    mounted && open && popupPosition
+      ? createPortal(
+          <div
+            ref={popupRef}
+            id={popupId}
+            role="dialog"
+            aria-label="Calendário"
+            style={{
+              position: "fixed",
+              top: popupPosition.top,
+              left: popupPosition.left,
+              width: popupPosition.width,
+              minWidth: "20rem",
+              zIndex: menuZIndex,
+              transform:
+                popupPosition.placement === "above"
+                  ? "translateY(-100%)"
+                  : undefined,
+            }}
+            className={cn(
+              "origin-top p-3 transition-all duration-200",
+              ui.popup,
+              "pointer-events-auto scale-100 opacity-100",
+            )}
+          >
+            {calendar}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       {label ? <Label>{label}</Label> : null}
 
-      <PickerTrigger
-        open={open}
-        hasValue={!!selected}
-        clearable={clearable}
-        onClick={() => setOpen((current) => !current)}
-        onClear={() => onChange?.("")}
-      >
-        <SegmentBox value={segments.day} placeholder="DD" active={open} />
-        <SegmentSeparator>/</SegmentSeparator>
-        <SegmentBox value={segments.month} placeholder="MM" active={open} />
-        <SegmentSeparator>/</SegmentSeparator>
-        <SegmentBox
-          value={segments.year}
-          placeholder="AAAA"
-          active={open}
-          className="min-w-[4rem]"
-        />
-      </PickerTrigger>
+      <div ref={triggerRef}>
+        <PickerTrigger
+          open={open}
+          hasValue={!!selected}
+          clearable={clearable}
+          onClick={() => setOpen((current) => !current)}
+          onClear={() => onChange?.("")}
+        >
+          <SegmentBox value={segments.day} placeholder="DD" active={open} />
+          <SegmentSeparator>/</SegmentSeparator>
+          <SegmentBox value={segments.month} placeholder="MM" active={open} />
+          <SegmentSeparator>/</SegmentSeparator>
+          <SegmentBox
+            value={segments.year}
+            placeholder="AAAA"
+            active={open}
+            className="min-w-[4rem]"
+          />
+        </PickerTrigger>
+      </div>
 
-      <PickerPopup open={open} className="w-full min-w-[20rem]">
-        {calendar}
-      </PickerPopup>
+      {popup}
     </div>
   );
 }

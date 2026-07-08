@@ -227,36 +227,44 @@ export async function runRecurringTransactionWorker(input: {
 
     for (const rec of due) {
       try {
-        // Create the transaction
-        await prisma.transaction.create({
-          data: {
-            userId: rec.userId,
-            accountId: rec.accountId,
-            kind: rec.kind,
-            amount: rec.amount,
-            currencyCode: rec.currencyCode,
-            category: rec.category,
-            description: rec.description,
-            date: rec.nextDueAt,
-            counterAccountId: rec.counterAccountId ?? null,
-            counterAmount: rec.counterAmount ?? null,
-            recurringId: rec.id,
-          },
-        });
-
-        // Advance to next due date
-        const next = nextDueDate(rec.nextDueAt, rec.recurrence, rec.dayOfPeriod);
+        const dueDate = rec.nextDueAt;
+        const next = nextDueDate(dueDate, rec.recurrence, rec.dayOfPeriod);
         const expired = rec.endAt && next > rec.endAt;
 
-        await prisma.recurringTransaction.update({
-          where: { id: rec.id },
+        const existing = await prisma.transaction.findFirst({
+          where: { recurringId: rec.id, date: dueDate },
+          select: { id: true },
+        });
+
+        if (!existing) {
+          await prisma.transaction.create({
+            data: {
+              userId: rec.userId,
+              accountId: rec.accountId,
+              kind: rec.kind,
+              amount: rec.amount,
+              currencyCode: rec.currencyCode,
+              category: rec.category,
+              description: rec.description,
+              date: dueDate,
+              counterAccountId: rec.counterAccountId ?? null,
+              counterAmount: rec.counterAmount ?? null,
+              recurringId: rec.id,
+            },
+          });
+        }
+
+        const advanced = await prisma.recurringTransaction.updateMany({
+          where: { id: rec.id, active: true, nextDueAt: dueDate },
           data: {
             nextDueAt: next,
             ...(expired ? { active: false } : {}),
           },
         });
 
-        summary.updated += 1;
+        if (advanced.count > 0) {
+          summary.updated += 1;
+        }
       } catch (error) {
         const message = `${rec.description}: ${error instanceof Error ? error.message : "Erro"}`;
         summary.errors.push(message);

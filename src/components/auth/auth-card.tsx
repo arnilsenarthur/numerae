@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { AppLogo } from "@/components/brand/app-logo";
 import { AuthStepIndicator } from "@/components/auth/auth-step-indicator";
 import { ui } from "@/components/ui/tokens";
+import { SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const authLinkClass =
@@ -35,15 +37,8 @@ export function AuthCard({
           href="/"
           className="inline-flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]"
         >
-          <span
-            className={cn(
-              "flex h-10 w-10 items-center justify-center bg-emerald-600 text-lg font-bold text-white shadow-lg shadow-emerald-600/25",
-              ui.innerRadius,
-            )}
-          >
-            N
-          </span>
-          <span className="text-2xl font-semibold tracking-tight">Numerae</span>
+          <AppLogo size={40} />
+          <span className="text-2xl font-semibold tracking-tight">{SITE_NAME}</span>
         </Link>
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">{title}</h1>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>

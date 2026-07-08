@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AppLogo } from "@/components/brand/app-logo";
 import { cn } from "@/lib/utils";
 import {
   Accordion,
@@ -73,6 +74,7 @@ import {
   TimePicker,
   Tooltip,
   TooltipAnchor,
+  HoverTooltip,
   Trend,
   fieldControlProps,
   getLengthFeedback,
@@ -647,7 +649,7 @@ export default function DesignSystemPage() {
           <SidebarHeader>
             <SidebarBrand
               href="/"
-              logo="N"
+              logo={<AppLogo size={32} />}
               title="Numerae"
               subtitle="Design System"
             />
@@ -783,7 +785,7 @@ export default function DesignSystemPage() {
               <div className="flex h-[22rem]">
                 <Sidebar className="h-full shrink-0 border-r-0">
                   <SidebarHeader>
-                    <SidebarBrand href="#" logo="N" title="Numerae" subtitle="Finanças pessoais" />
+                    <SidebarBrand href="#" logo={<AppLogo size={32} />} title="Numerae" subtitle="Finanças pessoais" />
                   </SidebarHeader>
                   <SidebarNav>
                     <SidebarGroup label="Principal">
@@ -815,7 +817,7 @@ export default function DesignSystemPage() {
           <section id="icons" className="scroll-mt-24 space-y-4">
             <SectionHeader
               title="Icons"
-              description="Finanças, transporte, moradia, saúde e categorias do dia a dia."
+              description="Despesas, metas e objetivos de vida, consumo, economia e utilitários."
             />
             <Card>
               <CardContent className="space-y-8 pt-6">
@@ -1042,9 +1044,24 @@ export default function DesignSystemPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Tooltip</CardTitle>
-                <CardDescription>Posicionamento com clamp nas bordas.</CardDescription>
+                <CardDescription>
+                  `HoverTooltip` em botões/ícones; `TooltipAnchor` em gráficos e sliders.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="space-y-4 pt-0">
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="secondary" tooltip="Editar">
+                    Ícone
+                  </Button>
+                  <HoverTooltip label="Remover">
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+                    >
+                      ×
+                    </button>
+                  </HoverTooltip>
+                </div>
                 <div className="relative h-12">
                   <TooltipAnchor className="bottom-1/2 left-[8%] -translate-y-1/2">
                     <Tooltip>Início</Tooltip>

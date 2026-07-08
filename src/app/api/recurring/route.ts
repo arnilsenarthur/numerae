@@ -66,6 +66,7 @@ export async function POST(request: Request) {
         currencyCode: account.currencyCode,
         category: data.category,
         description: data.description,
+        icon: data.icon ?? null,
         recurrence: data.recurrence,
         dayOfPeriod: data.dayOfPeriod,
         nextDueAt: data.nextDueAt,

@@ -8,6 +8,8 @@ import {
   IconCheck,
   IconInfo,
 } from "@/components/ui/icons";
+import { getModalZIndex, useModalStackEntry } from "@/hooks/use-modal-stack";
+import { hasDropdownEscapeLock } from "@/hooks/use-dropdown-escape-lock";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -85,8 +87,11 @@ export function Modal({
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   const scrollYRef = useRef(0);
+  const { layer, isTop, isBottom } = useModalStackEntry(open);
 
   const toneConfig = tone !== "default" ? toneStyles[tone] : null;
+  const backdropZ = layer > 0 ? getModalZIndex(layer, "backdrop") : 50;
+  const contentZ = layer > 0 ? getModalZIndex(layer, "content") : 51;
 
   useEffect(() => {
     setMounted(true);
@@ -121,7 +126,7 @@ export function Modal({
   }, [visible, closing]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !isBottom) return;
 
     scrollYRef.current = window.scrollY;
     const { style } = document.body;
@@ -141,14 +146,7 @@ export function Modal({
     style.width = "100%";
     style.overflow = "hidden";
 
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !closing) onClose();
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-
     return () => {
-      document.removeEventListener("keydown", onKeyDown);
       style.position = previous.position;
       style.top = previous.top;
       style.left = previous.left;
@@ -162,7 +160,21 @@ export function Modal({
       window.scrollTo({ top: scrollYRef.current, left: 0, behavior: "auto" });
       root.style.scrollBehavior = previousScrollBehavior;
     };
-  }, [visible, onClose, closing]);
+  }, [visible, isBottom]);
+
+  useEffect(() => {
+    if (!visible || !isTop) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || closing || hasDropdownEscapeLock()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    }
+
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [visible, onClose, closing, isTop]);
 
   if (!mounted || !visible) return null;
 
@@ -172,21 +184,23 @@ export function Modal({
     <>
       <div
         className={cn(
-          "fixed inset-0 z-50 min-h-[100dvh] w-screen cursor-pointer bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 ease-out",
+          "fixed inset-0 min-h-[100dvh] w-screen cursor-pointer bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 ease-out",
           isShown ? "opacity-100" : "opacity-0",
         )}
+        style={{ zIndex: backdropZ }}
         onClick={closing ? undefined : onClose}
         aria-hidden={!isShown}
       />
       <div
-        className="pointer-events-none fixed inset-0 z-[51] flex min-h-[100dvh] items-center justify-center p-4"
+        className="pointer-events-none fixed inset-0 flex min-h-[100dvh] items-center justify-center p-4 sm:p-6"
+        style={{ zIndex: contentZ }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
       >
         <div
           className={cn(
-            "pointer-events-auto w-full overflow-hidden border bg-white shadow-xl transition-all duration-200 ease-out dark:bg-zinc-950",
+            "pointer-events-auto flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden border bg-white shadow-xl transition-all duration-200 ease-out sm:max-h-[calc(100dvh-3rem)] dark:bg-zinc-950",
             ui.surfaceRadius,
             sizes[size],
             toneConfig?.border ?? ui.fieldBorder,
@@ -198,7 +212,7 @@ export function Modal({
           {title || description ? (
             <div
               className={cn(
-                "border-b border-zinc-200 px-4 py-3 dark:border-zinc-800",
+                "shrink-0 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800",
                 toneConfig?.header,
                 toneConfig && "rounded-t-xl",
               )}
@@ -237,14 +251,16 @@ export function Modal({
           ) : null}
 
           {message || children ? (
-            <div className="space-y-3 px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
-              {message ? <p>{message}</p> : null}
-              {children}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <div className="space-y-3 px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
+                {message ? <p>{message}</p> : null}
+                {children}
+              </div>
             </div>
           ) : null}
 
           {footer ? (
-            <div className="flex justify-end gap-2 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
               {footer}
             </div>
           ) : null}

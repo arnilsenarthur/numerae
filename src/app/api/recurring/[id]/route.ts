@@ -48,6 +48,7 @@ export async function PATCH(request: Request, { params }: Params) {
         ...(data.counterAccountId !== undefined ? { counterAccountId: data.counterAccountId } : {}),
         ...(data.counterAmount !== undefined ? { counterAmount: data.counterAmount } : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        ...(data.icon !== undefined ? { icon: data.icon ?? null } : {}),
       },
       include: { account: { select: { name: true } } },
     });

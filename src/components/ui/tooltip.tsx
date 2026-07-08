@@ -36,6 +36,47 @@ export function Tooltip({
 
 export type TooltipAlign = "start" | "center" | "end";
 
+const hoverTooltipVisibility =
+  "pointer-events-none z-50 opacity-0 transition-opacity duration-150 group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100";
+
+type HoverTooltipProps = {
+  label: ReactNode;
+  children: ReactNode;
+  placement?: "above" | "below";
+  className?: string;
+  tooltipClassName?: string;
+};
+
+/** Wraps controls/icons to show the design-system tooltip on hover and keyboard focus. */
+export function HoverTooltip({
+  label,
+  children,
+  placement = "above",
+  className,
+  tooltipClassName,
+}: HoverTooltipProps) {
+  if (label == null || label === "") {
+    return <>{children}</>;
+  }
+
+  const positionClass =
+    placement === "above"
+      ? "bottom-full left-1/2 mb-1.5 -translate-x-1/2"
+      : "top-full left-1/2 mt-1.5 -translate-x-1/2";
+
+  return (
+    <span className={cn("group/tooltip relative inline-flex max-w-full", className)}>
+      {children}
+      <span
+        role="presentation"
+        className={cn("absolute", hoverTooltipVisibility, positionClass)}
+      >
+        <Tooltip className={tooltipClassName}>{label}</Tooltip>
+      </span>
+    </span>
+  );
+}
+
 export function getTooltipAlign(
   ratio: number,
   threshold = 0.12,
@@ -51,10 +92,13 @@ export function getTooltipPositionStyle(
     edgeThreshold?: number;
     gap?: number;
     placement?: "above" | "below";
+    /** Minimum pixel padding from the container edges (default 4). */
+    edgePad?: number;
   },
 ): CSSProperties {
   const threshold = options?.edgeThreshold ?? 0.12;
   const gap = options?.gap ?? 6;
+  const pad = options?.edgePad ?? 4;
   const align = getTooltipAlign(ratio, threshold);
 
   const translateX =
@@ -64,8 +108,11 @@ export function getTooltipPositionStyle(
       ? `${gap}px`
       : `calc(-100% - ${gap}px)`;
 
+  // clamp keeps the left anchor within [pad, 100%-pad] of the container
+  const left = `clamp(${pad}px, ${ratio * 100}%, calc(100% - ${pad}px))`;
+
   return {
-    left: `${ratio * 100}%`,
+    left,
     transform: `translateX(${translateX}) translateY(${translateY})`,
   };
 }

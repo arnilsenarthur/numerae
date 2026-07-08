@@ -1,6 +1,5 @@
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import type { SelectOption } from "@/components/ui/select";
-import type { SerializedInstitution } from "@/lib/institution-serializer";
 
 import { DEFAULT_USD_RATE_TTL_SECONDS } from "@/lib/spoilable-field";
 import { decimalToNumber } from "@/lib/institutions";
@@ -118,20 +117,7 @@ export function buildCurrencySelectOptions(currencies: SerializedCurrency[]): Se
     }));
 }
 
-export function buildInstitutionSelectOptions(institutions: SerializedInstitution[]): SelectOption[] {
-  return institutions
-    .filter((institution) => institution.active)
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-    .map((institution) => ({
-      key: institution.id,
-      value: institution.id,
-      label: institution.name,
-      description: institution.exchangeRatesCount
-        ? `${institution.exchangeRatesCount} cotação(ões)`
-        : institution.type,
-      ...(institution.logoUrl ? { image: institution.logoUrl } : {}),
-    }));
-}
+export { buildInstitutionSelectOptions } from "@/lib/institution-visual";
 
 export function countryNameMap(countries: SerializedCountry[]) {
   return new Map(countries.map((country) => [country.code, country.name]));

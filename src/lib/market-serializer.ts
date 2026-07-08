@@ -1,7 +1,9 @@
 import { decimalToNumber } from "@/lib/institutions";
 import type {
+  InvestmentEntryKind,
   MarketAssetKind,
   SerializedInvestmentPlan,
+  SerializedInvestmentPosition,
   SerializedMarketAsset,
   SerializedMarketQuote,
 } from "@/types/market";
@@ -57,6 +59,83 @@ export function serializeMarketQuote(record: {
     assetId: record.assetId,
     price: record.price.toNumber(),
     quotedAt: record.quotedAt.toISOString(),
+  };
+}
+
+type InvestmentEntryRecord = {
+  id: string;
+  positionId: string;
+  kind: string;
+  amount: { toNumber(): number };
+  balance: { toNumber(): number } | null;
+  date: Date;
+  notes: string | null;
+  createdAt: Date;
+};
+
+export function serializeInvestmentPosition(
+  record: {
+    id: string;
+    userId: string;
+    name: string;
+    assetSymbol: string | null;
+    category: string;
+    currencyCode: string;
+    institution: string | null;
+    color: string | null;
+    currentBalance: { toNumber(): number };
+    archived: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    entries: InvestmentEntryRecord[];
+  },
+): SerializedInvestmentPosition {
+  const entries = record.entries
+    .slice()
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map((e) => ({
+      id: e.id,
+      positionId: e.positionId,
+      kind: e.kind as InvestmentEntryKind,
+      amount: e.amount.toNumber(),
+      balance: e.balance ? e.balance.toNumber() : null,
+      date: e.date.toISOString(),
+      notes: e.notes,
+      createdAt: e.createdAt.toISOString(),
+    }));
+
+  const totalDeposited = entries
+    .filter((e) => e.kind === "DEPOSIT")
+    .reduce((sum, e) => sum + e.amount, 0);
+  const totalWithdrawn = entries
+    .filter((e) => e.kind === "WITHDRAWAL")
+    .reduce((sum, e) => sum + e.amount, 0);
+  const currentBalance = record.currentBalance.toNumber();
+  // Rendimento = o que você tem agora + o que já tirou − o que colocou.
+  // Sem registro de aportes não dá para calcular — retorna null (UI mostra "—").
+  const profit =
+    totalDeposited > 0 ? currentBalance + totalWithdrawn - totalDeposited : null;
+  const profitPercent =
+    profit !== null && totalDeposited > 0 ? (profit / totalDeposited) * 100 : null;
+
+  return {
+    id: record.id,
+    userId: record.userId,
+    name: record.name,
+    assetSymbol: record.assetSymbol,
+    category: record.category,
+    currencyCode: record.currencyCode,
+    institution: record.institution,
+    color: record.color,
+    currentBalance,
+    archived: record.archived,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    entries,
+    totalDeposited,
+    totalWithdrawn,
+    profit,
+    profitPercent,
   };
 }
 

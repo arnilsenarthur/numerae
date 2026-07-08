@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   description:
     "Organize suas finanças, metas e orçamentos com clareza e segurança.",
   metadataBase: new URL("https://numerae.vercel.app"),
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,9 +34,9 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-screen flex flex-col bg-white text-zinc-900 dark:bg-black dark:text-zinc-100">
+      <body className="flex min-h-screen flex-col overflow-x-clip bg-white text-zinc-900 dark:bg-black dark:text-zinc-100">
         <Providers>
-          <div className="flex min-h-screen flex-1 flex-col">{children}</div>
+          <div className="flex min-h-screen min-w-0 flex-1 flex-col">{children}</div>
         </Providers>
       </body>
     </html>

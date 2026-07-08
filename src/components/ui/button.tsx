@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
-import { ButtonHTMLAttributes, forwardRef } from "react";
+import { HoverTooltip } from "@/components/ui/tooltip";
+import { ButtonHTMLAttributes, forwardRef, ReactNode } from "react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
   iconOnly?: boolean;
+  tooltip?: ReactNode;
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -19,11 +21,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       iconOnly,
       disabled,
       children,
+      tooltip,
+      title: _title,
       ...props
     },
     ref,
   ) => {
-    return (
+    const resolvedTooltip = tooltip ?? (_title != null ? String(_title) : undefined);
+
+    const button = (
       <button
         ref={ref}
         disabled={disabled || loading}
@@ -59,6 +65,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           children
         )}
       </button>
+    );
+
+    if (!resolvedTooltip) return button;
+
+    return (
+      <HoverTooltip
+        label={resolvedTooltip}
+        className={cn("inline-flex", className?.includes("w-full") && "w-full")}
+      >
+        {button}
+      </HoverTooltip>
     );
   },
 );

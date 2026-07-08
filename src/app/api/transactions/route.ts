@@ -93,6 +93,7 @@ export async function POST(request: Request) {
         currencyCode: account.currencyCode,
         category: parsed.data.kind === "TRANSFER" ? "transfer" : parsed.data.category,
         description: parsed.data.description,
+        icon: parsed.data.icon ?? null,
         date: parsed.data.date,
         counterAccountId:
           parsed.data.kind === "TRANSFER" ? parsed.data.counterAccountId : null,

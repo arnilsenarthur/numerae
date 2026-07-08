@@ -7,6 +7,7 @@ import { NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { InlineResultSkeleton } from "@/components/ui/panel-skeleton";
 import { IconExchange, IconTrendUp } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
@@ -133,7 +134,7 @@ export function CurrencyConverter() {
           {error ? (
             <p className="mt-3 text-sm text-red-600">{error}</p>
           ) : loading ? (
-            <p className="mt-3 text-sm text-zinc-400">Buscando cotação…</p>
+            <InlineResultSkeleton />
           ) : result ? (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30">
               <div className="flex flex-wrap items-baseline gap-2">

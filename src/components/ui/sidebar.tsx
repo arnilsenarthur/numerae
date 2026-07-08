@@ -77,7 +77,7 @@ export function SidebarBrand({
       className="inline-flex min-w-0 items-center gap-2.5"
     >
       {logo ? (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
           {logo}
         </span>
       ) : null}
@@ -117,7 +117,7 @@ export function SidebarGroup({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-4 last:mb-0", className)}>
+    <div className={cn("mb-3 last:mb-0", className)}>
       {label ? (
         <p className="mb-1.5 px-2 text-[0.65rem] font-semibold uppercase tracking-wider text-zinc-400">
           {label}
@@ -133,6 +133,7 @@ export type SidebarLinkItem = {
   label: string;
   icon?: ReactNode;
   badge?: ReactNode;
+  subItems?: SidebarSubLinkItem[];
 };
 
 export type SidebarSubLinkItem = {
@@ -149,6 +150,7 @@ type SidebarItemProps = {
   active?: boolean;
   className?: string;
   subItems?: SidebarSubLinkItem[];
+  /** If omitted and subItems exist, auto-expands when pathname starts with href. */
   expanded?: boolean;
 };
 
@@ -184,6 +186,35 @@ export function SidebarSubItem({
   );
 }
 
+function sidebarItemActive(
+  pathname: string,
+  href: string,
+  subItems?: SidebarSubLinkItem[],
+): boolean {
+  if (pathname === href) return true;
+
+  if (
+    subItems?.some(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
+  ) {
+    return true;
+  }
+
+  const section = href.split("/").filter(Boolean)[0];
+  const isSectionRoot = href.split("/").filter(Boolean).length === 1;
+
+  if (subItems?.length && isSectionRoot && section && pathname.startsWith(`/${section}/`)) {
+    return true;
+  }
+
+  if (href !== "/dashboard" && !subItems?.length && pathname.startsWith(href)) {
+    return true;
+  }
+
+  return false;
+}
+
 export function SidebarItem({
   href,
   icon,
@@ -192,15 +223,19 @@ export function SidebarItem({
   active: activeProp,
   className,
   subItems,
-  expanded,
+  expanded: expandedProp,
 }: SidebarItemProps) {
   const pathname = usePathname();
   const { onNavigate } = useContext(SidebarContext);
 
-  const active =
-    activeProp ??
-    (pathname === href ||
-      (href !== "/dashboard" && pathname.startsWith(href)));
+  const active = activeProp ?? sidebarItemActive(pathname, href, subItems);
+
+  const expanded =
+    expandedProp !== undefined
+      ? expandedProp
+      : subItems?.length
+        ? active
+        : false;
 
   return (
     <li>
@@ -230,15 +265,20 @@ export function SidebarItem({
       </Link>
       {expanded && subItems?.length ? (
         <ul className="mt-0.5 space-y-0.5">
-          {subItems.map((item) => (
-            <SidebarSubItem
-              key={item.href}
-              href={item.href}
-              active={item.active}
-            >
-              {item.label}
-            </SidebarSubItem>
-          ))}
+          {subItems.map((item) => {
+            const subActive =
+              item.active ??
+              (pathname === item.href || pathname.startsWith(`${item.href}/`));
+            return (
+              <SidebarSubItem
+                key={item.href}
+                href={item.href}
+                active={subActive}
+              >
+                {item.label}
+              </SidebarSubItem>
+            );
+          })}
         </ul>
       ) : null}
     </li>
@@ -279,6 +319,7 @@ export function SidebarMenu({
           href={item.href}
           icon={item.icon}
           badge={item.badge}
+          subItems={item.subItems}
         >
           {item.label}
         </SidebarItem>

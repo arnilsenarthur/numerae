@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SmartTableModalFields as SmartForm } from "@/components/ui/smart-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IconX } from "@/components/ui/icons";
+import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   buildCountrySelectOptions,
   countryNameMap,
@@ -46,6 +47,7 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const initialTab: DetailTab = parseDetailTab(searchParams.get("tab"));
 
@@ -171,7 +173,13 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
   }
 
   async function deleteInstitution() {
-    if (!confirm("Excluir esta instituição e todas as taxas de câmbio?")) return;
+    const ok = await confirm({
+      title: "Excluir instituição",
+      message: "Excluir esta instituição e todas as taxas de câmbio?",
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
 
     setSaving(true);
     setError(null);
@@ -282,7 +290,7 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
             </CardContent>
             <CardFooter className="flex flex-wrap gap-2 border-t border-zinc-100 dark:border-zinc-900">
               <Button type="button" variant="danger" onClick={() => void deleteInstitution()} disabled={saving}>
-                <IconX size="sm" />
+                <IconTrash size="sm" />
                 Excluir
               </Button>
               <Button type="button" onClick={() => void saveInstitution()} disabled={saving}>
@@ -300,6 +308,7 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
           <InstitutionExchangeRates institutionId={institutionId} currencies={currencies} />
         </TabsContent>
       </Tabs>
+      {dialog}
     </div>
   );
 }

@@ -72,6 +72,82 @@ export function riskProfileMeta(value: string) {
   return RISK_PROFILES.find((item) => item.value === value) ?? RISK_PROFILES[1]!;
 }
 
+export type InvestmentEntryKind = "DEPOSIT" | "WITHDRAWAL" | "BALANCE_UPDATE";
+
+export const INVESTMENT_ENTRY_KIND_LABELS: Record<InvestmentEntryKind, string> = {
+  DEPOSIT: "Aporte",
+  WITHDRAWAL: "Retirada",
+  BALANCE_UPDATE: "Atualização de saldo",
+};
+
+export const INVESTMENT_CATEGORY_OPTIONS = [
+  { value: "FIXED_INCOME", label: "Renda fixa" },
+  { value: "STOCK_BR", label: "Ações BR (B3)" },
+  { value: "STOCK_US", label: "Ações EUA" },
+  { value: "ETF", label: "ETF" },
+  { value: "FII", label: "FII" },
+  { value: "CRYPTO", label: "Cripto" },
+  { value: "OTHER", label: "Outro" },
+];
+
+export const INVESTMENT_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  INVESTMENT_CATEGORY_OPTIONS.map((o) => [o.value, o.label]),
+);
+
+/** Tailwind stroke class for DonutChart segments */
+export const INVESTMENT_CATEGORY_STROKE: Record<string, string> = {
+  FIXED_INCOME: "stroke-emerald-500",
+  STOCK_BR: "stroke-sky-500",
+  STOCK_US: "stroke-blue-500",
+  ETF: "stroke-violet-500",
+  FII: "stroke-amber-500",
+  CRYPTO: "stroke-rose-500",
+  OTHER: "stroke-zinc-400",
+};
+
+/** Hex colors for inline styles (legend dots, etc.) */
+export const INVESTMENT_CATEGORY_COLOR_HEX: Record<string, string> = {
+  FIXED_INCOME: "#10b981",
+  STOCK_BR: "#0ea5e9",
+  STOCK_US: "#3b82f6",
+  ETF: "#8b5cf6",
+  FII: "#f59e0b",
+  CRYPTO: "#f43f5e",
+  OTHER: "#a1a1aa",
+};
+
+export type SerializedInvestmentEntry = {
+  id: string;
+  positionId: string;
+  kind: InvestmentEntryKind;
+  amount: number;
+  balance: number | null;
+  date: string;
+  notes: string | null;
+  createdAt: string;
+};
+
+export type SerializedInvestmentPosition = {
+  id: string;
+  userId: string;
+  name: string;
+  assetSymbol: string | null;
+  category: string;
+  currencyCode: string;
+  institution: string | null;
+  color: string | null;
+  currentBalance: number;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  entries: SerializedInvestmentEntry[];
+  totalDeposited: number;
+  totalWithdrawn: number;
+  /** null quando não há aportes registrados (não dá para calcular rendimento) */
+  profit: number | null;
+  profitPercent: number | null;
+};
+
 export type SerializedInvestmentPlan = {
   id: string;
   name: string;

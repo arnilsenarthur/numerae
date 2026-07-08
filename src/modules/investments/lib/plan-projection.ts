@@ -1,4 +1,4 @@
-import { compoundAnnuity, compoundLump } from "@/modules/money-map/engines/financial-math";
+import { compoundAnnuity, compoundLump } from "@/lib/financial-math";
 import { RISK_PROFILES, type RiskProfile } from "@/types/market";
 
 export type ProjectionPoint = { month: number; value: number };

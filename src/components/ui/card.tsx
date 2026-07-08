@@ -2,12 +2,19 @@ import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
 import { HTMLAttributes, forwardRef } from "react";
 
+/**
+ * Apply to any Card that is wrapped in a link or acts as a button.
+ * Provides consistent hover ring, shadow lift, and pointer cursor.
+ */
+export const cardClickable =
+  "cursor-pointer transition-all hover:border-emerald-400/50 hover:shadow-md hover:ring-1 hover:ring-emerald-400/30";
+
 export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950",
+        "min-w-0 max-w-full border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950",
         ui.surfaceRadius,
         className,
       )}

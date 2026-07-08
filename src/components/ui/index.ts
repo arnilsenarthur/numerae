@@ -2,6 +2,7 @@ export { Accordion, AccordionGroup, AccordionItem } from "./accordion";
 export { Alert } from "./alert";
 export { Avatar } from "./avatar";
 export { Badge } from "./badge";
+export { Breadcrumbs, type BreadcrumbItem } from "./breadcrumbs";
 export { Button } from "./button";
 export { ButtonGroup, ButtonGroupItem } from "./button-group";
 export {
@@ -74,7 +75,9 @@ export {
   type LengthFeedback,
   type ValidationSeverity,
 } from "./field-validation";
+export { InstitutionAvatar } from "@/lib/institution-visual";
 export { FormField } from "./form-field";
+export { IconPicker } from "./icon-picker";
 export {
   IconAlertCircle,
   IconAlertTriangle,
@@ -143,6 +146,7 @@ export { Modal } from "./modal";
 export { Money } from "./money";
 export { OtpInput } from "./otp-input";
 export { Progress, StackedProgress, type ProgressFill } from "./progress";
+export { CompanyPicker, MANUAL_COMPANY_ID } from "./company-picker";
 export { RegistryPicker, type RegistryPickerItem, type RegistryPickerSpecialOption } from "./registry-picker";
 export { CnpjInlineCreate } from "./cnpj-inline-create";
 export { MultiSelect } from "./multi-select";
@@ -162,6 +166,21 @@ export {
   type SidebarSubLinkItem,
 } from "./sidebar";
 export { Skeleton } from "./skeleton";
+export {
+  CardGridSkeleton,
+  ChartCardSkeleton,
+  DashboardSkeleton,
+  FinanceOverviewSkeleton,
+  GoalListSkeleton,
+  InlineResultSkeleton,
+  InstitutionListSkeleton,
+  InvestmentPlansSkeleton,
+  MarketDetailSkeleton,
+  PlanChipsSkeleton,
+  PositionsPanelSkeleton,
+  StatCardsSkeleton,
+  TableRowsSkeleton,
+} from "./panel-skeleton";
 export { Slider } from "./slider";
 export { StatCard } from "./stat-card";
 export {
@@ -176,7 +195,7 @@ export {
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 export { TimePicker } from "./time-picker";
 export { ToastProvider, useToast } from "./toast";
-export { Tooltip, TooltipAnchor, getTooltipAlign, getTooltipPositionStyle } from "./tooltip";
+export { Tooltip, TooltipAnchor, HoverTooltip, getTooltipAlign, getTooltipPositionStyle } from "./tooltip";
 export { SpoilableField, type SpoilableFieldProps } from "./spoilable-field";
 export {
   SmartTable,

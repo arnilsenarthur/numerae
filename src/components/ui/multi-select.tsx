@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
 import { IconX } from "@/components/ui/icons";
+import { HoverTooltip } from "@/components/ui/tooltip";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SelectOption } from "@/components/ui/select";
@@ -87,22 +88,24 @@ function RemovableTag({
       )}
     >
       <span className="truncate">{label}</span>
-      <button
-        type="button"
-        disabled={disabled}
-        aria-label={`Remover ${label}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onRemove();
-        }}
-        className={cn(
-          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-500 transition-colors",
-          "hover:bg-zinc-200 hover:text-zinc-800 dark:hover:bg-zinc-700 dark:hover:text-zinc-100",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-        )}
-      >
-        <IconX size="sm" />
-      </button>
+      <HoverTooltip label={`Remover ${label}`}>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={`Remover ${label}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
+          className={cn(
+            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-500 transition-colors",
+            "hover:bg-zinc-200 hover:text-zinc-800 dark:hover:bg-zinc-700 dark:hover:text-zinc-100",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+          )}
+        >
+          <IconX size="sm" />
+        </button>
+      </HoverTooltip>
     </span>
   );
 }

@@ -4,6 +4,13 @@ import { prisma } from "@/lib/db";
 import { computeAccountBalance, serializeAccount } from "@/lib/finance-serializer";
 import { createAccountSchema } from "@/lib/validators-finance";
 
+const INSTITUTION_ACCOUNT_SELECT = {
+  name: true,
+  logoUrl: true,
+  type: true,
+  brandColor: true,
+} as const;
+
 async function loadBalances(userId: string) {
   const grouped = await prisma.transaction.groupBy({
     by: ["accountId", "kind"],
@@ -64,7 +71,7 @@ export async function GET(request: Request) {
           userId: session.user.id,
           ...(includeArchived ? {} : { archived: false }),
         },
-        include: { institution: { select: { name: true, logoUrl: true } } },
+        include: { institution: { select: INSTITUTION_ACCOUNT_SELECT } },
         orderBy: [{ archived: "asc" }, { name: "asc" }],
       }),
       loadBalances(session.user.id),
@@ -118,7 +125,7 @@ export async function POST(request: Request) {
         color: parsed.data.color ?? null,
         icon: parsed.data.icon ?? null,
       },
-      include: { institution: { select: { name: true, logoUrl: true } } },
+      include: { institution: { select: INSTITUTION_ACCOUNT_SELECT } },
     });
 
     return NextResponse.json({ account: serializeAccount(record) });

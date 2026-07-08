@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
+import { HoverTooltip } from "@/components/ui/tooltip";
 import {
   createContext,
   ReactNode,
@@ -70,26 +71,28 @@ function ToastViewport({
             )}
           >
             <p className="min-w-0 flex-1 text-sm leading-snug">{item.message}</p>
-            <button
-              type="button"
-              aria-label="Fechar notificação"
-              onClick={() => onDismiss(item.id)}
-              className={cn(
-                "shrink-0 p-0.5 opacity-70 transition-opacity hover:opacity-100",
-                ui.iconButton,
-              )}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden
+            <HoverTooltip label="Fechar">
+              <button
+                type="button"
+                aria-label="Fechar notificação"
+                onClick={() => onDismiss(item.id)}
+                className={cn(
+                  "shrink-0 p-0.5 opacity-70 transition-opacity hover:opacity-100",
+                  ui.iconButton,
+                )}
               >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </button>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </HoverTooltip>
           </div>
         );
       })}

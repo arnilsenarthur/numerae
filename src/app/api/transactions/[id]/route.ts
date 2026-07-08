@@ -54,6 +54,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         ...(parsed.data.description !== undefined
           ? { description: parsed.data.description }
           : {}),
+        ...(parsed.data.icon !== undefined ? { icon: parsed.data.icon ?? null } : {}),
         ...(parsed.data.date !== undefined ? { date: parsed.data.date } : {}),
         ...(parsed.data.counterAccountId !== undefined
           ? { counterAccountId: parsed.data.counterAccountId || null }

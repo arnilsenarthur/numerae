@@ -1,4 +1,4 @@
-import type { CompanyRegistrationKind } from "@/types/user-company";
+import type { CompanyRegistrationKind, TaxRegime } from "@/types/user-company";
 import type { SelectOption } from "@/components/ui/select";
 
 export type RegistrationFieldMeta = {
@@ -68,6 +68,11 @@ export const GLOBAL_TAX_REGIME_OPTIONS: SelectOption[] = [
 
 export function taxRegimeOptionsForCountry(countryCode: string): SelectOption[] {
   return countryCode === "BR" ? TAX_REGIME_OPTIONS : GLOBAL_TAX_REGIME_OPTIONS;
+}
+
+export function taxRegimeLabel(regime: TaxRegime, countryCode: string): string {
+  const options = taxRegimeOptionsForCountry(countryCode);
+  return options.find((option) => option.value === regime)?.label ?? regime;
 }
 
 export const REGISTRATION_KIND_OPTIONS: SelectOption[] = [

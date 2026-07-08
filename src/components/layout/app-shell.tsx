@@ -1,9 +1,12 @@
 "use client";
 
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { AppSidebar, SidebarItem } from "@/components/layout/app-sidebar";
+import {
+  AppSidebar,
+  type SidebarSection,
+} from "@/components/layout/app-sidebar";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { Dimmer } from "@/components/ui/dimmer";
@@ -14,37 +17,114 @@ import {
   IconCoins,
   IconComponents,
   IconExchange,
+  IconLayoutDashboard,
   IconPercent,
   IconReceipt,
   IconSettings,
+  IconTarget,
   IconWallet,
 } from "@/components/ui/icons";
+import {
+  CALCULATOR_TAB_LABELS,
+  CALCULATOR_TABS,
+  FINANCE_LEDGER_TABS,
+  FINANCE_TABS,
+  INVESTMENT_TABS,
+  MARKET_DEFAULT_KIND_SLUG,
+  MARKET_KIND_NAV,
+  financeLedgerTabPath,
+  marketKindPath,
+} from "@/lib/app-routes";
 import { isAdminRole } from "@/lib/user-roles";
 
-const sidebarItems: SidebarItem[] = [
+const sidebarSections: SidebarSection[] = [
   {
-    href: "/finance",
+    items: [
+      {
+        href: "/dashboard",
+        label: "Visão geral",
+        icon: <IconLayoutDashboard size="sm" />,
+      },
+    ],
+  },
+  {
+    label: "Cadastros",
+    items: [
+      {
+        href: `/finance/${FINANCE_TABS.accounts}`,
+        label: "Contas",
+        icon: <IconWallet size="sm" />,
+      },
+      {
+        href: "/companies",
+        label: "Empresas",
+        icon: <IconBuilding size="sm" />,
+      },
+    ],
+  },
+  {
     label: "Finanças",
-    icon: <IconWallet size="sm" />,
-  },
-  {
-    href: "/investments",
-    label: "Investimentos",
-    icon: <IconChart size="sm" />,
-  },
-  {
-    href: "/calculator",
-    label: "Calculadoras",
-    icon: <IconPercent size="sm" />,
-  },
-  {
-    href: "/companies",
-    label: "Empresas",
-    icon: <IconBuilding size="sm" />,
+    items: [
+      {
+        href: `/finance/${FINANCE_TABS.overview}`,
+        label: "Resumo",
+        icon: <IconChart size="sm" />,
+      },
+      {
+        href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
+        label: "Lançamentos",
+        icon: <IconReceipt size="sm" />,
+        subItems: [
+          {
+            href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
+            label: "Histórico",
+          },
+          {
+            href: financeLedgerTabPath(FINANCE_LEDGER_TABS.recurring),
+            label: "Recorrentes",
+          },
+        ],
+      },
+      {
+        href: `/finance/${FINANCE_TABS.goals}`,
+        label: "Metas",
+        icon: <IconTarget size="sm" />,
+      },
+      {
+        href: "/investments",
+        label: "Investimentos",
+        icon: <IconChart size="sm" />,
+        subItems: [
+          { href: `/investments/${INVESTMENT_TABS.allocation}`, label: "Alocação sugerida" },
+          { href: `/investments/${INVESTMENT_TABS.projection}`, label: "Projeção" },
+        ],
+      },
+      {
+        href: marketKindPath(MARKET_DEFAULT_KIND_SLUG),
+        label: "Mercado",
+        icon: <IconCoins size="sm" />,
+        subItems: MARKET_KIND_NAV.map((item) => ({
+          href: marketKindPath(item.slug),
+          label: item.label,
+        })),
+      },
+      {
+        href: "/calculator",
+        label: "Calculadoras",
+        icon: <IconPercent size="sm" />,
+        subItems: [
+          { href: `/calculator/${CALCULATOR_TABS.exchange}`, label: CALCULATOR_TAB_LABELS.exchange },
+          { href: `/calculator/${CALCULATOR_TABS.taxes}`, label: CALCULATOR_TAB_LABELS.taxes },
+          { href: `/calculator/${CALCULATOR_TABS.salary}`, label: CALCULATOR_TAB_LABELS.salary },
+          { href: `/calculator/${CALCULATOR_TABS.loan}`, label: CALCULATOR_TAB_LABELS.loan },
+          { href: `/calculator/${CALCULATOR_TABS.fire}`, label: CALCULATOR_TAB_LABELS.fire },
+        ],
+      },
+    ],
   },
 ];
 
-const adminItems: SidebarItem[] = [
+const adminItems = [
   {
     href: "/admin/institutions",
     label: "Instituições",
@@ -103,6 +183,18 @@ export function AppShell({
     [session?.user?.role],
   );
 
+  useEffect(() => {
+    if (!session?.user) return;
+
+    function tickWorkers() {
+      void fetch("/api/workers/tick", { method: "POST" }).catch(() => undefined);
+    }
+
+    tickWorkers();
+    const interval = window.setInterval(tickWorkers, 5 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [session?.user]);
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <Dimmer open={mobileOpen} onClose={() => setMobileOpen(false)} className="lg:hidden" />
@@ -114,14 +206,15 @@ export function AppShell({
         )}
       >
         <AppSidebar
-          items={sidebarItems}
+          sections={sidebarSections}
           adminItems={visibleAdminItems}
           onNavigate={() => setMobileOpen(false)}
+          session={session}
           footer={<SignOutButton />}
         />
       </div>
 
-      <div className="flex min-h-screen flex-col lg:pl-[260px]">
+      <div className="flex min-h-screen min-w-0 flex-col lg:pl-[260px]">
         <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/85">
           <div className="flex items-center gap-3 px-4 py-4 sm:px-6">
             <Button
@@ -130,6 +223,7 @@ export function AppShell({
               size="sm"
               className="lg:hidden"
               onClick={() => setMobileOpen(true)}
+              tooltip="Abrir menu"
               aria-label="Abrir menu"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -154,7 +248,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-clip px-4 py-6 sm:px-6">{children}</main>
       </div>
     </div>
   );

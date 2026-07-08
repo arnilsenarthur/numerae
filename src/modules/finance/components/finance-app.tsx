@@ -2,23 +2,36 @@
 
 import { useMemo, useState } from "react";
 import { Select } from "@/components/ui/select";
+import { PageHeader } from "@/components/ui/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader } from "@/components/ui/loader";
+import {
+  FinanceOverviewSkeleton,
+  GoalListSkeleton,
+  TableRowsSkeleton,
+  CardGridSkeleton,
+} from "@/components/ui/panel-skeleton";
 import { FinanceAccounts } from "@/modules/finance/components/finance-accounts";
+import { FinanceGoals } from "@/modules/finance/components/finance-goals";
 import { FinanceOverview } from "@/modules/finance/components/finance-overview";
 import { FinanceRecurring } from "@/modules/finance/components/finance-recurring";
 import { FinanceTransactions } from "@/modules/finance/components/finance-transactions";
 import { useFinanceData } from "@/modules/finance/hooks/use-finance-data";
-import { useMoneyMapCatalog } from "@/modules/money-map/hooks/use-money-map-catalog";
+import { useCatalog } from "@/hooks/use-catalog";
+import { useUrlTab } from "@/hooks/use-url-tab";
+import {
+  FINANCE_DEFAULT_TAB,
+  FINANCE_LEDGER_TAB_LABELS,
+  FINANCE_LEDGER_TABS,
+  FINANCE_TABS,
+  type FinanceLedgerTabSlug,
+  type FinanceTabSlug,
+} from "@/lib/app-routes";
+import { financePageHeader } from "@/lib/page-meta";
 
-type FinanceTab = "resumo" | "lancamentos" | "recorrentes" | "contas";
+type FinanceTab = FinanceTabSlug;
 
-const TABS: { id: FinanceTab; label: string }[] = [
-  { id: "resumo", label: "Resumo" },
-  { id: "lancamentos", label: "Lançamentos" },
-  { id: "recorrentes", label: "Recorrentes" },
-  { id: "contas", label: "Contas" },
-];
+const VALID_TABS = Object.values(FINANCE_TABS) as FinanceTab[];
+const LEDGER_TABS = Object.values(FINANCE_LEDGER_TABS) as FinanceLedgerTabSlug[];
 
 type PeriodPreset = "month" | "3months" | "year" | "all";
 
@@ -52,15 +65,19 @@ function periodRange(preset: PeriodPreset): { from: string | null; to: string | 
   }
 }
 
-export function FinanceApp() {
-  const [tab, setTab] = useState<FinanceTab>("resumo");
+export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
+  const [tab, setTab] = useUrlTab<FinanceTab>({
+    basePath: "/finance",
+    validTabs: VALID_TABS,
+    defaultTab: FINANCE_DEFAULT_TAB,
+    initialTab,
+  });
   const [preset, setPreset] = useState<PeriodPreset>("month");
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
-  const catalog = useMoneyMapCatalog();
+  const catalog = useCatalog();
   const currentRange = useMemo(() => periodRange(preset), [preset]);
   const finance = useFinanceData(currentRange);
 
-  // Derive available currencies from accounts
   const availableCurrencies = useMemo(() => {
     const seen = new Set<string>();
     const list: { value: string; label: string }[] = [];
@@ -73,7 +90,6 @@ export function FinanceApp() {
     return list;
   }, [finance.accounts]);
 
-  // Pick display currency: user selection, dominant by volume, or first account
   const displayCurrency = useMemo(() => {
     if (selectedCurrency && availableCurrencies.some((c) => c.value === selectedCurrency)) {
       return selectedCurrency;
@@ -86,54 +102,68 @@ export function FinanceApp() {
     return finance.accounts[0]?.currencyCode ?? "BRL";
   }, [selectedCurrency, availableCurrencies, finance.summary, finance.accounts]);
 
+  const initialLoading = finance.loading && finance.accounts.length === 0;
+  const isLedgerTab = tab === "transactions" || tab === "recurring";
+  const page = financePageHeader(tab);
+
+  function financeTabSkeleton() {
+    switch (tab) {
+      case "transactions":
+      case "recurring":
+        return <TableRowsSkeleton rows={8} />;
+      case "goals":
+        return <GoalListSkeleton />;
+      case "accounts":
+        return <CardGridSkeleton count={3} columns="sm:grid-cols-2 lg:grid-cols-3" />;
+      default:
+        return <FinanceOverviewSkeleton />;
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-emerald-600">Finanças</p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Controle financeiro
-          </h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Contas, lançamentos e relatórios — em qualquer moeda e país.
-          </p>
-        </div>
-        {tab === "resumo" ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {availableCurrencies.length > 1 ? (
-              <div className="w-28">
+      <PageHeader
+        meta={page}
+        actions={
+          tab === "overview" ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {availableCurrencies.length > 1 ? (
+                <div className="w-28">
+                  <Select
+                    options={availableCurrencies}
+                    value={displayCurrency}
+                    onChange={(value) => setSelectedCurrency(value)}
+                    size="sm"
+                  />
+                </div>
+              ) : null}
+              <div className="w-44">
                 <Select
-                  options={availableCurrencies}
-                  value={displayCurrency}
-                  onChange={(value) => setSelectedCurrency(value)}
-                  size="sm"
+                  options={PERIOD_OPTIONS}
+                  value={preset}
+                  onChange={(value) => setPreset(value as PeriodPreset)}
                 />
               </div>
-            ) : null}
-            <div className="w-44">
-              <Select
-                options={PERIOD_OPTIONS}
-                value={preset}
-                onChange={(value) => setPreset(value as PeriodPreset)}
-              />
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : undefined
+        }
+      />
 
-      <Tabs
-        key={tab}
-        defaultValue={tab}
-        onValueChange={(value) => setTab(value as FinanceTab)}
-      >
-        <TabsList className="h-auto flex-wrap gap-1 bg-zinc-50 p-1 dark:bg-zinc-900/50">
-          {TABS.map((item) => (
-            <TabsTrigger key={item.id} value={item.id} className="text-xs">
-              {item.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {isLedgerTab ? (
+        <Tabs
+          key={tab}
+          defaultValue={tab}
+          onValueChange={(value) => setTab(value as FinanceTab)}
+        >
+          <TabsList className="h-auto flex-wrap gap-1 bg-zinc-50 p-1 dark:bg-zinc-900/50">
+            {LEDGER_TABS.map((id) => (
+              <TabsTrigger key={id} value={id} className="text-xs">
+                {FINANCE_LEDGER_TAB_LABELS[id]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      ) : null}
 
       {finance.error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -141,33 +171,30 @@ export function FinanceApp() {
         </div>
       ) : null}
 
-      {finance.loading && finance.accounts.length === 0 ? (
-        <div className="flex justify-center py-16">
-          <Loader />
-        </div>
-      ) : tab === "resumo" ? (
+      {initialLoading ? (
+        financeTabSkeleton()
+      ) : tab === "overview" ? (
         <FinanceOverview
           summary={finance.summary}
           accounts={finance.accounts}
           currency={displayCurrency}
         />
-      ) : tab === "lancamentos" ? (
+      ) : tab === "transactions" ? (
         <FinanceTransactions
           transactions={finance.transactions}
           accounts={finance.accounts}
           onChanged={() => void finance.reload()}
         />
-      ) : tab === "recorrentes" ? (
-        <FinanceRecurring
-          accounts={finance.accounts}
-          onChanged={() => void finance.reload()}
-        />
-      ) : (
+      ) : tab === "recurring" ? (
+        <FinanceRecurring accounts={finance.accounts} onChanged={() => void finance.reload()} />
+      ) : tab === "accounts" ? (
         <FinanceAccounts
           accounts={finance.accounts}
           catalog={catalog}
           onChanged={() => void finance.reload()}
         />
+      ) : (
+        <FinanceGoals />
       )}
     </div>
   );

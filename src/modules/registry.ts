@@ -20,14 +20,6 @@ export const appModules: AppModule[] = [
     badge: "Principal",
   },
   {
-    id: "money-map",
-    name: "Plano financeiro",
-    description:
-      "Projeção de renda recorrente com otimização automática: melhor câmbio por instituição, impostos PJ e investimento.",
-    href: "/money-map",
-    countries: [],
-  },
-  {
     id: "investments",
     name: "Investimentos",
     description:

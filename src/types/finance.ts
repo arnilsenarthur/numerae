@@ -13,6 +13,8 @@ export type SerializedAccount = {
   institutionId: string | null;
   institutionName: string | null;
   institutionLogoUrl: string | null;
+  institutionType: string | null;
+  institutionBrandColor: string | null;
   name: string;
   kind: FinancialAccountKind;
   currencyCode: string;
@@ -35,6 +37,7 @@ export type SerializedTransaction = {
   currencyCode: string;
   category: string;
   description: string;
+  icon: string | null;
   date: string;
   counterAccountId: string | null;
   counterAmount: number | null;
@@ -62,6 +65,7 @@ export type SerializedRecurring = {
   currencyCode: string;
   category: string;
   description: string;
+  icon: string | null;
   recurrence: RecurrenceType;
   dayOfPeriod: number;
   nextDueAt: string;

@@ -2,56 +2,71 @@
 
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/ui/page-header";
+import { useUrlTab } from "@/hooks/use-url-tab";
+import {
+  INVESTMENT_DEFAULT_TAB,
+  INVESTMENT_TAB_LABELS,
+  INVESTMENT_TABS,
+  type InvestmentTabSlug,
+} from "@/lib/app-routes";
+import { investmentPageHeader, investmentPositionPageHeader } from "@/lib/page-meta";
 import { InvestmentPlansPanel } from "@/modules/investments/components/investment-plans-panel";
-import { MarketPanel } from "@/modules/investments/components/market-panel";
 import { PortfolioPanel } from "@/modules/investments/components/portfolio-panel";
+import { PositionsPanel } from "@/modules/investments/components/positions-panel";
+import type { SerializedInvestmentPosition } from "@/types/market";
 
-type InvestmentsTab = "carteira" | "projecao" | "mercado";
+const VALID_TABS = Object.values(INVESTMENT_TABS) as InvestmentTabSlug[];
 
-const TABS: { id: InvestmentsTab; label: string; description: string }[] = [
-  { id: "carteira", label: "Carteira", description: "Alocação por perfil e sugestões de ativos" },
-  { id: "projecao", label: "Projeção", description: "Planos salvos com simulação de crescimento" },
-  { id: "mercado", label: "Mercado", description: "Cotações de ações, ETFs, FIIs e cripto" },
-];
+export function InvestmentsApp({
+  initialTab,
+  positionId,
+}: {
+  initialTab?: string | null;
+  positionId?: string | null;
+}) {
+  const [detailPosition, setDetailPosition] = useState<SerializedInvestmentPosition | null>(
+    null,
+  );
+  const [tab, setTab] = useUrlTab<InvestmentTabSlug>({
+    basePath: "/investments",
+    validTabs: VALID_TABS,
+    defaultTab: INVESTMENT_DEFAULT_TAB,
+    initialTab,
+  });
 
-export function InvestmentsApp() {
-  const [tab, setTab] = useState<InvestmentsTab>("carteira");
+  const page =
+    positionId && detailPosition
+      ? investmentPositionPageHeader(detailPosition.name)
+      : investmentPageHeader(tab);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-      <div>
-        <p className="text-sm text-emerald-600">Investimentos</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Planejamento de investimentos
-        </h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Aloque seu aporte mensal por classe de ativo, simule projeções e acompanhe o mercado.
-        </p>
-      </div>
+      <PageHeader meta={page} />
 
       <Tabs
         key={tab}
         defaultValue={tab}
-        onValueChange={(value) => setTab(value as InvestmentsTab)}
+        onValueChange={(value) => setTab(value as InvestmentTabSlug)}
       >
         <TabsList className="h-auto flex-wrap gap-1 bg-zinc-50 p-1 dark:bg-zinc-900/50">
-          {TABS.map((item) => (
-            <TabsTrigger key={item.id} value={item.id} className="text-xs">
-              {item.label}
+          {VALID_TABS.map((id) => (
+            <TabsTrigger key={id} value={id} className="text-xs">
+              {INVESTMENT_TAB_LABELS[id]}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
-      {TABS.find((t) => t.id === tab)?.description ? (
-        <p className="text-xs text-zinc-500">{TABS.find((t) => t.id === tab)!.description}</p>
-      ) : null}
 
-      {tab === "carteira" ? (
+      {tab === "positions" ? (
+        <PositionsPanel
+          positionId={positionId}
+          onDetailPositionChange={setDetailPosition}
+        />
+      ) : tab === "allocation" ? (
         <PortfolioPanel />
-      ) : tab === "projecao" ? (
-        <InvestmentPlansPanel />
       ) : (
-        <MarketPanel />
+        <InvestmentPlansPanel />
       )}
     </div>
   );

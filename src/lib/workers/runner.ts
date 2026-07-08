@@ -2,6 +2,7 @@ import "server-only";
 
 import type { WorkerRunTrigger } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
+import { tryClaimWorker } from "@/lib/workers/claim";
 import {
   getWorkerDefinition,
   isWorkerProviderId,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/workers/tasks";
 import {
   getWorkerScheduleMeta,
+  isWorkerRunning,
   type SerializedWorker,
   type SerializedWorkerRun,
 } from "@/lib/workers/workers.shared";
@@ -30,6 +32,7 @@ type WorkerRecord = {
   secondaryProvider: string | null;
   intervalSeconds: number;
   lastRunAt: Date | null;
+  runningSince: Date | null;
   lastRunStatus: string | null;
   lastRunProvider: string | null;
   lastRunError: string | null;
@@ -79,6 +82,7 @@ export function serializeWorker(record: WorkerRecord): SerializedWorker {
     enabled: record.enabled,
     lastRunAt: record.lastRunAt?.toISOString() ?? null,
     intervalSeconds: record.intervalSeconds,
+    runningSince: record.runningSince?.toISOString() ?? null,
   });
 
   return {
@@ -90,6 +94,8 @@ export function serializeWorker(record: WorkerRecord): SerializedWorker {
     secondaryProvider: record.secondaryProvider,
     intervalSeconds: record.intervalSeconds,
     lastRunAt: record.lastRunAt?.toISOString() ?? null,
+    runningSince: record.runningSince?.toISOString() ?? null,
+    isRunning: isWorkerRunning(record.runningSince),
     lastRunStatus: record.lastRunStatus,
     lastRunProvider: record.lastRunProvider,
     lastRunError: record.lastRunError,
@@ -123,7 +129,8 @@ async function executeWorkerTask(
 export async function runWorkerById(
   workerId: string,
   trigger: WorkerRunTrigger,
-): Promise<{ worker: SerializedWorker; run: SerializedWorkerRun }> {
+  options: { bypassDue?: boolean } = {},
+): Promise<{ worker: SerializedWorker; run: SerializedWorkerRun } | null> {
   const worker = await prisma.worker.findUnique({ where: { id: workerId } });
 
   if (!worker) {
@@ -149,6 +156,7 @@ export async function runWorkerById(
       where: { id: worker.id },
       data: {
         lastRunAt: new Date(),
+        runningSince: null,
         lastRunStatus: "SKIPPED",
         lastRunProvider: null,
         lastRunError: "Automático desligado.",
@@ -159,6 +167,16 @@ export async function runWorkerById(
       worker: serializeWorker(updatedWorker),
       run: serializeWorkerRun(run),
     };
+  }
+
+  const bypassDue = options.bypassDue ?? trigger === "MANUAL";
+  const claimed = await tryClaimWorker(worker.id, worker.intervalSeconds, { bypassDue });
+
+  if (!claimed) {
+    if (trigger === "MANUAL") {
+      throw new Error("Worker já está em execução ou não está disponível.");
+    }
+    return null;
   }
 
   const primaryProvider = isWorkerProviderId(worker.primaryProvider)
@@ -172,59 +190,90 @@ export async function runWorkerById(
 
   const started = Date.now();
 
-  const result = await executeWorkerTask(
-    worker.id,
-    primaryProvider,
-    secondaryProvider,
-    trigger,
-  );
-
-  const durationMs = Date.now() - started;
-
-  const run = await prisma.workerRun.create({
-    data: {
-      workerId: worker.id,
-      status: result.status,
+  try {
+    const result = await executeWorkerTask(
+      worker.id,
+      primaryProvider,
+      secondaryProvider,
       trigger,
-      provider: result.provider,
-      fallbackUsed: result.fallbackUsed,
-      attemptedProviders: result.attemptedProviders,
-      durationMs,
-      summary: result.summary,
-      error: result.error ?? null,
-    },
-  });
+    );
 
-  const updatedWorker = await prisma.worker.update({
-    where: { id: worker.id },
-    data: {
-      lastRunAt: new Date(),
-      lastRunStatus: result.status,
-      lastRunProvider: result.provider,
-      lastRunError: result.error ?? null,
-    },
-  });
+    const durationMs = Date.now() - started;
 
-  return {
-    worker: serializeWorker(updatedWorker),
-    run: serializeWorkerRun(run),
-  };
+    const run = await prisma.workerRun.create({
+      data: {
+        workerId: worker.id,
+        status: result.status,
+        trigger,
+        provider: result.provider,
+        fallbackUsed: result.fallbackUsed,
+        attemptedProviders: result.attemptedProviders,
+        durationMs,
+        summary: result.summary,
+        error: result.error ?? null,
+      },
+    });
+
+    const updatedWorker = await prisma.worker.update({
+      where: { id: worker.id },
+      data: {
+        lastRunAt: new Date(),
+        runningSince: null,
+        lastRunStatus: result.status,
+        lastRunProvider: result.provider,
+        lastRunError: result.error ?? null,
+      },
+    });
+
+    return {
+      worker: serializeWorker(updatedWorker),
+      run: serializeWorkerRun(run),
+    };
+  } catch (error) {
+    const durationMs = Date.now() - started;
+    const message = error instanceof Error ? error.message : "Erro desconhecido.";
+
+    const run = await prisma.workerRun.create({
+      data: {
+        workerId: worker.id,
+        status: "FAILED",
+        trigger,
+        provider: null,
+        fallbackUsed: false,
+        attemptedProviders: [],
+        durationMs,
+        summary: { errors: [message] },
+        error: message,
+      },
+    });
+
+    const updatedWorker = await prisma.worker.update({
+      where: { id: worker.id },
+      data: {
+        lastRunAt: new Date(),
+        runningSince: null,
+        lastRunStatus: "FAILED",
+        lastRunProvider: null,
+        lastRunError: message,
+      },
+    });
+
+    return {
+      worker: serializeWorker(updatedWorker),
+      run: serializeWorkerRun(run),
+    };
+  }
 }
 
 export async function runDueWorkers(trigger: WorkerRunTrigger) {
   const workers = await prisma.worker.findMany({ where: { enabled: true } });
-  const now = Date.now();
   const results: { workerId: string; run: SerializedWorkerRun }[] = [];
 
   for (const worker of workers) {
-    const due =
-      !worker.lastRunAt ||
-      now - worker.lastRunAt.getTime() >= worker.intervalSeconds * 1000;
-
-    if (!due) continue;
-
-    const { run } = await runWorkerById(worker.id, trigger);
-    results.push({ workerId: worker.id, run });
+    const result = await runWorkerById(worker.id, trigger);
+    if (result) {
+      results.push({ workerId: worker.id, run: result.run });
+    }
   }
 
   return results;

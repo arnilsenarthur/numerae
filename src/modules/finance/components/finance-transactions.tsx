@@ -4,13 +4,20 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Field, fieldControlProps, useValidatedField } from "@/components/ui/field";
+import { validationRules } from "@/components/ui/field-validation";
+import { IconPicker } from "@/components/ui/icon-picker";
 import { Input, NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
-import { IconPlus } from "@/components/ui/icons";
+import { IconPencil, IconPlus, IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
+import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   TRANSACTION_KIND_LABELS,
   categoriesForKind,
@@ -50,6 +57,14 @@ const KIND_OPTIONS = (Object.keys(TRANSACTION_KIND_LABELS) as TransactionKind[])
   (kind) => ({ value: kind, label: TRANSACTION_KIND_LABELS[kind] }),
 );
 
+function parseAmount(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const normalized = trimmed.replace(/\./g, "").replace(",", ".");
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : 0;
+}
+
 export function FinanceTransactions({
   transactions,
   accounts,
@@ -64,6 +79,29 @@ export function FinanceTransactions({
   const [form, setForm] = useState<TransactionForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const iconSuggestion = useIconSuggestion({
+    text: form.description,
+    category: form.category,
+    purpose: "transaction",
+  });
+  const { confirm, dialog } = useConfirm();
+
+  const amountField = useValidatedField(
+    [
+      validationRules.required("Informe o valor."),
+      validationRules.currency(),
+      validationRules.positiveAmount(),
+    ],
+    { required: true, validateMode: ["blur", "submit"], showSuccess: false },
+  );
+
+  const descriptionField = useValidatedField(
+    [
+      validationRules.required("Descrição é obrigatória."),
+      validationRules.maxLength(120, "Máximo de 120 caracteres."),
+    ],
+    { required: true, validateMode: "change", showSuccess: false },
+  );
 
   const accountOptions = useMemo(
     () =>
@@ -81,7 +119,15 @@ export function FinanceTransactions({
 
   function startCreate(kind: TransactionKind) {
     setEditingId(null);
-    setForm({ ...emptyForm(accounts[0]?.id ?? ""), kind, category: kind === "INCOME" ? "salary" : "other" });
+    iconSuggestion.resetIconSuggestion();
+    const category = kind === "INCOME" ? "salary" : "other";
+    setForm({
+      ...emptyForm(accounts[0]?.id ?? ""),
+      kind,
+      category,
+    });
+    amountField.reset();
+    descriptionField.reset();
     setError(null);
     setModalOpen(true);
   }
@@ -98,20 +144,30 @@ export function FinanceTransactions({
       counterAccountId: tx.counterAccountId ?? "",
       counterAmount: tx.counterAmount !== null ? String(tx.counterAmount) : "",
     });
+    iconSuggestion.lockIcon((tx.icon as IconName) ?? "tag");
+    amountField.reset();
+    amountField.setValue(String(tx.amount));
+    descriptionField.reset();
+    descriptionField.setValue(tx.description);
     setError(null);
     setModalOpen(true);
   }
 
   async function save() {
+    amountField.markSubmitted();
+    descriptionField.markSubmitted();
+    if (!amountField.isValid || !descriptionField.isValid) return;
+
     setSaving(true);
     setError(null);
     try {
       const payload: Record<string, unknown> = {
         accountId: form.accountId,
         kind: form.kind,
-        amount: Number(form.amount) || 0,
+        amount: parseAmount(form.amount),
         category: form.category,
         description: form.description,
+        icon: form.kind === "TRANSFER" ? null : iconSuggestion.icon,
         date: form.date,
       };
       if (form.kind === "TRANSFER") {
@@ -137,7 +193,13 @@ export function FinanceTransactions({
   }
 
   async function remove(id: string) {
-    if (!confirm("Excluir este lançamento?")) return;
+    const ok = await confirm({
+      title: "Excluir lançamento",
+      message: "Excluir este lançamento?",
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
     const { response, data } = await fetchJson<{ error?: string }>(
       `/api/transactions/${id}`,
       { method: "DELETE" },
@@ -164,7 +226,11 @@ export function FinanceTransactions({
         cell: (row) => (
           <Badge
             variant={
-              row.kind === "INCOME" ? "success" : row.kind === "TRANSFER" ? "default" : "outline"
+              row.kind === "INCOME"
+                ? "success"
+                : row.kind === "TRANSFER"
+                  ? "warning"
+                  : "error"
             }
             className="text-[10px]"
           >
@@ -178,9 +244,16 @@ export function FinanceTransactions({
         sortable: true,
         sortValue: (row) => row.description,
         cell: (row) => (
-          <div>
-            <span className="font-medium">{row.description}</span>
-            <span className="ml-2 text-xs text-zinc-500">{row.accountName}</span>
+          <div className="flex items-center gap-2">
+            {row.kind !== "TRANSFER" ? (
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                <AppIcon name={row.icon ?? categoryDefaultIcon(row.category)} size="xs" />
+              </span>
+            ) : null}
+            <div>
+              <span className="font-medium">{row.description}</span>
+              <span className="ml-2 text-xs text-zinc-500">{row.accountName}</span>
+            </div>
           </div>
         ),
       },
@@ -200,7 +273,14 @@ export function FinanceTransactions({
           <Money
             value={row.kind === "EXPENSE" ? -row.amount : row.amount}
             currency={row.currencyCode}
-            showSign={row.kind !== "TRANSFER"}
+            showSign={row.kind === "INCOME"}
+            tone={
+              row.kind === "TRANSFER"
+                ? "transfer"
+                : row.kind === "EXPENSE"
+                  ? "expense"
+                  : "income"
+            }
             size="sm"
           />
         ),
@@ -212,6 +292,7 @@ export function FinanceTransactions({
         cell: (row) => (
           <div className="flex justify-end gap-1">
             <Button type="button" variant="secondary" size="sm" onClick={() => startEdit(row)}>
+              <IconPencil size="xs" />
               Editar
             </Button>
             <Button
@@ -220,6 +301,7 @@ export function FinanceTransactions({
               size="sm"
               onClick={() => void remove(row.id)}
             >
+              <IconTrash size="xs" />
               Excluir
             </Button>
           </div>
@@ -373,39 +455,74 @@ export function FinanceTransactions({
               <Select
                 options={categoryOptions}
                 value={form.category}
-                onChange={(value) => setForm((prev) => ({ ...prev, category: value }))}
+                onChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    category: value,
+                  }))
+                }
               />
             </div>
           )}
 
-          <div className="space-y-1">
-            <Label>Descrição</Label>
+          <Field
+            label="Descrição"
+            message={descriptionField.validation.message}
+            state={descriptionField.validation.state}
+            required
+            counter={`${descriptionField.value.length}/120`}
+          >
             <Input
               value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => {
+                const description = e.target.value;
+                descriptionField.setValue(description);
+                setForm((prev) => ({ ...prev, description }));
+              }}
+              onBlur={descriptionField.bind.onBlur}
               placeholder="Ex.: Mercado, Salário de julho…"
+              {...fieldControlProps(descriptionField.validation.state)}
             />
-          </div>
+          </Field>
+
+          {form.kind !== "TRANSFER" ? (
+            <IconPicker
+              label="Ícone"
+              value={iconSuggestion.icon}
+              onChange={iconSuggestion.pickIcon}
+            />
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label>Valor</Label>
+            <Field
+              label="Valor"
+              message={amountField.validation.message}
+              state={amountField.validation.state}
+              required
+            >
               <NumberInput
                 value={form.amount}
-                onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+                onChange={(e) => {
+                  const amount = e.target.value;
+                  amountField.setValue(amount);
+                  setForm((prev) => ({ ...prev, amount }));
+                }}
+                onBlur={amountField.bind.onBlur}
+                {...fieldControlProps(amountField.validation.state)}
               />
-            </div>
+            </Field>
             <div className="space-y-1">
               <Label>Data</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={form.date}
-                onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+                onChange={(v) => setForm((prev) => ({ ...prev, date: v }))}
+                clearable={false}
               />
             </div>
           </div>
         </div>
       </Modal>
+      {dialog}
     </div>
   );
 }

@@ -4,6 +4,13 @@ import { prisma } from "@/lib/db";
 import { serializeAccount } from "@/lib/finance-serializer";
 import { updateAccountSchema } from "@/lib/validators-finance";
 
+const INSTITUTION_ACCOUNT_SELECT = {
+  name: true,
+  logoUrl: true,
+  type: true,
+  brandColor: true,
+} as const;
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -53,7 +60,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         ...(parsed.data.icon !== undefined ? { icon: parsed.data.icon ?? null } : {}),
         ...(parsed.data.archived !== undefined ? { archived: parsed.data.archived } : {}),
       },
-      include: { institution: { select: { name: true, logoUrl: true } } },
+      include: { institution: { select: INSTITUTION_ACCOUNT_SELECT } },
     });
 
     return NextResponse.json({ account: serializeAccount(record) });

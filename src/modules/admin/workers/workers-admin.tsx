@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -156,10 +156,11 @@ function WorkerCard({
           enabled: worker.enabled,
           lastRunAt: worker.lastRunAt,
           intervalSeconds: worker.intervalSeconds,
+          runningSince: worker.runningSince,
         },
         now,
       ),
-    [worker.enabled, worker.intervalSeconds, worker.lastRunAt, now],
+    [worker.enabled, worker.intervalSeconds, worker.lastRunAt, worker.runningSince, now],
   );
 
   const nextRunLabel = useMemo(
@@ -171,6 +172,7 @@ function WorkerCard({
           intervalSeconds: worker.intervalSeconds,
           nextRunAt: schedule.nextRunAt,
           isDue: schedule.isDue,
+          isRunning: worker.isRunning,
         },
         formatWhen,
       ),
@@ -404,6 +406,7 @@ export function WorkersAdmin() {
   const [workers, setWorkers] = useState<SerializedWorker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const autoTicked = useRef(false);
 
   const loadWorkers = useCallback(async () => {
     setLoading(true);
@@ -430,6 +433,18 @@ export function WorkersAdmin() {
     void loadWorkers();
   }, [loadWorkers]);
 
+  useEffect(() => {
+    if (loading || autoTicked.current) return;
+
+    const hasDue = workers.some((worker) => worker.enabled && worker.isDue);
+    if (!hasDue) return;
+
+    autoTicked.current = true;
+    void fetch("/api/workers/tick", { method: "POST" })
+      .then(() => loadWorkers())
+      .catch(() => undefined);
+  }, [workers, loading, loadWorkers]);
+
   const stats = useMemo(() => {
     const enabled = workers.filter((w) => w.enabled).length;
     const failed = workers.filter((w) => w.lastRunStatus === "FAILED").length;
@@ -446,8 +461,8 @@ export function WorkersAdmin() {
         <p className="text-sm text-emerald-600">Admin</p>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Workers / Crons</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Workers automáticos rodam no intervalo configurado via cron. Acompanhe execuções,
-          provedores, fallback e erros — ou dispare manualmente.
+          Workers automáticos rodam no intervalo configurado. Com usuários logados, o app
+          também dispara workers pendentes a cada poucos minutos — além do cron diário na Vercel.
         </p>
       </div>
 

@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/loader";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { SpoilableField } from "@/components/ui/spoilable-field";
 import { Switch } from "@/components/ui/switch";
+import { HoverTooltip } from "@/components/ui/tooltip";
 import { getSpoilableFieldCellClass } from "@/lib/spoilable-field";
 import { ReactNode, useMemo, useState } from "react";
 
@@ -266,14 +267,22 @@ function SmartTableCell<T>({
   }
 
   if (field.type === "boolean") {
+    const switchControl = (
+      <Switch
+        checked={Boolean(value)}
+        disabled={disabled || saving}
+        aria-label={field.hint ?? column.header}
+        onChange={(event) => void save(event.target.checked)}
+      />
+    );
+
     return withSavingOverlay(
       <div className="flex min-h-9 items-center justify-center">
-        <Switch
-          checked={Boolean(value)}
-          disabled={disabled || saving}
-          aria-label={field.hint ?? column.header}
-          onChange={(event) => void save(event.target.checked)}
-        />
+        {field.hint ? (
+          <HoverTooltip label={field.hint}>{switchControl}</HoverTooltip>
+        ) : (
+          switchControl
+        )}
       </div>,
     );
   }

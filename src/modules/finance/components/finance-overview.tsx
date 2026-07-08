@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DonutChart, ColumnChart, type ChartPoint, type ChartSeries } from "@/components/ui/chart";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, DonutChart, type ChartPoint } from "@/components/ui/chart";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Money } from "@/components/ui/money";
 import { StatCard } from "@/components/ui/stat-card";
@@ -10,6 +10,12 @@ import { IconChart, IconTrendDown, IconTrendUp, IconWallet } from "@/components/
 import { formatMoney } from "@/lib/format-money";
 import { categoryLabel, type SerializedAccount } from "@/types/finance";
 import type { FinanceSummary } from "@/modules/finance/hooks/use-finance-data";
+
+function formatMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  if (!year || !month) return monthKey;
+  return new Date(year, month - 1, 1).toLocaleDateString("pt-BR", { month: "short" });
+}
 
 export function FinanceOverview({
   summary,
@@ -45,21 +51,21 @@ export function FinanceOverview({
       }));
   }, [summary, currency]);
 
-  const monthlySeries = useMemo<ChartSeries[]>(() => {
+  const monthlyBars = useMemo<ChartPoint[]>(() => {
     if (!summary) return [];
-    const months = summary.monthly;
-    const income: ChartPoint[] = [];
-    const expense: ChartPoint[] = [];
-    for (const month of months) {
+    return summary.monthly.map((month) => {
       const entry = month.series.find((item) => item.currencyCode === currency);
-      const label = month.month.slice(5);
-      income.push({ label, value: entry?.income ?? 0 });
-      expense.push({ label, value: entry?.expense ?? 0 });
-    }
-    return [
-      { id: "income", label: "Entradas", data: income },
-      { id: "expense", label: "Saídas", data: expense },
-    ];
+      const income = entry?.income ?? 0;
+      const expense = entry?.expense ?? 0;
+      return {
+        label: formatMonthLabel(month.month),
+        value: income + expense,
+        segments: [
+          { label: "Entradas", value: income, color: "bg-emerald-500" },
+          { label: "Saídas", value: expense, color: "bg-red-500" },
+        ],
+      };
+    });
   }, [summary, currency]);
 
   const hasData = (summary?.count ?? 0) > 0;
@@ -71,24 +77,28 @@ export function FinanceOverview({
           label={`Entradas (${currency})`}
           value={totals?.income ?? 0}
           currency={currency}
+          valueTone="income"
           icon={<IconTrendUp size="sm" />}
         />
         <StatCard
           label={`Saídas (${currency})`}
           value={totals?.expense ?? 0}
           currency={currency}
+          valueTone="expense"
           icon={<IconTrendDown size="sm" />}
         />
         <StatCard
           label={`Resultado no período (${currency})`}
           value={totals?.net ?? 0}
           currency={currency}
+          valueTone="auto"
           icon={<IconChart size="sm" />}
         />
         <StatCard
           label={`Saldo atual (${currency})`}
           value={balanceInCurrency}
           currency={currency}
+          valueTone="auto"
           icon={<IconWallet size="sm" />}
         />
       </div>
@@ -116,6 +126,7 @@ export function FinanceOverview({
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Gastos por categoria</CardTitle>
+              <CardDescription>Saídas do período agrupadas por categoria.</CardDescription>
             </CardHeader>
             <CardContent>
               {expenseDonut.length === 0 ? (
@@ -133,15 +144,35 @@ export function FinanceOverview({
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Entradas vs saídas por mês</CardTitle>
+              <CardTitle className="text-base">Movimentação mensal</CardTitle>
+              <CardDescription>
+                Barras empilhadas por mês — verde para entradas e vermelho para saídas.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ColumnChart
-                data={monthlySeries[0]?.data ?? []}
-                series={monthlySeries}
-                formatValue={(value) => formatMoney(value, { currency })}
-                fullWidth
-              />
+            <CardContent className="space-y-3">
+              {monthlyBars.length === 0 ? (
+                <p className="py-8 text-center text-sm text-zinc-500">
+                  Sem dados mensais no período.
+                </p>
+              ) : (
+                <>
+                  <BarChart
+                    data={monthlyBars}
+                    stacked
+                    formatValue={(value) => formatMoney(value, { currency })}
+                  />
+                  <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Entradas
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-red-500" />
+                      Saídas
+                    </span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -157,7 +188,7 @@ export function FinanceOverview({
               {balanceByCurrency.map(([code, total]) => (
                 <div key={code}>
                   <p className="text-xs font-medium text-zinc-500">{code}</p>
-                  <Money value={total} currency={code} size="lg" />
+                  <Money value={total} currency={code} size="lg" tone="auto" />
                 </div>
               ))}
             </div>

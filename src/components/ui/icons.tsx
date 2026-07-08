@@ -182,6 +182,26 @@ export function IconX(props: IconProps) {
   );
 }
 
+export function IconPencil(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </Icon>
+  );
+}
+
+export function IconTrash(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6M14 11v6" />
+    </Icon>
+  );
+}
+
 export function IconInfo(props: IconProps) {
   return (
     <Icon {...props}>
@@ -549,6 +569,99 @@ export function IconRepeat(props: IconProps) {
   );
 }
 
+export function IconHouse(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12 12 3l9 9" />
+      <path d="M5 10v10a1 1 0 0 0 1 1h4v-5h4v5h4a1 1 0 0 0 1-1V10" />
+    </Icon>
+  );
+}
+
+export function IconBaby(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="5" r="3" />
+      <path d="M5 22v-3a7 7 0 0 1 14 0v3" />
+      <path d="M9 13l3 3 3-3" />
+    </Icon>
+  );
+}
+
+export function IconPaw(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="8" cy="6" r="1.5" />
+      <circle cx="12" cy="4" r="1.5" />
+      <circle cx="16" cy="6" r="1.5" />
+      <circle cx="18.5" cy="10" r="1.5" />
+      <path d="M12 10c-3 0-5.5 2-5.5 5a3.5 3.5 0 0 0 7 0c0 .5.5 1 1 1s1-.5 1-1a3.5 3.5 0 0 0-3.5-5z" />
+    </Icon>
+  );
+}
+
+export function IconDumbbell(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="2" y="10" width="4" height="4" rx="1" />
+      <rect x="18" y="10" width="4" height="4" rx="1" />
+      <rect x="4" y="8" width="3" height="8" rx="1" />
+      <rect x="17" y="8" width="3" height="8" rx="1" />
+      <path d="M7 12h10" />
+    </Icon>
+  );
+}
+
+export function IconRing(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="14" r="5" />
+      <path d="M9 9V7a3 3 0 0 1 6 0v2" />
+      <path d="M10 14h4" />
+    </Icon>
+  );
+}
+
+export function IconSmartphone(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5" y="2" width="14" height="20" rx="2" />
+      <circle cx="12" cy="17" r="1" />
+      <path d="M9 6h6" />
+    </Icon>
+  );
+}
+
+export function IconStar(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </Icon>
+  );
+}
+
+export function IconMotorcycle(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5.5" cy="17.5" r="3" />
+      <circle cx="18.5" cy="17.5" r="3" />
+      <path d="M15 5h-4l-1.5 3H8L6.5 11 8 14.5h3M15 5l1.5 3-2 3.5H10" />
+      <path d="M19 9h-4l-1 3" />
+    </Icon>
+  );
+}
+
+export function IconBicycle(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5" cy="16" r="3" />
+      <circle cx="19" cy="16" r="3" />
+      <path d="M12 4h2l3 8H7l2-6h2" />
+      <path d="M12 4v4M5 16l7-8 7 8" />
+    </Icon>
+  );
+}
+
 export const icons = {
   home: IconHome,
   wallet: IconWallet,
@@ -567,6 +680,8 @@ export const icons = {
   plus: IconPlus,
   check: IconCheck,
   x: IconX,
+  pencil: IconPencil,
+  trash: IconTrash,
   info: IconInfo,
   alertTriangle: IconAlertTriangle,
   alertCircle: IconAlertCircle,
@@ -606,25 +721,19 @@ export const icons = {
   bitcoin: IconBitcoin,
   dollarSign: IconDollarSign,
   layoutDashboard: IconLayoutDashboard,
+  repeat: IconRepeat,
+  house: IconHouse,
+  baby: IconBaby,
+  paw: IconPaw,
+  dumbbell: IconDumbbell,
+  ring: IconRing,
+  smartphone: IconSmartphone,
+  star: IconStar,
+  motorcycle: IconMotorcycle,
+  bicycle: IconBicycle,
 } as const;
 
 export const iconCategories = [
-  {
-    label: "Navegação",
-    keys: [
-      "home",
-      "layoutDashboard",
-      "menu",
-      "search",
-      "chevronDown",
-      "chevronRight",
-      "components",
-      "settings",
-      "user",
-      "bell",
-      "logout",
-    ],
-  },
   {
     label: "Despesas & receitas",
     keys: [
@@ -635,9 +744,27 @@ export const iconCategories = [
       "bill",
       "loan",
       "invest",
+      "repeat",
       "trendUp",
       "trendDown",
       "target",
+    ],
+  },
+  {
+    label: "Metas & objetivos",
+    keys: [
+      "star",
+      "house",
+      "car",
+      "motorcycle",
+      "bicycle",
+      "plane",
+      "ring",
+      "baby",
+      "paw",
+      "dumbbell",
+      "smartphone",
+      "gift",
     ],
   },
   {
@@ -646,14 +773,11 @@ export const iconCategories = [
       "food",
       "shopping",
       "transport",
-      "car",
       "fuel",
       "parking",
-      "plane",
       "health",
       "education",
       "subscription",
-      "gift",
       "tag",
     ],
   },
@@ -678,16 +802,23 @@ export const iconCategories = [
       "chart",
       "calendar",
       "building",
+      "home",
       "shield",
       "plus",
       "check",
       "x",
+      "pencil",
+      "trash",
       "info",
       "alertTriangle",
       "alertCircle",
       "download",
       "filter",
       "repair",
+      "search",
+      "settings",
+      "user",
+      "bell",
     ],
   },
 ] as const;

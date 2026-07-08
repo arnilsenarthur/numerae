@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { SmartTable, SmartTableModalFields } from "@/components/ui/smart-table";
-import { IconX } from "@/components/ui/icons";
+import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   buildCurrencySelectOptions,
   type SerializedCurrency,
@@ -32,6 +33,7 @@ export function InstitutionExchangeRates({
   const [rates, setRates] = useState<SerializedExchangeRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<ExchangeRateForm>(emptyExchangeRateForm());
   const [creating, setCreating] = useState(false);
@@ -155,9 +157,13 @@ export function InstitutionExchangeRates({
   }
 
   async function deleteRate(rate: SerializedExchangeRate) {
-    if (!confirm(`Excluir o par ${rate.fromCurrency} → ${rate.toCurrency}?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Excluir par de câmbio",
+      message: `Excluir o par ${rate.fromCurrency} → ${rate.toCurrency}?`,
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
 
     setError(null);
     const { response, data } = await fetchJson<{ ok?: boolean; error?: string }>(
@@ -288,7 +294,7 @@ export function InstitutionExchangeRates({
               onClick={() => editRate && void deleteRate(editRate)}
               disabled={savingEdit}
             >
-              <IconX size="sm" />
+              <IconTrash size="sm" />
               Excluir
             </Button>
             <Button
@@ -316,6 +322,7 @@ export function InstitutionExchangeRates({
           />
         ) : null}
       </Modal>
+      {dialog}
     </>
   );
 }

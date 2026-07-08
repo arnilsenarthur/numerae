@@ -4,14 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Field, fieldControlProps, useValidatedField } from "@/components/ui/field";
+import { validationRules } from "@/components/ui/field-validation";
+import { IconPicker } from "@/components/ui/icon-picker";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableRowsSkeleton } from "@/components/ui/panel-skeleton";
 import { NumberInput, Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
-import { IconPlus, IconRepeat } from "@/components/ui/icons";
+import { IconPencil, IconPlus, IconRepeat, IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
+import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   RECURRENCE_LABELS,
   TRANSACTION_KIND_LABELS,
@@ -62,6 +70,14 @@ const RECURRENCE_OPTIONS = (Object.keys(RECURRENCE_LABELS) as RecurrenceType[]).
   label: RECURRENCE_LABELS[r],
 }));
 
+function parseAmount(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const normalized = trimmed.replace(/\./g, "").replace(",", ".");
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : 0;
+}
+
 function recurrenceBadge(r: RecurrenceType) {
   return RECURRENCE_LABELS[r] ?? r;
 }
@@ -86,6 +102,29 @@ export function FinanceRecurring({
   const [form, setForm] = useState<RecurringForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const iconSuggestion = useIconSuggestion({
+    text: form.description,
+    category: form.category,
+    purpose: "transaction",
+  });
+  const { confirm, dialog } = useConfirm();
+
+  const amountField = useValidatedField(
+    [
+      validationRules.required("Informe o valor."),
+      validationRules.currency(),
+      validationRules.positiveAmount(),
+    ],
+    { required: true, validateMode: ["blur", "submit"], showSuccess: false },
+  );
+
+  const descriptionField = useValidatedField(
+    [
+      validationRules.required("Descrição é obrigatória."),
+      validationRules.maxLength(120, "Máximo de 120 caracteres."),
+    ],
+    { required: true, validateMode: "change", showSuccess: false },
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,11 +156,15 @@ export function FinanceRecurring({
 
   function startCreate(kind: TransactionKind = "EXPENSE") {
     setEditingId(null);
+    iconSuggestion.resetIconSuggestion();
+    const category = kind === "INCOME" ? "salary" : "other";
     setForm({
       ...emptyForm(accounts[0]?.id ?? ""),
       kind,
-      category: kind === "INCOME" ? "salary" : "other",
+      category,
     });
+    amountField.reset();
+    descriptionField.reset();
     setError(null);
     setModalOpen(true);
   }
@@ -140,20 +183,30 @@ export function FinanceRecurring({
       endAt: rec.endAt ? rec.endAt.slice(0, 10) : "",
       notes: rec.notes ?? "",
     });
+    iconSuggestion.lockIcon((rec.icon as IconName) ?? categoryDefaultIcon(rec.category));
+    amountField.reset();
+    amountField.setValue(String(rec.amount));
+    descriptionField.reset();
+    descriptionField.setValue(rec.description);
     setError(null);
     setModalOpen(true);
   }
 
   async function save() {
+    amountField.markSubmitted();
+    descriptionField.markSubmitted();
+    if (!amountField.isValid || !descriptionField.isValid) return;
+
     setSaving(true);
     setError(null);
     try {
       const payload = {
         accountId: form.accountId,
         kind: form.kind,
-        amount: Number(form.amount) || 0,
+        amount: parseAmount(form.amount),
         category: form.category,
         description: form.description,
+        icon: iconSuggestion.icon,
         recurrence: form.recurrence,
         dayOfPeriod: Number(form.dayOfPeriod) || 1,
         nextDueAt: form.nextDueAt,
@@ -196,7 +249,13 @@ export function FinanceRecurring({
   }
 
   async function remove(rec: SerializedRecurring) {
-    if (!confirm(`Excluir a recorrência "${rec.description}"?`)) return;
+    const ok = await confirm({
+      title: "Excluir recorrência",
+      message: `Excluir a recorrência "${rec.description}"?`,
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
     const { response, data } = await fetchJson<{ error?: string }>(
       `/api/recurring/${rec.id}`,
       { method: "DELETE" },
@@ -215,9 +274,14 @@ export function FinanceRecurring({
         id: "description",
         header: "Descrição",
         cell: (row) => (
-          <div>
-            <p className="font-medium">{row.description}</p>
-            <p className="text-xs text-zinc-500">{categoryLabel(row.category)}</p>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              <AppIcon name={row.icon ?? categoryDefaultIcon(row.category)} size="xs" />
+            </span>
+            <div>
+              <p className="font-medium">{row.description}</p>
+              <p className="text-xs text-zinc-500">{categoryLabel(row.category)}</p>
+            </div>
           </div>
         ),
       },
@@ -233,7 +297,13 @@ export function FinanceRecurring({
       {
         id: "amount",
         header: "Valor",
-        cell: (row) => <Money value={row.amount} currency={row.currencyCode} />,
+        cell: (row) => (
+          <Money
+            value={row.amount}
+            currency={row.currencyCode}
+            tone={row.kind === "INCOME" ? "income" : "expense"}
+          />
+        ),
       },
       {
         id: "recurrence",
@@ -288,9 +358,11 @@ export function FinanceRecurring({
         cell: (row) => (
           <div className="flex gap-1">
             <Button type="button" variant="secondary" size="sm" onClick={() => startEdit(row)}>
+              <IconPencil size="xs" />
               Editar
             </Button>
             <Button type="button" variant="danger" size="sm" onClick={() => void remove(row)}>
+              <IconTrash size="xs" />
               Excluir
             </Button>
           </div>
@@ -324,7 +396,7 @@ export function FinanceRecurring({
       ) : null}
 
       {loading ? (
-        <p className="py-8 text-center text-sm text-zinc-500">Carregando…</p>
+        <TableRowsSkeleton rows={8} />
       ) : records.length === 0 ? (
         <EmptyState
           icon={<IconRepeat className="h-10 w-10 text-zinc-400" />}
@@ -374,14 +446,30 @@ export function FinanceRecurring({
           </div>
         ) : null}
         <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Descrição</Label>
+          <Field
+            label="Descrição"
+            message={descriptionField.validation.message}
+            state={descriptionField.validation.state}
+            required
+            counter={`${descriptionField.value.length}/120`}
+          >
             <Input
               value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => {
+                const description = e.target.value;
+                descriptionField.setValue(description);
+                setForm((prev) => ({ ...prev, description }));
+              }}
+              onBlur={descriptionField.bind.onBlur}
               placeholder="Ex.: Salário, Aluguel, Netflix…"
+              {...fieldControlProps(descriptionField.validation.state)}
             />
-          </div>
+          </Field>
+          <IconPicker
+            label="Ícone"
+            value={iconSuggestion.icon}
+            onChange={iconSuggestion.pickIcon}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>Tipo</Label>
@@ -402,7 +490,12 @@ export function FinanceRecurring({
               <Select
                 options={categoryOptions}
                 value={form.category}
-                onChange={(value) => setForm((prev) => ({ ...prev, category: value }))}
+                onChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    category: value,
+                  }))
+                }
               />
             </div>
           </div>
@@ -416,14 +509,24 @@ export function FinanceRecurring({
                 placeholder="Selecione a conta"
               />
             </div>
-            <div className="space-y-1">
-              <Label>Valor</Label>
+            <Field
+              label="Valor"
+              message={amountField.validation.message}
+              state={amountField.validation.state}
+              required
+            >
               <NumberInput
                 value={form.amount}
-                onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+                onChange={(e) => {
+                  const amount = e.target.value;
+                  amountField.setValue(amount);
+                  setForm((prev) => ({ ...prev, amount }));
+                }}
+                onBlur={amountField.bind.onBlur}
                 placeholder="0,00"
+                {...fieldControlProps(amountField.validation.state)}
               />
-            </div>
+            </Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
@@ -444,23 +547,24 @@ export function FinanceRecurring({
             </div>
             <div className="space-y-1">
               <Label>Próximo vencimento</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={form.nextDueAt}
-                onChange={(e) => setForm((prev) => ({ ...prev, nextDueAt: e.target.value }))}
+                onChange={(v) => setForm((prev) => ({ ...prev, nextDueAt: v }))}
+                clearable={false}
               />
             </div>
           </div>
           <div className="space-y-1">
             <Label>Encerrar em (opcional)</Label>
-            <Input
-              type="date"
+            <DatePicker
               value={form.endAt}
-              onChange={(e) => setForm((prev) => ({ ...prev, endAt: e.target.value }))}
+              onChange={(v) => setForm((prev) => ({ ...prev, endAt: v }))}
+              clearable
             />
           </div>
         </div>
       </Modal>
+      {dialog}
     </div>
   );
 }

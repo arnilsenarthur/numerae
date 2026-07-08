@@ -38,6 +38,7 @@ export type DataTableProps<T> = {
   emptyMessage?: string;
   className?: string;
   toolbar?: ReactNode;
+  onRowClick?: (row: T) => void;
 };
 
 function compareValues(a: string | number | Date, b: string | number | Date) {
@@ -61,6 +62,7 @@ export function DataTable<T>({
   emptyMessage = "Nenhum registro encontrado.",
   className,
   toolbar,
+  onRowClick,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -196,7 +198,14 @@ export function DataTable<T>({
             </TableRow>
           ) : (
             pageRows.map((row) => (
-              <TableRow key={getRowKey(row)} className="transition-none hover:bg-zinc-50 dark:hover:bg-zinc-900/40">
+              <TableRow
+                key={getRowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={cn(
+                  "transition-none hover:bg-zinc-50 dark:hover:bg-zinc-900/40",
+                  onRowClick && "cursor-pointer",
+                )}
+              >
                 {columns.map((column) => (
                   <TableCell
                     key={column.id}

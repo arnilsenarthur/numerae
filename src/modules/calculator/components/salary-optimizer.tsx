@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { CompanyPicker, MANUAL_COMPANY_ID } from "@/components/ui/company-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/ui/money";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
@@ -23,6 +25,7 @@ const TAX_REGIME_OPTIONS = [
   { value: "simples_iii", label: "Simples — Anexo III (Fator R ≥ 28%)" },
   { value: "simples_v", label: "Simples — Anexo V (Fator R < 28%)" },
   { value: "lucro_presumido", label: "Lucro Presumido" },
+  { value: "manual", label: "Alíquota manual (%)" },
 ];
 
 // IOF on international currency exchange remittance: 0.38% base + 1.1% = ~1.38%
@@ -68,8 +71,12 @@ const INSTITUTIONS: Institution[] = [
   { name: "Banco do Brasil", spread: 2.8, fixedFee: 15, notes: "Banco tradicional, spread maior" },
 ];
 
-function calcTax(brlGross: number, regime: string): number {
+function calcTax(brlGross: number, regime: string, manualRatePercent = 0): number {
   const annual = brlGross * 12;
+  if (regime === "manual") {
+    const rate = Math.max(0, manualRatePercent) / 100;
+    return brlGross * rate;
+  }
   if (regime === "mei") return Math.min(brlGross, 75.9);
   if (regime === "simples_iii") return calcSimples(annual, SIMPLES_III_TABLE) / 12;
   if (regime === "simples_v") return calcSimples(annual, SIMPLES_V_TABLE) / 12;
@@ -91,32 +98,52 @@ function taxLabel(regime: string): string {
   if (regime === "simples_iii") return "Simples Anexo III";
   if (regime === "simples_v") return "Simples Anexo V";
   if (regime === "lucro_presumido") return "Lucro Presumido";
+  if (regime === "manual") return "Alíquota manual";
   return regime;
 }
 
 export function SalaryOptimizer() {
   const { companies, loading: loadingCompanies } = useCompanies();
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("manual");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(MANUAL_COMPANY_ID);
   const [amount, setAmount] = useState("5000");
   const [currency, setCurrency] = useState("USD");
   const [taxRegime, setTaxRegime] = useState("simples_iii");
+  const [manualRate, setManualRate] = useState("");
   const [marketRate, setMarketRate] = useState<number | null>(null);
   const [rateDate, setRateDate] = useState<string | null>(null);
   const [loadingRate, setLoadingRate] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didAutoSelectCompany = useRef(false);
 
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId) ?? null;
-  const companyOptions = [
-    { value: "manual", label: "Inserir manualmente" },
-    ...companies.map((c) => ({ value: c.id, label: `${c.label}${c.legalName ? ` (${c.legalName})` : ""}` })),
-  ];
+  const selectedCompany =
+    selectedCompanyId === MANUAL_COMPANY_ID
+      ? null
+      : (companies.find((c) => c.id === selectedCompanyId) ?? null);
+  const isManualCompany =
+    selectedCompanyId === MANUAL_COMPANY_ID || selectedCompany?.taxRegime === "manual";
+
+  useEffect(() => {
+    if (loadingCompanies || didAutoSelectCompany.current || companies.length === 0) return;
+    const defaultCompany = companies.find((c) => c.isDefault) ?? companies[0];
+    if (defaultCompany) {
+      setSelectedCompanyId(defaultCompany.id);
+      didAutoSelectCompany.current = true;
+    }
+  }, [companies, loadingCompanies]);
 
   // Sync regime when company changes
   useEffect(() => {
-    if (!selectedCompany) return;
+    if (!selectedCompany) {
+      if (selectedCompanyId === MANUAL_COMPANY_ID) setTaxRegime("manual");
+      return;
+    }
     if (selectedCompany.taxRegime === "simples") setTaxRegime("simples_iii");
     else if (selectedCompany.taxRegime === "presumido") setTaxRegime("lucro_presumido");
-  }, [selectedCompany]);
+    else if (selectedCompany.taxRegime === "manual") {
+      setTaxRegime("manual");
+      if (selectedCompany.taxRate != null) setManualRate(String(selectedCompany.taxRate));
+    }
+  }, [selectedCompany, selectedCompanyId]);
 
   const fetchRate = useCallback(async (from: string) => {
     setLoadingRate(true);
@@ -137,19 +164,23 @@ export function SalaryOptimizer() {
 
   const numAmount = Math.max(0, Number(amount) || 0);
 
+  const manualRateValue = Math.max(0, Number(manualRate) || 0);
+  const usesManualRate = taxRegime === "manual" || isManualCompany;
+
   const rows = useMemo(() => {
     if (!marketRate || numAmount <= 0) return [];
+    const effectiveRegime = usesManualRate ? "manual" : taxRegime;
     return INSTITUTIONS.map((inst) => {
       const effectiveRate = marketRate * (1 - inst.spread / 100);
       const brlBeforeIof = numAmount * effectiveRate - inst.fixedFee;
       const iofCost = brlBeforeIof * IOF_RATE;
       const brlAfterIof = brlBeforeIof - iofCost;
-      const tax = calcTax(brlAfterIof, taxRegime);
+      const tax = calcTax(brlAfterIof, effectiveRegime, manualRateValue);
       const netBrl = brlAfterIof - tax;
       const netRate = numAmount > 0 ? netBrl / numAmount : 0;
       return { ...inst, effectiveRate, brlAfterIof, iofCost, tax, netBrl, netRate };
     }).sort((a, b) => b.netBrl - a.netBrl);
-  }, [marketRate, numAmount, taxRegime]);
+  }, [marketRate, numAmount, taxRegime, usesManualRate, manualRateValue]);
 
   const best = rows[0] ?? null;
 
@@ -172,15 +203,16 @@ export function SalaryOptimizer() {
         <CardContent className="pt-4 space-y-4">
           {/* Company picker */}
           <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1">
-              <Label>Empresa PJ</Label>
-              <div className="w-72">
-                <Select
-                  options={loadingCompanies ? [{ value: "manual", label: "Carregando…" }] : companyOptions}
-                  value={selectedCompanyId}
-                  onChange={setSelectedCompanyId}
-                />
-              </div>
+            <div className="w-80">
+              <CompanyPicker
+                label="Empresa PJ"
+                companies={companies}
+                loading={loadingCompanies}
+                valueId={selectedCompanyId}
+                onSelect={(company) =>
+                  setSelectedCompanyId(company?.id ?? MANUAL_COMPANY_ID)
+                }
+              />
             </div>
             {selectedCompany && (
               <div className="pb-1">
@@ -213,11 +245,28 @@ export function SalaryOptimizer() {
             <div className="space-y-1">
               <Label>Regime tributário PJ</Label>
               <div className="w-64">
-                <Select options={TAX_REGIME_OPTIONS} value={taxRegime} onChange={setTaxRegime} />
+                <Select
+                  options={TAX_REGIME_OPTIONS}
+                  value={isManualCompany ? "manual" : taxRegime}
+                  onChange={setTaxRegime}
+                  disabled={isManualCompany}
+                />
               </div>
             </div>
+            {(taxRegime === "manual" || isManualCompany) && (
+              <div className="space-y-1">
+                <Label>Alíquota manual (%)</Label>
+                <div className="w-28">
+                  <NumberInput
+                    value={manualRate}
+                    onChange={(e) => setManualRate(e.target.value)}
+                    placeholder="Ex.: 15"
+                  />
+                </div>
+              </div>
+            )}
             {loadingRate ? (
-              <p className="mb-1 text-xs text-zinc-400">Buscando cotação…</p>
+              <Skeleton className="mb-1 h-3 w-56" />
             ) : marketRate ? (
               <p className="mb-1 text-xs text-zinc-500">
                 Cotação mercado: 1 {currency} = {marketRate.toFixed(4)} BRL
@@ -247,7 +296,9 @@ export function SalaryOptimizer() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
-                Comparativo de instituições — regime: {taxLabel(taxRegime)}
+                Comparativo de instituições — regime:{" "}
+                {taxLabel(usesManualRate ? "manual" : taxRegime)}
+                {usesManualRate && manualRateValue > 0 ? ` (${manualRateValue.toFixed(1)}%)` : ""}
               </CardTitle>
               <p className="text-xs text-zinc-500">Ordenado do maior líquido ao menor.</p>
             </CardHeader>

@@ -9,10 +9,21 @@ import { Input, NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LineChart, type ChartSeries } from "@/components/ui/chart";
 import { Modal } from "@/components/ui/modal";
+import { InvestmentPlansSkeleton } from "@/components/ui/panel-skeleton";
 import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
-import { IconPlus, IconTarget } from "@/components/ui/icons";
+import {
+  IconCalendar,
+  IconCoins,
+  IconPencil,
+  IconPercent,
+  IconPlus,
+  IconTarget,
+  IconTrash,
+  IconTrendUp,
+} from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import { formatMoney } from "@/lib/format-money";
 import {
   compareProfiles,
@@ -65,6 +76,7 @@ export function InvestmentPlansPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -98,6 +110,13 @@ export function InvestmentPlansPanel() {
     });
   }, [selected]);
 
+  function monthToDateLabel(month: number): string {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + month);
+    return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+  }
+
   const chartSeries = useMemo<ChartSeries[]>(() => {
     if (!selected) return [];
     const profileSeries = RISK_PROFILES.map((profile) => ({
@@ -109,7 +128,7 @@ export function InvestmentPlansPanel() {
         horizonMonths: selected.horizonMonths,
         annualRatePercent: profile.annualRatePercent,
       }).map((point) => ({
-        label: `${point.month}m`,
+        label: monthToDateLabel(point.month),
         value: Math.round(point.value),
       })),
     }));
@@ -123,7 +142,7 @@ export function InvestmentPlansPanel() {
         horizonMonths: selected.horizonMonths,
         annualRatePercent: 10.65,
       }).map((point) => ({
-        label: `${point.month}m`,
+        label: monthToDateLabel(point.month),
         value: Math.round(point.value),
       })),
     };
@@ -185,7 +204,14 @@ export function InvestmentPlansPanel() {
   }
 
   async function remove() {
-    if (!editingId || !confirm("Excluir este plano?")) return;
+    if (!editingId) return;
+    const ok = await confirm({
+      title: "Excluir plano",
+      message: "Excluir este plano?",
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const { response, data } = await fetchJson<{ error?: string }>(
@@ -223,7 +249,7 @@ export function InvestmentPlansPanel() {
       ) : null}
 
       {loading ? (
-        <p className="py-8 text-center text-sm text-zinc-500">Carregando planos…</p>
+        <InvestmentPlansSkeleton />
       ) : plans.length === 0 ? (
         <EmptyState
           icon={<IconTarget className="h-10 w-10 text-zinc-400" />}
@@ -256,29 +282,74 @@ export function InvestmentPlansPanel() {
 
           {selected ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="success">{riskProfileMeta(selected.riskProfile).label}</Badge>
-                <span className="text-sm text-zinc-500">
-                  {formatMoney(selected.initialAmount, { currency })} inicial +{" "}
-                  {formatMoney(selected.monthlyDeposit, { currency })}/mês ·{" "}
-                  {selected.horizonMonths} meses
-                  {selected.targetAmount
-                    ? ` · meta ${formatMoney(selected.targetAmount, { currency })}`
-                    : ""}
-                </span>
+              {/* Plan summary mini-cards */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+                    <IconCoins size="sm" className="shrink-0 text-zinc-400" />
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Inicial</p>
+                      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                        {formatMoney(selected.initialAmount, { currency })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+                    <IconTrendUp size="sm" className="shrink-0 text-zinc-400" />
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Mensal</p>
+                      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                        {formatMoney(selected.monthlyDeposit, { currency })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+                    <IconCalendar size="sm" className="shrink-0 text-zinc-400" />
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Prazo</p>
+                      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                        {selected.horizonMonths >= 12
+                          ? `${Math.floor(selected.horizonMonths / 12)}a ${selected.horizonMonths % 12}m`
+                          : `${selected.horizonMonths}m`}
+                      </p>
+                    </div>
+                  </div>
+                  {selected.targetAmount ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+                      <IconTarget size="sm" className="shrink-0 text-emerald-500" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-500">Meta</p>
+                        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                          {formatMoney(selected.targetAmount, { currency })}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+                      <IconPercent size="sm" className="shrink-0 text-zinc-400" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Perfil</p>
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                          {riskProfileMeta(selected.riskProfile).label}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   onClick={() => startEdit(selected)}
                 >
-                  Editar
+                  <IconPencil size="xs" /> Editar plano
                 </Button>
               </div>
 
+              {/* Growth chart */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Projeção por perfil</CardTitle>
+                  <CardTitle className="text-base">Crescimento projetado por perfil</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <LineChart
@@ -290,9 +361,13 @@ export function InvestmentPlansPanel() {
                 </CardContent>
               </Card>
 
+              {/* Comparison cards */}
               <div className="grid gap-3 lg:grid-cols-3">
                 {comparison.map((item) => {
                   const isCurrent = item.profile === selected.riskProfile;
+                  const returnPct = item.totalDeposited > 0
+                    ? (((item.finalValue - item.totalDeposited) / item.totalDeposited) * 100).toFixed(0)
+                    : null;
                   return (
                     <Card
                       key={item.profile}
@@ -300,62 +375,55 @@ export function InvestmentPlansPanel() {
                         isCurrent ? "border-emerald-500/50 dark:border-emerald-700/60" : undefined
                       }
                     >
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                          {item.label}
-                          {isCurrent ? (
-                            <Badge variant="success" className="text-[10px]">
-                              Seu perfil
-                            </Badge>
-                          ) : null}
-                        </CardTitle>
-                        <p className="text-xs text-zinc-500">{item.description}</p>
-                      </CardHeader>
-                      <CardContent className="space-y-2 pt-0">
-                        <div>
-                          <p className="text-xs text-zinc-500">
-                            Em {selected.horizonMonths} meses (~{item.annualRatePercent}% a.a.)
-                          </p>
-                          <Money value={item.finalValue} currency={currency} size="lg" />
-                        </div>
-                        <p className="text-xs text-zinc-500">
-                          Aportado: {formatMoney(item.totalDeposited, { currency })} ·
-                          rendimento:{" "}
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                            {formatMoney(item.earnings, { currency })}
+                      <CardContent className="pt-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                            {item.label}
                           </span>
-                        </p>
-                        {item.totalDeposited > 0 ? (
-                          <p className="text-xs text-zinc-400">
-                            Retorno total:{" "}
-                            <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                              {(((item.finalValue - item.totalDeposited) / item.totalDeposited) * 100).toFixed(0)}%
-                            </span>
-                            {" · "}
-                            Real (−5,5% IPCA a.a.):{" "}
-                            <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                              {(item.annualRatePercent - 5.5).toFixed(1)}% a.a.
-                            </span>
-                          </p>
-                        ) : null}
-                        {selected.targetAmount ? (
-                          <p className="text-xs">
-                            {item.monthsToTarget !== null ? (
-                              <>
-                                Meta em{" "}
-                                <span className="font-medium">
-                                  {item.monthsToTarget} meses
-                                </span>{" "}
-                                ({Math.floor(item.monthsToTarget / 12)}a{" "}
-                                {item.monthsToTarget % 12}m)
-                              </>
-                            ) : (
-                              <span className="text-zinc-500">
-                                Meta não atingida em 50 anos
-                              </span>
-                            )}
-                          </p>
-                        ) : null}
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px]">
+                              ~{item.annualRatePercent}% a.a.
+                            </Badge>
+                            {isCurrent ? (
+                              <Badge variant="success" className="text-[10px]">
+                                Atual
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <Money value={item.finalValue} currency={currency} size="lg" />
+
+                        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                          <div>
+                            <p className="text-zinc-400">Aportado</p>
+                            <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                              {formatMoney(item.totalDeposited, { currency })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-400">Rendimento</p>
+                            <p className="font-medium text-emerald-600 dark:text-emerald-400">
+                              +{formatMoney(item.earnings, { currency })}
+                            </p>
+                          </div>
+                          {returnPct !== null ? (
+                            <div>
+                              <p className="text-zinc-400">Retorno total</p>
+                              <p className="font-medium text-zinc-700 dark:text-zinc-300">{returnPct}%</p>
+                            </div>
+                          ) : null}
+                          {selected.targetAmount ? (
+                            <div>
+                              <p className="text-zinc-400">Meta</p>
+                              <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                                {item.monthsToTarget !== null
+                                  ? `${item.monthsToTarget}m`
+                                  : "Não atingida"}
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -389,6 +457,7 @@ export function InvestmentPlansPanel() {
                 onClick={() => void remove()}
                 disabled={saving}
               >
+                <IconTrash size="sm" />
                 Excluir
               </Button>
             ) : null}
@@ -473,6 +542,7 @@ export function InvestmentPlansPanel() {
           </div>
         </div>
       </Modal>
+      {dialog}
     </div>
   );
 }

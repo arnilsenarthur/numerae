@@ -958,7 +958,9 @@ function DonutChartView({
 
   const arcs = segments.map((segment, index) => {
     const start = roundSvg(cursor);
-    const sweep = roundSvg((segment.value / total) * 360);
+    // Um arco SVG de exatamente 360° tem início e fim no mesmo ponto e não
+    // renderiza; limitamos a 359.96° para fatias de ~100% aparecerem.
+    const sweep = Math.min(roundSvg((segment.value / total) * 360), 359.96);
     const mid = start + sweep / 2;
     cursor += sweep;
     const anchor = polarToCartesian(cx, cy, radius + 1.5, mid);
@@ -988,7 +990,11 @@ function DonutChartView({
 
   return (
     <ChartFrame
-      className={cn("flex items-center gap-4 overflow-visible", className)}
+      className={cn(
+        "max-w-full min-w-0 overflow-hidden",
+        "flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4",
+        className,
+      )}
       animate={animateKey === undefined}
     >
       <div
@@ -1034,8 +1040,10 @@ function DonutChartView({
           {arcs.map((segment) => {
             const isActive = active === segment.label;
             const isDimmed = active !== null && !isActive;
-            const strokeClass =
-              segment.color ?? palette.donutStroke[segment.index % palette.donutStroke.length];
+            const isHexColor = segment.color?.startsWith("#");
+            const strokeClass = isHexColor
+              ? undefined
+              : (segment.color ?? palette.donutStroke[segment.index % palette.donutStroke.length]);
 
             return (
               <path
@@ -1050,7 +1058,10 @@ function DonutChartView({
                   isActive && "brightness-125",
                 )}
                 strokeWidth={isActive ? STROKE.donut + 1 : STROKE.donut}
-                style={{ animationDelay: `${segment.index * 80}ms` }}
+                style={{
+                  animationDelay: `${segment.index * 80}ms`,
+                  ...(isHexColor ? { stroke: segment.color } : null),
+                }}
                 onMouseEnter={() => setActive(segment.label)}
               />
             );
@@ -1058,15 +1069,16 @@ function DonutChartView({
         </svg>
       </div>
 
-      <ul className="min-w-0 flex-1 space-y-1.5 text-xs">
+      <ul className="w-full min-w-0 flex-1 space-y-1.5 text-xs">
         {arcs.map((segment) => {
           const isActive = active === segment.label;
+          const isHexColor = segment.color?.startsWith("#");
 
           return (
             <li
               key={segment.label}
               className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 transition-colors",
+                "flex cursor-pointer flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md px-1 py-0.5 transition-colors",
                 isActive && "bg-zinc-100 dark:bg-zinc-900",
                 active !== null && !isActive && "opacity-50",
               )}
@@ -1076,15 +1088,29 @@ function DonutChartView({
               }}
               onMouseLeave={() => setActive(null)}
             >
-              <span
-                className={cn(
-                  "h-2 w-2 shrink-0 rounded-full",
-                  palette.donutDot[segment.index % palette.donutDot.length],
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-full",
+                    !isHexColor && palette.donutDot[segment.index % palette.donutDot.length],
+                  )}
+                  style={isHexColor ? { backgroundColor: segment.color } : undefined}
+                />
+                <span className="break-words text-zinc-500">{segment.label}</span>
+              </span>
+              <span className="flex min-w-0 basis-full flex-wrap items-baseline gap-x-1.5 gap-y-0.5 pl-4 tabular-nums text-zinc-700 sm:ml-auto sm:basis-auto sm:flex-nowrap sm:pl-0 dark:text-zinc-300">
+                {formatValue ? (
+                  <>
+                    <span className="max-w-full break-all font-medium sm:break-normal">
+                      {formatValue(segment.value, segment.label)}
+                    </span>
+                    <span className="text-zinc-400">
+                      {Math.round((segment.value / total) * 100)}%
+                    </span>
+                  </>
+                ) : (
+                  `${Math.round((segment.value / total) * 100)}%`
                 )}
-              />
-              <span className="truncate text-zinc-500">{segment.label}</span>
-              <span className="ml-auto tabular-nums text-zinc-700 dark:text-zinc-300">
-                {Math.round((segment.value / total) * 100)}%
               </span>
             </li>
           );

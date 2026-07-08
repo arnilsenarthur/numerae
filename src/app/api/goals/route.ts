@@ -1,26 +1,30 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { serializeGoal } from "@/lib/goal-serializer";
-import { createGoalSchema } from "@/lib/validators-goal";
 
-export async function GET(request: Request) {
+const createGoalSchema = z.object({
+  title: z.string().min(1, "Título obrigatório.").max(100),
+  targetAmount: z.number().positive("Valor alvo deve ser positivo."),
+  currentAmount: z.number().min(0).optional().default(0),
+  currency: z.string().min(1).max(8).optional().default("BRL"),
+  deadline: z.string().datetime({ offset: true }).nullable().optional(),
+  category: z.string().max(50).optional().default("other"),
+  notes: z.string().max(500).nullable().optional(),
+  icon: z.string().trim().max(32).optional().nullable(),
+});
+
+export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const moneyMapId = searchParams.get("moneyMapId")?.trim();
-
   try {
     const goals = await prisma.financialGoal.findMany({
-      where: {
-        userId: session.user.id,
-        active: true,
-        ...(moneyMapId ? { moneyMapId } : {}),
-      },
-      orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
+      where: { userId: session.user.id },
+      orderBy: [{ achieved: "asc" }, { deadline: "asc" }, { createdAt: "desc" }],
     });
 
     return NextResponse.json({ goals: goals.map(serializeGoal) });
@@ -47,29 +51,21 @@ export async function POST(request: Request) {
       );
     }
 
-    if (parsed.data.moneyMapId) {
-      const map = await prisma.moneyMap.findFirst({
-        where: { id: parsed.data.moneyMapId, userId: session.user.id },
-      });
-      if (!map) {
-        return NextResponse.json({ error: "Plano não encontrado." }, { status: 404 });
-      }
-    }
-
     const record = await prisma.financialGoal.create({
       data: {
         userId: session.user.id,
         title: parsed.data.title,
         targetAmount: parsed.data.targetAmount,
-        currentAmount: parsed.data.currentAmount ?? 0,
+        currentAmount: parsed.data.currentAmount,
         currency: parsed.data.currency,
         deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : null,
         category: parsed.data.category,
-        moneyMapId: parsed.data.moneyMapId ?? null,
+        notes: parsed.data.notes ?? null,
+        icon: parsed.data.icon ?? null,
       },
     });
 
-    return NextResponse.json({ goal: serializeGoal(record) });
+    return NextResponse.json({ goal: serializeGoal(record) }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/goals]", error);
     return NextResponse.json({ error: "Erro ao criar meta." }, { status: 500 });

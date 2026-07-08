@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
 import { ReactNode } from "react";
-import { Money } from "@/components/ui/money";
+import { Money, type MoneyTone } from "@/components/ui/money";
 
 type StatCardProps = {
   label: string;
   value: number;
   currency?: string;
+  valueTone?: MoneyTone;
   trend?: number;
   trendLabel?: string;
   icon?: ReactNode;
@@ -17,6 +18,7 @@ export function StatCard({
   label,
   value,
   currency,
+  valueTone = "auto",
   trend,
   trendLabel,
   icon,
@@ -36,7 +38,7 @@ export function StatCard({
         <div className="min-w-0">
           <p className="text-xs font-medium text-zinc-500">{label}</p>
           <div className="mt-1">
-            <Money value={value} currency={currency} size="lg" />
+            <Money value={value} currency={currency} size="lg" tone={valueTone} />
           </div>
         </div>
         {icon ? (

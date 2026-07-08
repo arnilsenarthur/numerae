@@ -76,6 +76,19 @@ export const validationRules = {
       message,
     } satisfies ValidationRule;
   },
+  positiveAmount(message = "Informe um valor maior que zero.") {
+    return {
+      id: "positiveAmount",
+      test: (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return false;
+        const normalized = trimmed.replace(/\./g, "").replace(",", ".");
+        const num = Number(normalized);
+        return Number.isFinite(num) && num > 0;
+      },
+      message,
+    } satisfies ValidationRule;
+  },
 };
 
 export function runValidation(

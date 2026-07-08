@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { SmartTable, SmartTableModalFields, type SmartTableColumn } from "@/components/ui/smart-table";
-import { IconX } from "@/components/ui/icons";
+import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { SerializedCountry } from "@/lib/catalog-serializer";
 import { getCountryFlagUrl, getCountryFlagSrcSet } from "@/lib/country-flags";
 
@@ -39,6 +40,7 @@ export function CountriesAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,7 +130,14 @@ export function CountriesAdmin() {
   }
 
   async function remove() {
-    if (!editingCode || !confirm("Excluir este país?")) return;
+    if (!editingCode) return;
+    const ok = await confirm({
+      title: "Excluir país",
+      message: "Excluir este país?",
+      confirmLabel: "Excluir",
+      tone: "error",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const { response, data } = await fetchJson<{ error?: string }>(
@@ -281,7 +290,7 @@ export function CountriesAdmin() {
             </Button>
             {!isCreating && canDelete ? (
               <Button type="button" variant="danger" onClick={() => void remove()} disabled={saving}>
-                <IconX size="sm" />
+                <IconTrash size="sm" />
                 Excluir
               </Button>
             ) : null}
@@ -313,6 +322,7 @@ export function CountriesAdmin() {
           saving={saving}
         />
       </Modal>
+      {dialog}
     </div>
   );
 }
