@@ -18,10 +18,6 @@ export const metadata: Metadata = {
   description:
     "Organize suas finanças, metas e orçamentos com clareza e segurança.",
   metadataBase: new URL("https://numerae.vercel.app"),
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
 };
 
 export default function RootLayout({
