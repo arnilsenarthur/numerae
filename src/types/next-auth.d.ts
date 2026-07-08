@@ -21,5 +21,6 @@ declare module "next-auth/jwt" {
     id?: string;
     role?: UserRole;
     active?: boolean;
+    error?: "SessionExpired";
   }
 }

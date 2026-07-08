@@ -124,6 +124,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ account: serializeAccount(record) });
   } catch (error) {
     console.error("[POST /api/accounts]", error);
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2003"
+    ) {
+      return NextResponse.json(
+        { error: "Sessão inválida. Faça logout e entre novamente." },
+        { status: 401 },
+      );
+    }
     return NextResponse.json({ error: "Erro ao criar conta." }, { status: 500 });
   }
 }

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth;
+  const isLoggedIn = Boolean(req.auth?.user?.id);
   const { pathname } = req.nextUrl;
 
   const isAuthRoute =
@@ -15,6 +15,9 @@ export default auth((req) => {
 
   const isProtected =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/finance") ||
+    pathname.startsWith("/investments") ||
+    pathname.startsWith("/companies") ||
     pathname.startsWith("/money-map") ||
     pathname.startsWith("/calculator") ||
     pathname.startsWith("/design-system") ||
@@ -27,7 +30,7 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/finance", req.url));
   }
 
   return NextResponse.next();
@@ -36,6 +39,9 @@ export default auth((req) => {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/finance/:path*",
+    "/investments/:path*",
+    "/companies/:path*",
     "/money-map/:path*",
     "/calculator",
     "/design-system",
