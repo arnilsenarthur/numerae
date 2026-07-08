@@ -11,7 +11,7 @@ type SendResult =
   | { sent: true }
   | { sent: false; error: string; code?: "domain_not_verified" | "not_configured" };
 
-function mapResendError(error: { message?: string; name?: string; statusCode?: number }): SendResult {
+function mapResendError(error: { message?: string | null; name?: string; statusCode?: number | null }): SendResult {
   const message = error.message ?? "";
 
   if (
