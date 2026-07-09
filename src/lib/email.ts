@@ -1,20 +1,80 @@
+import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { SITE_NAME } from "@/lib/site";
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
-
-const EMAIL_MODE = (process.env.EMAIL_MODE ?? "test").trim().toLowerCase();
-const isEmailTestMode = EMAIL_MODE !== "production";
-
-const fromAddress = isEmailTestMode
-  ? "Numerae <onboarding@resend.dev>"
-  : process.env.EMAIL_FROM ?? "Numerae <onboarding@resend.dev>";
 
 type SendResult =
   | { sent: true }
   | { sent: false; error: string; code?: "domain_not_verified" | "not_configured" };
+
+type EmailTemplateOptions = {
+  heading: string;
+  paragraphs: string[];
+  code: string;
+  codeLabel: string;
+  footer: string;
+};
+
+const smtpUser = process.env.SMTP_USER?.trim();
+const smtpPass = process.env.SMTP_PASS?.trim();
+const emailFrom = process.env.EMAIL_FROM?.trim();
+
+function resolveSmtpHost(user: string | undefined): string {
+  const explicit = process.env.SMTP_HOST?.trim();
+  if (explicit) return explicit;
+
+  const domain = user?.split("@")[1]?.toLowerCase() ?? "";
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    return "smtp.gmail.com";
+  }
+  if (
+    domain === "outlook.com" ||
+    domain === "outlook.com.br" ||
+    domain === "hotmail.com" ||
+    domain === "hotmail.com.br" ||
+    domain === "live.com" ||
+    domain === "msn.com"
+  ) {
+    return "smtp-mail.outlook.com";
+  }
+
+  return "smtp.gmail.com";
+}
+
+const smtpHost = resolveSmtpHost(smtpUser);
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
+
+const useSmtp = Boolean(smtpUser && smtpPass);
+const resend = !useSmtp && process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
+const EMAIL_MODE = (process.env.EMAIL_MODE ?? "test").trim().toLowerCase();
+const isResendTestMode = EMAIL_MODE !== "production";
+
+const resendFromAddress = isResendTestMode
+  ? "Numerae <onboarding@resend.dev>"
+  : emailFrom && !emailFrom.includes("resend.dev")
+    ? emailFrom
+    : null;
+
+const smtpFromAddress = emailFrom ?? (smtpUser ? `Numerae <${smtpUser}>` : null);
+
+const smtpTransport = useSmtp
+  ? nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser!, pass: smtpPass! },
+      // Outlook/Hotmail exige STARTTLS na porta 587.
+      requireTLS: smtpPort === 587,
+    })
+  : null;
+
+if (!useSmtp && !resend) {
+  console.warn(
+    "[Numerae] E-mail não configurado. Defina SMTP_USER/SMTP_PASS (Gmail) ou RESEND_API_KEY.",
+  );
+}
 
 function mapResendError(
   error: { message?: string | null; name?: string; statusCode?: number | null },
@@ -31,7 +91,7 @@ function mapResendError(
         sent: false,
         code: "domain_not_verified",
         error:
-          "Modo teste do Resend ativo. Envie para um e-mail autorizado na conta Resend ou use uma chave de produção quando precisar liberar para todos.",
+          "Modo teste do Resend ativo. Configure SMTP (Outlook/Gmail) ou verifique um domínio no Resend.",
       };
     }
 
@@ -39,7 +99,7 @@ function mapResendError(
       sent: false,
       code: "domain_not_verified",
       error:
-        "Envio em produção bloqueado no Resend. Verifique um domínio e configure EMAIL_FROM com esse domínio autenticado.",
+        "Envio bloqueado no Resend. Verifique um domínio ou use SMTP (Outlook/Gmail).",
     };
   }
 
@@ -48,14 +108,6 @@ function mapResendError(
     error: "Não foi possível enviar o e-mail. Tente novamente em instantes.",
   };
 }
-
-type EmailTemplateOptions = {
-  heading: string;
-  paragraphs: string[];
-  code: string;
-  codeLabel: string;
-  footer: string;
-};
 
 function buildEmailHtml({
   heading,
@@ -96,10 +148,34 @@ function buildEmailHtml({
   `;
 }
 
-export async function sendVerificationCode(
-  email: string,
-  code: string,
-): Promise<SendResult> {
+async function sendEmail(to: string, subject: string, html: string): Promise<SendResult> {
+  if (useSmtp) {
+    if (!smtpFromAddress) {
+      return {
+        sent: false,
+        code: "not_configured",
+        error: "Defina EMAIL_FROM ou SMTP_USER para envio por SMTP.",
+      };
+    }
+
+    try {
+      await smtpTransport!.sendMail({
+        from: smtpFromAddress,
+        to,
+        subject,
+        html,
+      });
+      return { sent: true };
+    } catch (error) {
+      console.error("[Numerae] Erro ao enviar e-mail via SMTP:", error);
+      const message =
+        error instanceof Error && /auth|credentials|535|534/i.test(error.message)
+          ? "Falha na autenticação SMTP. Use uma senha de app do Gmail (não a senha normal da conta)."
+          : "Não foi possível enviar o e-mail. Verifique as credenciais SMTP.";
+      return { sent: false, error: message };
+    }
+  }
+
   if (!resend) {
     return {
       sent: false,
@@ -108,70 +184,68 @@ export async function sendVerificationCode(
     };
   }
 
-  const subject = `Confirme seu e-mail — ${SITE_NAME}`;
-  const html = buildEmailHtml({
-    heading: "Bem-vindo ao Numerae",
-    paragraphs: [
-      "Obrigado por criar sua conta. Antes de acessar o painel, precisamos confirmar que este endereço de e-mail é seu.",
-      "Digite o código abaixo na tela de verificação. Depois disso você poderá entrar, cadastrar contas, registrar lançamentos e acompanhar suas metas.",
-    ],
-    codeLabel: "Código de verificação",
-    code,
-    footer:
-      "Este código expira em 15 minutos. Se você não solicitou o cadastro, pode ignorar este e-mail com segurança.",
-  });
+  if (!resendFromAddress) {
+    return {
+      sent: false,
+      code: "not_configured",
+      error:
+        "E-mail Resend em produção não configurado. Defina EMAIL_FROM com domínio verificado ou use SMTP.",
+    };
+  }
 
   const { error } = await resend.emails.send({
-    from: fromAddress,
-    to: email,
+    from: resendFromAddress,
+    to,
     subject,
     html,
   });
 
   if (error) {
     console.error("[Numerae] Erro ao enviar e-mail:", error);
-    return mapResendError(error, { testMode: isEmailTestMode });
+    return mapResendError(error, { testMode: isResendTestMode });
   }
 
   return { sent: true };
+}
+
+export async function sendVerificationCode(
+  email: string,
+  code: string,
+): Promise<SendResult> {
+  return sendEmail(
+    email,
+    `Confirme seu e-mail — ${SITE_NAME}`,
+    buildEmailHtml({
+      heading: "Bem-vindo ao Numerae",
+      paragraphs: [
+        "Obrigado por criar sua conta. Antes de acessar o painel, precisamos confirmar que este endereço de e-mail é seu.",
+        "Digite o código abaixo na tela de verificação. Depois disso você poderá entrar, cadastrar contas, registrar lançamentos e acompanhar suas metas.",
+      ],
+      codeLabel: "Código de verificação",
+      code,
+      footer:
+        "Este código expira em 15 minutos. Se você não solicitou o cadastro, pode ignorar este e-mail com segurança.",
+    }),
+  );
 }
 
 export async function sendPasswordResetCode(
   email: string,
   code: string,
 ): Promise<SendResult> {
-  if (!resend) {
-    return {
-      sent: false,
-      code: "not_configured",
-      error: "Serviço de e-mail não configurado.",
-    };
-  }
-
-  const subject = `Redefinir senha — ${SITE_NAME}`;
-  const html = buildEmailHtml({
-    heading: "Redefinição de senha",
-    paragraphs: [
-      "Recebemos um pedido para alterar a senha da sua conta no Numerae.",
-      "Use o código abaixo na página de redefinição. Ao concluir, faça login com a nova senha para voltar ao painel.",
-    ],
-    codeLabel: "Código de redefinição",
-    code,
-    footer:
-      "Este código expira em 15 minutos. Se você não pediu para redefinir a senha, ignore este e-mail — sua conta permanece protegida.",
-  });
-
-  const { error } = await resend.emails.send({
-    from: fromAddress,
-    to: email,
-    subject,
-    html,
-  });
-
-  if (error) {
-    console.error("[Numerae] Erro ao enviar e-mail de redefinição:", error);
-    return mapResendError(error, { testMode: isEmailTestMode });
-  }
-
-  return { sent: true };
+  return sendEmail(
+    email,
+    `Redefinir senha — ${SITE_NAME}`,
+    buildEmailHtml({
+      heading: "Redefinição de senha",
+      paragraphs: [
+        "Recebemos um pedido para alterar a senha da sua conta no Numerae.",
+        "Use o código abaixo na página de redefinição. Ao concluir, faça login com a nova senha para voltar ao painel.",
+      ],
+      codeLabel: "Código de redefinição",
+      code,
+      footer:
+        "Este código expira em 15 minutos. Se você não pediu para redefinir a senha, ignore este e-mail — sua conta permanece protegida.",
+    }),
+  );
 }

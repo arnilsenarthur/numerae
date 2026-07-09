@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -18,6 +18,7 @@ import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
 import { IconPencil, IconPlus, IconRepeat, IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { validateFormFields } from "@/lib/form-validation";
 import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
 import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -103,6 +104,7 @@ export function FinanceRecurring({
   const [records, setRecords] = useState<SerializedRecurring[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const modalFormRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<RecurringForm>(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -213,9 +215,7 @@ export function FinanceRecurring({
   }
 
   async function save() {
-    amountField.markSubmitted();
-    descriptionField.markSubmitted();
-    if (!amountField.isValid || !descriptionField.isValid) return;
+    if (!validateFormFields([amountField, descriptionField], modalFormRef.current)) return;
 
     setSaving(true);
     setFormError(null);
@@ -440,7 +440,7 @@ export function FinanceRecurring({
         }
       >
         {formError ? <Alert variant="error">{formError}</Alert> : null}
-        <div className="space-y-3">
+        <div ref={modalFormRef} className="space-y-3">
           <Field
             label="Descrição"
             message={descriptionField.validation.message}

@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { IconChevronDown, IconSearch } from "@/components/ui/icons";
+import { Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -32,6 +32,8 @@ export type DataTableProps<T> = {
   columns: DataTableColumn<T>[];
   getRowKey: (row: T) => string;
   pageSize?: number;
+  /** `stack` renders rows as a vertical list (e.g. cards) instead of a table. */
+  layout?: "table" | "stack";
   searchable?: boolean;
   searchPlaceholder?: string;
   searchFilter?: (row: T, query: string) => boolean;
@@ -58,6 +60,7 @@ export function DataTable<T>({
   columns,
   getRowKey,
   pageSize = 5,
+  layout = "table",
   searchable = true,
   searchPlaceholder = "Filtrar…",
   searchFilter,
@@ -153,7 +156,26 @@ export function DataTable<T>({
         </div>
       ) : null}
 
-      <Table>
+      {layout === "stack" ? (
+        <div className="space-y-3">
+          {pageRows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-zinc-500">{emptyMessage}</p>
+          ) : (
+            pageRows.map((row) => (
+              <div
+                key={getRowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={cn(onRowClick && "cursor-pointer")}
+              >
+                {columns.map((column) => (
+                  <div key={column.id}>{column.cell(row)}</div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <Table>
         <TableHeader>
           <TableRow>
             {columns.map((column) => {
@@ -173,20 +195,33 @@ export function DataTable<T>({
                     <button
                       type="button"
                       onClick={() => toggleSort(column.id)}
+                      title={active ? "Inverter ordenação" : "Ordenar coluna"}
                       className={cn(
-                        "inline-flex items-center gap-1 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200",
-                        active && "text-zinc-800 dark:text-zinc-200",
+                        "group -mx-1 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors",
+                        "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+                        active
+                          ? "font-semibold text-emerald-700 dark:text-emerald-400"
+                          : "font-medium text-zinc-600 dark:text-zinc-300",
                       )}
                     >
                       {column.header}
-                      <IconChevronDown
-                        size="xs"
+                      <span
                         className={cn(
-                          "transition-transform",
-                          active && sortDirection === "desc" && "rotate-180",
-                          !active && "opacity-40",
+                          "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                          active
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-500 group-hover:border-zinc-300 group-hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:group-hover:border-zinc-600 dark:group-hover:text-zinc-200",
                         )}
-                      />
+                        aria-hidden
+                      >
+                        <IconChevronDown
+                          size="xs"
+                          className={cn(
+                            "transition-transform",
+                            active && sortDirection === "desc" && "rotate-180",
+                          )}
+                        />
+                      </span>
                     </button>
                   ) : (
                     column.header
@@ -227,34 +262,15 @@ export function DataTable<T>({
           )}
         </TableBody>
       </Table>
+      )}
 
-      {sorted.length > pageSize ? (
-        <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
-          <span>
-            {sorted.length === 0
-              ? "0 resultados"
-              : `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, sorted.length)} de ${sorted.length}`}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={currentPage === 0}
-              onClick={() => setPage((value) => Math.max(0, value - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={currentPage >= totalPages - 1}
-              onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        totalItems={sorted.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

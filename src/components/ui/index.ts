@@ -145,6 +145,7 @@ export { Loader, LoaderOverlay, Spinner } from "./loader";
 export { Modal } from "./modal";
 export { Money } from "./money";
 export { OtpInput } from "./otp-input";
+export { Pagination, getPaginationRange, type PaginationProps } from "./pagination";
 export { Progress, StackedProgress, type ProgressFill } from "./progress";
 export { CompanyPicker, MANUAL_COMPANY_ID } from "./company-picker";
 export { RegistryPicker, type RegistryPickerItem, type RegistryPickerSpecialOption } from "./registry-picker";

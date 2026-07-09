@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -17,6 +17,7 @@ import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
 import { IconPencil, IconPlus, IconReceipt, IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { validateFormFields } from "@/lib/form-validation";
 import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
 import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -79,6 +80,7 @@ export function FinanceTransactions({
   openCreateTrigger?: { seq: number; kind: "INCOME" | "EXPENSE" | "TRANSFER" } | null;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const modalFormRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<TransactionForm>(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -168,9 +170,7 @@ export function FinanceTransactions({
   }
 
   async function save() {
-    amountField.markSubmitted();
-    descriptionField.markSubmitted();
-    if (!amountField.isValid || !descriptionField.isValid) return;
+    if (!validateFormFields([amountField, descriptionField], modalFormRef.current)) return;
 
     setSaving(true);
     setFormError(null);
@@ -377,7 +377,7 @@ export function FinanceTransactions({
         }
       >
         {formError ? <Alert variant="error">{formError}</Alert> : null}
-        <div className="space-y-3">
+        <div ref={modalFormRef} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>Tipo</Label>

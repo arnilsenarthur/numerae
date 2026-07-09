@@ -19,6 +19,7 @@ import {
   IconPlus,
   IconReceipt,
   IconTarget,
+  IconInfo,
   IconTrendDown,
   IconTrendUp,
   IconWallet,
@@ -49,6 +50,9 @@ import {
 } from "@/types/market";
 import type { SavedCompany } from "@/types/user-company";
 import type { SerializedFinancialGoal } from "@/lib/goal-serializer";
+import type { SerializedTip } from "@/types/tips";
+import { TIP_DISCLAIMER } from "@/lib/tip-of-day";
+import { TipSourceLink } from "@/modules/tips/components/tip-source-link";
 
 function formatDateShort(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -63,17 +67,19 @@ export function DashboardApp() {
   const [transactions, setTransactions] = useState<SerializedTransaction[]>([]);
   const [companies, setCompanies] = useState<SavedCompany[]>([]);
   const [goals, setGoals] = useState<SerializedFinancialGoal[]>([]);
+  const [dailyTip, setDailyTip] = useState<SerializedTip | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [accountsRes, positionsRes, txRes, companiesRes, goalsRes] = await Promise.all([
+      const [accountsRes, positionsRes, txRes, companiesRes, goalsRes, tipRes] = await Promise.all([
         fetchJson<{ accounts?: SerializedAccount[] }>("/api/accounts"),
         fetchJson<{ positions?: SerializedInvestmentPosition[] }>("/api/positions"),
         fetchJson<{ transactions?: SerializedTransaction[] }>("/api/transactions?limit=8"),
         fetchJson<{ companies?: SavedCompany[] }>("/api/companies"),
         fetchJson<{ goals?: SerializedFinancialGoal[] }>("/api/goals"),
+        fetchJson<{ tip?: SerializedTip | null }>("/api/tips/daily"),
       ]);
       if (cancelled) return;
       setLoading(false);
@@ -82,6 +88,7 @@ export function DashboardApp() {
       if (txRes.response.ok) setTransactions(txRes.data?.transactions ?? []);
       if (companiesRes.response.ok) setCompanies(companiesRes.data?.companies ?? []);
       if (goalsRes.response.ok) setGoals(goalsRes.data?.goals ?? []);
+      if (tipRes.response.ok) setDailyTip(tipRes.data?.tip ?? null);
     }
     void load();
     return () => {
@@ -138,6 +145,38 @@ export function DashboardApp() {
           subtitle: "Saldos, investimentos, metas e movimentações em um lugar.",
         }}
       />
+
+      {!loading && dailyTip ? (
+        <Card className="border-sky-200/80 bg-sky-50/60 dark:border-sky-900/60 dark:bg-sky-950/30">
+          <CardContent className="flex gap-2.5 py-3">
+            <IconInfo size="sm" className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" />
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-sky-900 dark:text-sky-100">Dica do dia</p>
+                <Link
+                  href="/dicas"
+                  className="shrink-0 text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                >
+                  Ver todas →
+                </Link>
+              </div>
+              <p className="text-sm leading-snug text-sky-950/90 dark:text-sky-50/90">
+                <span className="font-medium">{dailyTip.author}:</span> &ldquo;{dailyTip.quote}&rdquo;
+              </p>
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <p className="text-xs text-sky-700/60 dark:text-sky-300/60">{TIP_DISCLAIMER}</p>
+                {dailyTip.sourceUrl ? (
+                  <TipSourceLink
+                    url={dailyTip.sourceUrl}
+                    label={dailyTip.sourceLabel}
+                    className="text-xs font-medium text-sky-800 hover:underline dark:text-sky-200"
+                  />
+                ) : null}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {loading ? (
         <DashboardSkeleton />

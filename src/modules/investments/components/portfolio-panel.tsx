@@ -153,6 +153,149 @@ const CATEGORY_ASSET_HINTS: Record<
   },
 };
 
+function splitDetail(text: string) {
+  const dash = text.indexOf(" — ");
+  if (dash !== -1) {
+    return { primary: text.slice(0, dash), secondary: text.slice(dash + 3) };
+  }
+  const match = text.match(/^(.+?)\s*\((.+)\)$/);
+  if (match) {
+    return { primary: match[1]!, secondary: match[2]! };
+  }
+  return { primary: text, secondary: null as string | null };
+}
+
+function CategorySuggestionCard({
+  label,
+  pct,
+  color,
+  monthlyValue,
+  currency,
+  hints,
+  categoryAssets,
+  expanded,
+  onToggle,
+}: {
+  label: string;
+  pct: number;
+  color?: string;
+  monthlyValue: number;
+  currency: string;
+  hints: (typeof CATEGORY_ASSET_HINTS)[string] | null;
+  categoryAssets: SerializedMarketAsset[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Card
+      className={`${cardClickable} ${expanded ? "border-emerald-500/40 ring-1 ring-emerald-400/20" : ""}`}
+      onClick={onToggle}
+    >
+      <CardHeader className="space-y-1.5 pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <div
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: color ?? "#a1a1aa" }}
+            />
+            <span className="truncate text-sm font-medium">{label}</span>
+          </div>
+          <span className="shrink-0 text-sm font-semibold tabular-nums">{pct}%</span>
+        </div>
+        {monthlyValue > 0 ? (
+          <p className="text-sm text-zinc-500">
+            <Money value={monthlyValue} currency={currency} />
+            <span className="text-zinc-400"> / mês</span>
+          </p>
+        ) : null}
+      </CardHeader>
+
+      {expanded ? (
+        <CardContent className="space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+          {hints?.benchmark ? (
+            <p className="text-sm text-zinc-500">{hints.benchmark}</p>
+          ) : null}
+
+          {categoryAssets.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Cotações</p>
+              <ul className="space-y-2">
+                {categoryAssets.slice(0, 5).map((asset) => (
+                  <li
+                    key={asset.id}
+                    className="flex items-baseline justify-between gap-3 text-sm"
+                  >
+                    <span className="min-w-0 truncate font-medium">{asset.symbol}</span>
+                    <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                      {asset.price !== null ? (
+                        <Money value={asset.price} currency={asset.currencyCode} size="sm" />
+                      ) : (
+                        <span className="text-zinc-400">—</span>
+                      )}
+                      {asset.changePercent !== null ? (
+                        <span
+                          className={
+                            asset.changePercent >= 0 ? "text-emerald-600" : "text-red-600"
+                          }
+                        >
+                          {asset.changePercent >= 0 ? "+" : ""}
+                          {asset.changePercent.toFixed(1)}%
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {hints?.items.length ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Sugestões</p>
+              <ul className="space-y-2">
+                {hints.items.map((hint) => {
+                  const { primary, secondary } = splitDetail(hint);
+                  return (
+                    <li key={hint} className="text-sm leading-snug">
+                      <span className="font-medium">{primary}</span>
+                      {secondary ? (
+                        <span className="text-zinc-500"> · {secondary}</span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          {hints?.institutions?.length ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Corretoras</p>
+              <div className="flex flex-wrap gap-1.5">
+                {hints.institutions.map((inst) => {
+                  const { primary } = splitDetail(inst);
+                  return (
+                    <Badge key={inst} variant="outline" className="font-normal">
+                      {primary}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      ) : (
+        <CardContent className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
+          <span className="inline-flex items-center gap-1 text-sm text-zinc-500">
+            Ver sugestões
+            <IconChevronDown size="xs" className="opacity-60" />
+          </span>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 const PROFILE_OPTIONS = RISK_PROFILES.map((p) => ({
   value: p.value,
   label: `${p.label} (~${p.annualRatePercent}% a.a.)`,
@@ -308,118 +451,20 @@ export function PortfolioPanel() {
           Onde investir em cada categoria
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {allocation.map((item) => {
-            const categoryAssets = assetsForCategory(item.classes);
-            const hints = CATEGORY_ASSET_HINTS[item.label] ?? null;
-            const isExpanded = expanded === item.label;
-            const monthlyValue = (budget * item.pct) / 100;
-
-            return (
-              <Card
-                key={item.label}
-                className={`${cardClickable} ${isExpanded ? "border-emerald-500/50 ring-1 ring-emerald-400/30" : ""}`}
-                onClick={() => setExpanded(isExpanded ? null : item.label)}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-3 w-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: item.color ?? "#a1a1aa" }}
-                      />
-                      <CardTitle className="text-sm leading-tight">{item.label}</CardTitle>
-                    </div>
-                    <Badge variant="default" className="shrink-0 text-[10px]">
-                      {item.pct}%
-                    </Badge>
-                  </div>
-                  {budget > 0 ? (
-                    <p className="text-xs text-zinc-500">
-                      <Money value={monthlyValue} currency={currency} /> / mês
-                    </p>
-                  ) : null}
-                  {hints ? (
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                      Benchmark: {hints.benchmark}
-                    </p>
-                  ) : null}
-                </CardHeader>
-
-                {isExpanded ? (
-                  <CardContent className="pt-0 space-y-3">
-                    {/* Live assets from database */}
-                    {categoryAssets.length > 0 ? (
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-                          Cotações cadastradas
-                        </p>
-                        {categoryAssets.slice(0, 6).map((asset) => (
-                          <div key={asset.id} className="flex items-center justify-between text-xs">
-                            <div>
-                              <span className="font-medium">{asset.symbol}</span>
-                              <span className="ml-1 text-zinc-500 truncate max-w-[100px] inline-block">
-                                {asset.name}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              {asset.price !== null ? (
-                                <Money value={asset.price} currency={asset.currencyCode} size="sm" />
-                              ) : (
-                                <span className="text-zinc-400">—</span>
-                              )}
-                              {asset.changePercent !== null ? (
-                                <span
-                                  className={`ml-1 text-[10px] ${asset.changePercent >= 0 ? "text-emerald-600" : "text-red-600"}`}
-                                >
-                                  {asset.changePercent >= 0 ? "+" : ""}
-                                  {asset.changePercent.toFixed(2)}%
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {/* Curated hints */}
-                    {hints?.items.length ? (
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-                          Sugestões de ativos
-                        </p>
-                        {hints.items.map((hint) => (
-                          <p key={hint} className="text-xs text-zinc-600 dark:text-zinc-400">
-                            • {hint}
-                          </p>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {/* Institution hints */}
-                    {hints?.institutions?.length ? (
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-                          Onde investir
-                        </p>
-                        {hints.institutions.map((inst) => (
-                          <p key={inst} className="text-xs text-zinc-600 dark:text-zinc-400">
-                            → {inst}
-                          </p>
-                        ))}
-                      </div>
-                    ) : null}
-                  </CardContent>
-                ) : (
-                  <CardContent className="pt-0">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-                      Ver sugestões
-                      <IconChevronDown size="xs" />
-                    </span>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
+          {allocation.map((item) => (
+            <CategorySuggestionCard
+              key={item.label}
+              label={item.label}
+              pct={item.pct}
+              color={item.color}
+              monthlyValue={(budget * item.pct) / 100}
+              currency={currency}
+              hints={CATEGORY_ASSET_HINTS[item.label] ?? null}
+              categoryAssets={assetsForCategory(item.classes)}
+              expanded={expanded === item.label}
+              onToggle={() => setExpanded(expanded === item.label ? null : item.label)}
+            />
+          ))}
         </div>
       </div>
 

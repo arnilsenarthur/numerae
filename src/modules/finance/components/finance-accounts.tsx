@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { InstitutionAvatar } from "@/lib/institution-visual";
 import { IconPencil, IconPlus, IconTrash, IconWallet } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { validateFormFields } from "@/lib/form-validation";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
   buildInstitutionSelectOptions,
@@ -67,6 +68,7 @@ export function FinanceAccounts({
   openCreateSeq?: number;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const modalFormRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -162,9 +164,7 @@ export function FinanceAccounts({
   }
 
   async function save() {
-    nameField.markSubmitted();
-    balanceField.markSubmitted();
-    if (!nameField.isValid || !balanceField.isValid) return;
+    if (!validateFormFields([nameField, balanceField], modalFormRef.current)) return;
 
     setSaving(true);
     setFormError(null);
@@ -333,7 +333,7 @@ export function FinanceAccounts({
         }
       >
         {formError ? <Alert variant="error">{formError}</Alert> : null}
-        <div className="space-y-3">
+        <div ref={modalFormRef} className="space-y-3">
           <Field
             label="Nome"
             message={nameField.validation.message}

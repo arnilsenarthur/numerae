@@ -23,7 +23,7 @@ export function SignOutButton() {
 
   return (
     <>
-      <Button variant="secondary" className="w-full" onClick={() => void handleSignOut()}>
+      <Button variant="danger" className="w-full" onClick={() => void handleSignOut()}>
         <IconLogout size="sm" />
         Sair
       </Button>

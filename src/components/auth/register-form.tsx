@@ -11,6 +11,7 @@ import { validationRules } from "@/components/ui/field-validation";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { storePendingAuth } from "@/lib/auth-pending";
+import { validateFormFields } from "@/lib/form-validation";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -38,11 +39,7 @@ export function RegisterForm() {
     event.preventDefault();
     setError(null);
 
-    nameField.markSubmitted();
-    emailField.markSubmitted();
-    passwordField.markSubmitted();
-
-    if (!nameField.isValid || !emailField.isValid || !passwordField.isValid) {
+    if (!validateFormFields([nameField, emailField, passwordField], event.currentTarget)) {
       return;
     }
 

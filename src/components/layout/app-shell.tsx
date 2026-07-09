@@ -17,6 +17,7 @@ import {
   IconCoins,
   IconComponents,
   IconExchange,
+  IconInfo,
   IconLayoutDashboard,
   IconPercent,
   IconReceipt,
@@ -120,6 +121,11 @@ const sidebarSections: SidebarSection[] = [
           { href: `/calculator/${CALCULATOR_TABS.fire}`, label: CALCULATOR_TAB_LABELS.fire },
         ],
       },
+      {
+        href: "/dicas",
+        label: "Dicas",
+        icon: <IconInfo size="sm" />,
+      },
     ],
   },
 ];
@@ -144,6 +150,11 @@ const adminItems = [
     href: "/admin/market-assets",
     label: "Ativos",
     icon: <IconChart size="sm" />,
+  },
+  {
+    href: "/admin/tips",
+    label: "Dicas",
+    icon: <IconInfo size="sm" />,
   },
   {
     href: "/admin/workers",

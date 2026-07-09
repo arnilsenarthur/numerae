@@ -13,6 +13,10 @@ import { OtpInput } from "@/components/ui/otp-input";
 import { validationRules } from "@/components/ui/field-validation";
 import { useResendCooldown } from "@/hooks/use-resend-cooldown";
 import { maskEmail } from "@/lib/mask-email";
+import {
+  scrollToFieldById,
+  validateFormFields,
+} from "@/lib/form-validation";
 
 function ResetMissingEmail() {
   return (
@@ -61,16 +65,16 @@ export function ResetPasswordForm() {
   });
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const resetPassword = useCallback(async () => {
+  const resetPassword = useCallback(async (form?: HTMLFormElement | null) => {
     if (!email || code.length !== 6 || submitLock.current) return;
 
-    passwordField.markSubmitted();
-    confirmField.markSubmitted();
-
-    if (!passwordField.isValid) return;
+    if (!validateFormFields([passwordField, confirmField], form)) return;
 
     if (passwordField.value !== confirmField.value) {
       setConfirmError("As senhas não coincidem.");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToFieldById("confirmPassword", form));
+      });
       return;
     }
 
@@ -112,10 +116,13 @@ export function ResetPasswordForm() {
 
     if (code.length !== 6) {
       setCodeError("Digite os 6 dígitos do código.");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToFieldById("verification-code", event.currentTarget));
+      });
       return;
     }
 
-    await resetPassword();
+    await resetPassword(event.currentTarget);
   }
 
   async function handleResend() {
@@ -170,7 +177,7 @@ export function ResetPasswordForm() {
             state={codeError ? "error" : "default"}
             message={codeError ?? undefined}
           >
-            <div className="mt-1">
+            <div id="verification-code" className="mt-1">
               <OtpInput
                 value={code}
                 onChange={(next) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import {
 import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
 import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
 import { fetchJson } from "@/lib/fetch-json";
+import { validateFormFields } from "@/lib/form-validation";
 import { formatMoney } from "@/lib/format-money";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
@@ -92,6 +93,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const modalFormRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<GoalForm>(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -186,10 +188,11 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
   }
 
   async function save() {
-    titleField.markSubmitted();
-    targetField.markSubmitted();
-    currentField.markSubmitted();
-    if (!titleField.isValid || !targetField.isValid || !currentField.isValid) return;
+    if (
+      !validateFormFields([titleField, targetField, currentField], modalFormRef.current)
+    ) {
+      return;
+    }
 
     setSaving(true);
     setFormError(null);
@@ -442,7 +445,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
         }
       >
         {formError ? <Alert variant="error">{formError}</Alert> : null}
-        <div className="space-y-3">
+        <div ref={modalFormRef} className="space-y-3">
           <Field
             label="Título"
             message={titleField.validation.message}

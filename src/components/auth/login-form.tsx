@@ -11,6 +11,7 @@ import { Field, useValidatedField } from "@/components/ui/field";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { validationRules } from "@/components/ui/field-validation";
+import { validateFormFields } from "@/lib/form-validation";
 
 export function LoginForm() {
   const router = useRouter();
@@ -45,10 +46,7 @@ export function LoginForm() {
     event.preventDefault();
     setError(null);
 
-    emailField.markSubmitted();
-    passwordField.markSubmitted();
-
-    if (!emailField.isValid || !passwordField.isValid) return;
+    if (!validateFormFields([emailField, passwordField], event.currentTarget)) return;
 
     setLoading(true);
 
