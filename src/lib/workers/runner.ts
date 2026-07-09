@@ -31,6 +31,7 @@ type WorkerRecord = {
   primaryProvider: string;
   secondaryProvider: string | null;
   intervalSeconds: number;
+  historyLookbackDays: number | null;
   lastRunAt: Date | null;
   runningSince: Date | null;
   lastRunStatus: string | null;
@@ -93,6 +94,7 @@ export function serializeWorker(record: WorkerRecord): SerializedWorker {
     primaryProvider: record.primaryProvider,
     secondaryProvider: record.secondaryProvider,
     intervalSeconds: record.intervalSeconds,
+    historyLookbackDays: record.historyLookbackDays,
     lastRunAt: record.lastRunAt?.toISOString() ?? null,
     runningSince: record.runningSince?.toISOString() ?? null,
     isRunning: isWorkerRunning(record.runningSince),
@@ -113,12 +115,18 @@ async function executeWorkerTask(
   primaryProvider: WorkerProviderId,
   secondaryProvider: WorkerProviderId | null,
   trigger: WorkerRunTrigger,
+  options: { historyLookbackDays: number | null },
 ) {
   switch (workerId) {
     case WORKER_IDS.USD_RATE:
       return runUsdRateWorker({ primaryProvider, secondaryProvider, trigger });
     case WORKER_IDS.MARKET_QUOTES:
-      return runMarketQuotesWorker({ primaryProvider, secondaryProvider, trigger });
+      return runMarketQuotesWorker({
+        primaryProvider,
+        secondaryProvider,
+        trigger,
+        historyLookbackDays: options.historyLookbackDays,
+      });
     case WORKER_IDS.RECURRING_TXN:
       return runRecurringTransactionWorker({ trigger });
     default:
@@ -196,6 +204,7 @@ export async function runWorkerById(
       primaryProvider,
       secondaryProvider,
       trigger,
+      { historyLookbackDays: worker.historyLookbackDays },
     );
 
     const durationMs = Date.now() - started;
@@ -284,19 +293,45 @@ export async function ensureWorkersSeeded() {
   for (const id of definitions) {
     const def = getWorkerDefinition(id);
     if (!def) continue;
+    try {
+      await prisma.worker.upsert({
+        where: { id },
+        create: {
+          id,
+          name: def.name,
+          description: def.description,
+          enabled: true,
+          primaryProvider: def.defaultPrimaryProvider,
+          secondaryProvider: def.defaultSecondaryProvider,
+          intervalSeconds: def.defaultIntervalSeconds,
+          historyLookbackDays: id === WORKER_IDS.MARKET_QUOTES ? 400 : null,
+        },
+        update: {
+          name: def.name,
+          description: def.description,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const isOldClient = message.includes("Unknown argument `historyLookbackDays`");
+      if (!isOldClient) throw error;
 
-    await prisma.worker.upsert({
-      where: { id },
-      create: {
-        id,
-        name: def.name,
-        description: def.description,
-        enabled: true,
-        primaryProvider: def.defaultPrimaryProvider,
-        secondaryProvider: def.defaultSecondaryProvider,
-        intervalSeconds: def.defaultIntervalSeconds,
-      },
-      update: {},
-    });
+      await prisma.worker.upsert({
+        where: { id },
+        create: {
+          id,
+          name: def.name,
+          description: def.description,
+          enabled: true,
+          primaryProvider: def.defaultPrimaryProvider,
+          secondaryProvider: def.defaultSecondaryProvider,
+          intervalSeconds: def.defaultIntervalSeconds,
+        },
+        update: {
+          name: def.name,
+          description: def.description,
+        },
+      });
+    }
   }
 }

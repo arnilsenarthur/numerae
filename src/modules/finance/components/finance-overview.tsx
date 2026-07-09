@@ -117,7 +117,7 @@ export function FinanceOverview({
 
       {!hasData ? (
         <EmptyState
-          icon={<IconChart className="h-10 w-10 text-zinc-400" />}
+          icon={<IconChart className="h-6 w-6" />}
           title="Sem lançamentos no período"
           description="Registre entradas e saídas na aba Lançamentos para ver os relatórios."
         />

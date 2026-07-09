@@ -20,6 +20,7 @@ export type SerializedWorker = {
   primaryProvider: string;
   secondaryProvider: string | null;
   intervalSeconds: number;
+  historyLookbackDays: number | null;
   lastRunAt: string | null;
   runningSince: string | null;
   isRunning: boolean;

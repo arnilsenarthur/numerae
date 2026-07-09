@@ -197,7 +197,7 @@ export function SalaryOptimizer() {
   const minProlaboreIII = annualBrlEstimate > 0 ? (annualBrlEstimate * 0.28) / 12 : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Inputs */}
       <Card>
         <CardContent className="pt-4 space-y-4">
@@ -300,7 +300,6 @@ export function SalaryOptimizer() {
                 {taxLabel(usesManualRate ? "manual" : taxRegime)}
                 {usesManualRate && manualRateValue > 0 ? ` (${manualRateValue.toFixed(1)}%)` : ""}
               </CardTitle>
-              <p className="text-xs text-zinc-500">Ordenado do maior líquido ao menor.</p>
             </CardHeader>
             <CardContent>
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -376,18 +375,9 @@ export function SalaryOptimizer() {
         </p>
       )}
 
-      <Card>
-        <CardContent className="pt-4">
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Como funciona o cálculo</p>
-          <ul className="mt-2 space-y-1 text-xs text-zinc-500">
-            <li>• <strong>Spread:</strong> diferença entre taxa de mercado (Frankfurter) e taxa da instituição.</li>
-            <li>• <strong>IOF:</strong> 1,38% sobre remessa financeira (câmbio para pessoa jurídica).</li>
-            <li>• <strong>Imposto PJ:</strong> aplicado sobre o bruto em BRL após câmbio + IOF.</li>
-            <li>• <strong>Fator R:</strong> para Simples, pagar pró-labore ≥ 28% da receita muda do Anexo V para o III — taxa muito menor.</li>
-            <li>• Spreads são estimativas. Verifique taxas atuais em cada plataforma antes de operar.</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <p className="text-xs text-zinc-400">
+        Cálculo estimado: spread institucional + IOF + imposto PJ conforme regime selecionado.
+      </p>
     </div>
   );
 }

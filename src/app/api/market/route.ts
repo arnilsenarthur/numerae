@@ -12,7 +12,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const kind = searchParams.get("kind") ?? undefined;
   const withHistory = searchParams.get("history") === "true";
-  const historyDays = Math.min(Number(searchParams.get("days")) || 90, 365);
+  const daysParam = searchParams.get("days");
+  const historyDays = daysParam
+    ? Math.min(Math.max(Number(daysParam) || 90, 1), 3650)
+    : null;
 
   try {
     const assets = await prisma.marketAsset.findMany({
@@ -26,9 +29,14 @@ export async function GET(request: Request) {
     let quotesByAsset: Record<string, ReturnType<typeof serializeMarketQuote>[]> = {};
 
     if (withHistory && assets.length > 0) {
-      const since = new Date(Date.now() - historyDays * 24 * 3600 * 1000);
-      const quotes = await prisma.marketQuote.findMany({
-        where: { assetId: { in: assets.map((a) => a.id) }, quotedAt: { gte: since } },
+      const since = historyDays
+        ? new Date(Date.now() - historyDays * 24 * 3600 * 1000)
+        : null;
+      let quotes = await prisma.marketQuote.findMany({
+        where: {
+          assetId: { in: assets.map((a) => a.id) },
+          ...(since ? { quotedAt: { gte: since } } : {}),
+        },
         orderBy: { quotedAt: "asc" },
       });
       quotesByAsset = {};

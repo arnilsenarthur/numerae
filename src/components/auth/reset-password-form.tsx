@@ -161,6 +161,9 @@ export function ResetPasswordForm() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {error ? <Alert variant="error">{error}</Alert> : null}
+        {message ? <Alert variant="success">{message}</Alert> : null}
+
         <FormField delay={80}>
           <Field
             label="Código de verificação"
@@ -222,9 +225,6 @@ export function ResetPasswordForm() {
             />
           </Field>
         </FormField>
-
-        {error ? <Alert variant="error">{error}</Alert> : null}
-        {message ? <Alert variant="success">{message}</Alert> : null}
 
         <FormField delay={200}>
           <Button

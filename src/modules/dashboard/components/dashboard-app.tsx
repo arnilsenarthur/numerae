@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -129,16 +130,14 @@ export function DashboardApp() {
   const pendingGoals = goals.filter((g) => !g.achieved).slice(0, 4);
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-5">
-      <div>
-        <p className="text-sm text-emerald-600">Visão geral</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-          {firstName ? `Olá, ${firstName}` : "Visão geral"}
-        </h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Saldos, investimentos, metas e movimentações em um lugar.
-        </p>
-      </div>
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
+      <PageHeader
+        meta={{
+          kicker: "Visão geral",
+          title: firstName ? `Olá, ${firstName}` : "Visão geral",
+          subtitle: "Saldos, investimentos, metas e movimentações em um lugar.",
+        }}
+      />
 
       {loading ? (
         <DashboardSkeleton />
@@ -379,7 +378,7 @@ export function DashboardApp() {
 
           {/* Metas */}
           {pendingGoals.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Metas em andamento</h3>
                 <Link
@@ -435,7 +434,7 @@ export function DashboardApp() {
 
           {/* Row 3: contas */}
           {activeAccounts.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Suas contas</h3>
               <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {activeAccounts.slice(0, 8).map((acc) => (
@@ -473,7 +472,7 @@ export function DashboardApp() {
           ) : null}
 
           {/* Row 4: atalhos */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Ferramentas</h3>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Link href="/calculator" className="block min-w-0">

@@ -91,6 +91,8 @@ export function RegisterForm() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {error ? <Alert variant="error">{error}</Alert> : null}
+
         <FormField delay={80}>
           <Field
             label="Nome"
@@ -150,8 +152,6 @@ export function RegisterForm() {
             />
           </Field>
         </FormField>
-
-        {error ? <Alert variant="error">{error}</Alert> : null}
 
         <FormField delay={230}>
           <Button type="submit" className="w-full" loading={loading}>

@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup, ButtonGroupItem } from "@/components/ui/button-group";
+import { IconPlus } from "@/components/ui/icons";
 import { Select } from "@/components/ui/select";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,9 +39,9 @@ const LEDGER_TABS = Object.values(FINANCE_LEDGER_TABS) as FinanceLedgerTabSlug[]
 type PeriodPreset = "month" | "3months" | "year" | "all";
 
 const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
-  { value: "month", label: "Este mês" },
-  { value: "3months", label: "Últimos 3 meses" },
-  { value: "year", label: "Este ano" },
+  { value: "month", label: "Mês" },
+  { value: "3months", label: "3 meses" },
+  { value: "year", label: "Ano" },
   { value: "all", label: "Tudo" },
 ];
 
@@ -78,6 +81,9 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
   const currentRange = useMemo(() => periodRange(preset), [preset]);
   const finance = useFinanceData(currentRange);
 
+  // Count for recurring (fetches own data internally)
+  const [recurringCount, setRecurringCount] = useState<number | null>(null);
+
   const availableCurrencies = useMemo(() => {
     const seen = new Set<string>();
     const list: { value: string; label: string }[] = [];
@@ -105,6 +111,37 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
   const initialLoading = finance.loading && finance.accounts.length === 0;
   const isLedgerTab = tab === "transactions" || tab === "recurring";
   const page = financePageHeader(tab);
+  const noAccounts = finance.accounts.length === 0;
+
+  // Trigger counters — increment to open create modal in the tab component
+  const [accountCreateSeq, setAccountCreateSeq] = useState(0);
+  const [goalsCreateSeq, setGoalsCreateSeq] = useState(0);
+  const [txCreateTrigger, setTxCreateTrigger] = useState<{
+    seq: number;
+    kind: "INCOME" | "EXPENSE" | "TRANSFER";
+  } | null>(null);
+  const [recCreateTrigger, setRecCreateTrigger] = useState<{
+    seq: number;
+    kind: "INCOME" | "EXPENSE";
+  } | null>(null);
+
+  function countText(): string | null {
+    switch (tab) {
+      case "accounts": {
+        const n = finance.accounts.length;
+        return initialLoading ? null : `${n} conta${n !== 1 ? "s" : ""}`;
+      }
+      case "transactions": {
+        const n = finance.transactions.length;
+        return initialLoading ? null : `${n} lançamento${n !== 1 ? "s" : ""}`;
+      }
+      case "recurring":
+        return recurringCount === null ? null : `${recurringCount} recorrência${recurringCount !== 1 ? "s" : ""}`;
+      // goals manages its own count+toggle inside the component
+      default:
+        return null;
+    }
+  }
 
   function financeTabSkeleton() {
     switch (tab) {
@@ -120,34 +157,91 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
     }
   }
 
+  function tabToolbar() {
+    if (tab === "accounts") {
+      return (
+        <Button type="button" size="sm" onClick={() => setAccountCreateSeq((s) => s + 1)}>
+          <IconPlus size="sm" /> Nova conta
+        </Button>
+      );
+    }
+    if (tab === "goals") {
+      return (
+        <Button type="button" size="sm" onClick={() => setGoalsCreateSeq((s) => s + 1)}>
+          <IconPlus size="sm" /> Nova meta
+        </Button>
+      );
+    }
+    if (tab === "transactions") {
+      return (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={noAccounts}
+            onClick={() => setTxCreateTrigger((t) => ({ seq: (t?.seq ?? 0) + 1, kind: "INCOME" }))}
+          >
+            <IconPlus size="sm" /> Entrada
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={noAccounts}
+            onClick={() => setTxCreateTrigger((t) => ({ seq: (t?.seq ?? 0) + 1, kind: "EXPENSE" }))}
+          >
+            <IconPlus size="sm" /> Saída
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={noAccounts || finance.accounts.length < 2}
+            onClick={() =>
+              setTxCreateTrigger((t) => ({ seq: (t?.seq ?? 0) + 1, kind: "TRANSFER" }))
+            }
+          >
+            <IconPlus size="sm" /> Transferência
+          </Button>
+        </div>
+      );
+    }
+    if (tab === "recurring") {
+      return (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={noAccounts}
+            onClick={() =>
+              setRecCreateTrigger((t) => ({ seq: (t?.seq ?? 0) + 1, kind: "INCOME" }))
+            }
+          >
+            <IconPlus size="sm" /> Entrada recorrente
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={noAccounts}
+            onClick={() =>
+              setRecCreateTrigger((t) => ({ seq: (t?.seq ?? 0) + 1, kind: "EXPENSE" }))
+            }
+          >
+            <IconPlus size="sm" /> Saída recorrente
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  const toolbar = tabToolbar();
+  const label = countText();
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-      <PageHeader
-        meta={page}
-        actions={
-          tab === "overview" ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {availableCurrencies.length > 1 ? (
-                <div className="w-28">
-                  <Select
-                    options={availableCurrencies}
-                    value={displayCurrency}
-                    onChange={(value) => setSelectedCurrency(value)}
-                    size="sm"
-                  />
-                </div>
-              ) : null}
-              <div className="w-44">
-                <Select
-                  options={PERIOD_OPTIONS}
-                  value={preset}
-                  onChange={(value) => setPreset(value as PeriodPreset)}
-                />
-              </div>
-            </div>
-          ) : undefined
-        }
-      />
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
+      <PageHeader meta={page} />
 
       {isLedgerTab ? (
         <Tabs
@@ -155,7 +249,7 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
           defaultValue={tab}
           onValueChange={(value) => setTab(value as FinanceTab)}
         >
-          <TabsList className="h-auto flex-wrap gap-1 bg-zinc-50 p-1 dark:bg-zinc-900/50">
+          <TabsList>
             {LEDGER_TABS.map((id) => (
               <TabsTrigger key={id} value={id} className="text-xs">
                 {FINANCE_LEDGER_TAB_LABELS[id]}
@@ -168,6 +262,38 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
       {finance.error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           {finance.error}
+        </div>
+      ) : null}
+
+      {/* Toolbar: always visible below tabs, before skeleton/content */}
+      {tab === "overview" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ButtonGroup>
+            {PERIOD_OPTIONS.map((opt) => (
+              <ButtonGroupItem
+                key={opt.value}
+                active={preset === opt.value}
+                onClick={() => setPreset(opt.value)}
+              >
+                {opt.label}
+              </ButtonGroupItem>
+            ))}
+          </ButtonGroup>
+          {availableCurrencies.length > 1 ? (
+            <div className="w-28">
+              <Select
+                options={availableCurrencies}
+                value={displayCurrency}
+                onChange={(value) => setSelectedCurrency(value)}
+                size="sm"
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : toolbar ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-zinc-500">{label ?? "\u00a0"}</p>
+          {toolbar}
         </div>
       ) : null}
 
@@ -184,17 +310,24 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
           transactions={finance.transactions}
           accounts={finance.accounts}
           onChanged={() => void finance.reload()}
+          openCreateTrigger={txCreateTrigger}
         />
       ) : tab === "recurring" ? (
-        <FinanceRecurring accounts={finance.accounts} onChanged={() => void finance.reload()} />
+        <FinanceRecurring
+          accounts={finance.accounts}
+          onChanged={() => void finance.reload()}
+          openCreateTrigger={recCreateTrigger}
+          onCountChange={setRecurringCount}
+        />
       ) : tab === "accounts" ? (
         <FinanceAccounts
           accounts={finance.accounts}
           catalog={catalog}
           onChanged={() => void finance.reload()}
+          openCreateSeq={accountCreateSeq}
         />
       ) : (
-        <FinanceGoals />
+        <FinanceGoals openCreateSeq={goalsCreateSeq} />
       )}
     </div>
   );

@@ -260,6 +260,7 @@ model Worker {
   primaryProvider   String           @default("frankfurter")
   secondaryProvider String?
   intervalSeconds   Int              @default(3600)
+  historyLookbackDays Int?
   lastRunAt         DateTime?
   runningSince      DateTime?
   lastRunStatus     WorkerRunStatus?

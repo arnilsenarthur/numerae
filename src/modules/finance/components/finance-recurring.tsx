@@ -7,6 +7,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field, fieldControlProps, useValidatedField } from "@/components/ui/field";
 import { validationRules } from "@/components/ui/field-validation";
+import { Alert } from "@/components/ui/alert";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableRowsSkeleton } from "@/components/ui/panel-skeleton";
@@ -91,9 +92,13 @@ function upcomingDays(nextDueAt: string): number {
 export function FinanceRecurring({
   accounts,
   onChanged,
+  openCreateTrigger = null,
+  onCountChange,
 }: {
   accounts: SerializedAccount[];
   onChanged: () => void;
+  openCreateTrigger?: { seq: number; kind: "INCOME" | "EXPENSE" } | null;
+  onCountChange?: (count: number) => void;
 }) {
   const [records, setRecords] = useState<SerializedRecurring[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +106,8 @@ export function FinanceRecurring({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<RecurringForm>(emptyForm());
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const iconSuggestion = useIconSuggestion({
     text: form.description,
     category: form.category,
@@ -133,7 +139,12 @@ export function FinanceRecurring({
       error?: string;
     }>("/api/recurring?includeInactive=true");
     setLoading(false);
-    if (response.ok) setRecords(data?.recurring ?? []);
+    if (response.ok) {
+      const loaded = data?.recurring ?? [];
+      setRecords(loaded);
+      onCountChange?.(loaded.length);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -165,9 +176,17 @@ export function FinanceRecurring({
     });
     amountField.reset();
     descriptionField.reset();
-    setError(null);
+    setPageError(null);
+    setFormError(null);
     setModalOpen(true);
   }
+
+  useEffect(() => {
+    if (openCreateTrigger && openCreateTrigger.seq > 0) {
+      startCreate(openCreateTrigger.kind);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreateTrigger?.seq]);
 
   function startEdit(rec: SerializedRecurring) {
     setEditingId(rec.id);
@@ -188,7 +207,8 @@ export function FinanceRecurring({
     amountField.setValue(String(rec.amount));
     descriptionField.reset();
     descriptionField.setValue(rec.description);
-    setError(null);
+    setPageError(null);
+    setFormError(null);
     setModalOpen(true);
   }
 
@@ -198,7 +218,7 @@ export function FinanceRecurring({
     if (!amountField.isValid || !descriptionField.isValid) return;
 
     setSaving(true);
-    setError(null);
+    setFormError(null);
     try {
       const payload = {
         accountId: form.accountId,
@@ -226,7 +246,7 @@ export function FinanceRecurring({
       await load();
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setFormError(err instanceof Error ? err.message : "Erro ao salvar.");
     } finally {
       setSaving(false);
     }
@@ -242,7 +262,7 @@ export function FinanceRecurring({
       },
     );
     if (!response.ok) {
-      setError((data as { error?: string })?.error ?? "Erro ao atualizar.");
+      setPageError((data as { error?: string })?.error ?? "Erro ao atualizar.");
       return;
     }
     await load();
@@ -261,7 +281,7 @@ export function FinanceRecurring({
       { method: "DELETE" },
     );
     if (!response.ok) {
-      setError((data as { error?: string })?.error ?? "Erro ao excluir.");
+      setPageError((data as { error?: string })?.error ?? "Erro ao excluir.");
       return;
     }
     await load();
@@ -375,39 +395,10 @@ export function FinanceRecurring({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-500">
-          Lançamentos automáticos gerados todo período conforme a frequência definida.
-        </p>
-        <div className="flex gap-2">
-          <Button type="button" size="sm" variant="secondary" onClick={() => startCreate("INCOME")}>
-            <IconPlus size="sm" /> Entrada recorrente
-          </Button>
-          <Button type="button" size="sm" onClick={() => startCreate("EXPENSE")}>
-            <IconPlus size="sm" /> Saída recorrente
-          </Button>
-        </div>
-      </div>
-
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      ) : null}
+      {pageError ? <Alert variant="error">{pageError}</Alert> : null}
 
       {loading ? (
         <TableRowsSkeleton rows={8} />
-      ) : records.length === 0 ? (
-        <EmptyState
-          icon={<IconRepeat className="h-10 w-10 text-zinc-400" />}
-          title="Nenhuma recorrência cadastrada"
-          description="Crie entradas recorrentes para salário, aluguel, assinaturas e o sistema lança automaticamente."
-          action={
-            <Button type="button" size="sm" onClick={() => startCreate()}>
-              <IconPlus size="sm" /> Nova recorrência
-            </Button>
-          }
-        />
       ) : (
         <DataTable
           data={records}
@@ -415,6 +406,14 @@ export function FinanceRecurring({
           getRowKey={(row) => row.id}
           pageSize={15}
           searchPlaceholder="Buscar recorrência…"
+          emptyMessage="Nenhuma recorrência encontrada."
+          emptyState={
+            <EmptyState
+              icon={<IconRepeat className="h-6 w-6" />}
+              title="Nenhuma recorrência cadastrada"
+              description="Salário, aluguel, assinaturas — configure e o sistema lança automaticamente."
+            />
+          }
         />
       )}
 
@@ -440,11 +439,7 @@ export function FinanceRecurring({
           </>
         }
       >
-        {error ? (
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {formError ? <Alert variant="error">{formError}</Alert> : null}
         <div className="space-y-3">
           <Field
             label="Descrição"

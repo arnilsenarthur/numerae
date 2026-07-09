@@ -5,25 +5,41 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const fromAddress =
-  process.env.EMAIL_FROM ?? "Numerae <onboarding@resend.dev>";
+const EMAIL_MODE = (process.env.EMAIL_MODE ?? "test").trim().toLowerCase();
+const isEmailTestMode = EMAIL_MODE !== "production";
+
+const fromAddress = isEmailTestMode
+  ? "Numerae <onboarding@resend.dev>"
+  : process.env.EMAIL_FROM ?? "Numerae <onboarding@resend.dev>";
 
 type SendResult =
   | { sent: true }
   | { sent: false; error: string; code?: "domain_not_verified" | "not_configured" };
 
-function mapResendError(error: { message?: string | null; name?: string; statusCode?: number | null }): SendResult {
+function mapResendError(
+  error: { message?: string | null; name?: string; statusCode?: number | null },
+  options: { testMode: boolean },
+): SendResult {
   const message = error.message ?? "";
 
   if (
     message.includes("only send testing emails") ||
     message.includes("verify a domain")
   ) {
+    if (options.testMode) {
+      return {
+        sent: false,
+        code: "domain_not_verified",
+        error:
+          "Modo teste do Resend ativo. Envie para um e-mail autorizado na conta Resend ou use uma chave de produção quando precisar liberar para todos.",
+      };
+    }
+
     return {
       sent: false,
       code: "domain_not_verified",
       error:
-        "O envio de e-mail em produção ainda não está liberado. Verifique um domínio no Resend (resend.com/domains) e configure EMAIL_FROM com esse domínio.",
+        "Envio em produção bloqueado no Resend. Verifique um domínio e configure EMAIL_FROM com esse domínio autenticado.",
     };
   }
 
@@ -114,7 +130,7 @@ export async function sendVerificationCode(
 
   if (error) {
     console.error("[Numerae] Erro ao enviar e-mail:", error);
-    return mapResendError(error);
+    return mapResendError(error, { testMode: isEmailTestMode });
   }
 
   return { sent: true };
@@ -154,7 +170,7 @@ export async function sendPasswordResetCode(
 
   if (error) {
     console.error("[Numerae] Erro ao enviar e-mail de redefinição:", error);
-    return mapResendError(error);
+    return mapResendError(error, { testMode: isEmailTestMode });
   }
 
   return { sent: true };

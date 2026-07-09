@@ -237,7 +237,7 @@ function PositionDetail({
   const hasProfit = position.profit !== null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -715,10 +715,10 @@ export function PositionsPanel({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-500">
-          Registre seus investimentos reais, acompanhe aportes e veja o rendimento de cada posição.
+          {positions.length} posição{positions.length !== 1 ? "ões" : ""}
         </p>
         <Button type="button" size="sm" onClick={startCreate}>
           <IconPlus size="sm" /> Nova posição
@@ -729,12 +729,12 @@ export function PositionsPanel({
         <PositionsPanelSkeleton />
       ) : positions.length === 0 ? (
         <EmptyState
-          icon={<IconCoins className="h-10 w-10 text-zinc-400" />}
+          icon={<IconCoins className="h-6 w-6" />}
           title="Nenhuma posição cadastrada"
           description="Adicione seus investimentos reais: CDB, ações, ETFs, cripto, e acompanhe o crescimento."
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Adicionar investimento
+              <IconPlus size="sm" /> Nova posição
             </Button>
           }
         />
@@ -796,7 +796,7 @@ export function PositionsPanel({
           </div>
 
           {/* Position cards */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
               Posições ({positions.length})
             </h3>

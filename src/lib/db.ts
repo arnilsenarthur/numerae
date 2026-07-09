@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Bump when schema changes require regenerating the cached dev client. */
-const PRISMA_CLIENT_VERSION = 4;
+const PRISMA_CLIENT_VERSION = 5;
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;

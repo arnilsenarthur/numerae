@@ -223,7 +223,7 @@ export function PortfolioPanel() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Config row */}
       <Card>
         <CardContent className="pt-4">

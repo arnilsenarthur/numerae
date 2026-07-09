@@ -95,6 +95,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       primaryProvider: parsed.data.primaryProvider,
       secondaryProvider: parsed.data.secondaryProvider,
       intervalSeconds: parsed.data.intervalSeconds,
+      historyLookbackDays: parsed.data.historyLookbackDays,
     },
     include: {
       runs: {

@@ -235,7 +235,7 @@ export function CountriesAdmin() {
   const canDelete = !isCreating && (countries.find((c) => c.code === editingCode)?.currenciesCount ?? 0) === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 sm:gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-emerald-600">Admin</p>

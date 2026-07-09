@@ -3,11 +3,7 @@
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
 import {
-  Children,
-  cloneElement,
   createContext,
-  isValidElement,
-  ReactElement,
   ReactNode,
   useContext,
   useMemo,
@@ -57,37 +53,16 @@ export function TabsList({
   children: ReactNode;
   className?: string;
 }) {
-  const items = Children.toArray(children).filter(Boolean);
-
   return (
     <div
       className={cn(
-        "inline-flex w-full max-w-full overflow-x-auto border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60",
-        ui.controlRadius,
+        "flex overflow-x-auto border-b border-zinc-200 dark:border-zinc-700",
         "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
       role="tablist"
     >
-      {items.map((child, index) => {
-        if (!isValidElement(child)) return child;
-
-        const element = child as ReactElement<{ className?: string }>;
-        const isFirst = index === 0;
-        const isLast = index === items.length - 1;
-        const isOnly = items.length === 1;
-
-        return cloneElement(element, {
-          className: cn(
-            element.props.className,
-            "!rounded-none",
-            isOnly && "!rounded-lg",
-            !isOnly && isFirst && "!rounded-l-lg",
-            !isOnly && isLast && "!rounded-r-lg",
-            index > 0 && "border-l border-zinc-200 dark:border-zinc-700",
-          ),
-        });
-      })}
+      {children}
     </div>
   );
 }
@@ -111,10 +86,10 @@ export function TabsTrigger({ value, children, className }: TabsTriggerProps) {
       aria-selected={active}
       onClick={() => context.setValue(value)}
       className={cn(
-        "min-w-[4.5rem] flex-1 shrink-0 cursor-pointer whitespace-nowrap px-3 py-2 text-xs font-medium transition-colors duration-200 sm:flex-none sm:px-4",
+        "-mb-px shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
         active
-          ? "bg-white text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-          : "text-zinc-500 hover:bg-white/60 hover:text-zinc-800 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-200",
+          ? "border-emerald-500 text-zinc-900 dark:border-emerald-400 dark:text-zinc-100"
+          : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:hover:border-zinc-600 dark:hover:text-zinc-300",
         className,
       )}
     >

@@ -1,19 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field, fieldControlProps, useValidatedField } from "@/components/ui/field";
 import { validationRules } from "@/components/ui/field-validation";
+import { Alert } from "@/components/ui/alert";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { Input, NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
-import { IconPencil, IconPlus, IconTrash } from "@/components/ui/icons";
+import { IconPencil, IconPlus, IconReceipt, IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
 import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
@@ -69,16 +71,19 @@ export function FinanceTransactions({
   transactions,
   accounts,
   onChanged,
+  openCreateTrigger = null,
 }: {
   transactions: SerializedTransaction[];
   accounts: SerializedAccount[];
   onChanged: () => void;
+  openCreateTrigger?: { seq: number; kind: "INCOME" | "EXPENSE" | "TRANSFER" } | null;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<TransactionForm>(emptyForm());
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const iconSuggestion = useIconSuggestion({
     text: form.description,
     category: form.category,
@@ -128,9 +133,17 @@ export function FinanceTransactions({
     });
     amountField.reset();
     descriptionField.reset();
-    setError(null);
+    setPageError(null);
+    setFormError(null);
     setModalOpen(true);
   }
+
+  useEffect(() => {
+    if (openCreateTrigger && openCreateTrigger.seq > 0) {
+      startCreate(openCreateTrigger.kind);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreateTrigger?.seq]);
 
   function startEdit(tx: SerializedTransaction) {
     setEditingId(tx.id);
@@ -149,7 +162,8 @@ export function FinanceTransactions({
     amountField.setValue(String(tx.amount));
     descriptionField.reset();
     descriptionField.setValue(tx.description);
-    setError(null);
+    setPageError(null);
+    setFormError(null);
     setModalOpen(true);
   }
 
@@ -159,7 +173,7 @@ export function FinanceTransactions({
     if (!amountField.isValid || !descriptionField.isValid) return;
 
     setSaving(true);
-    setError(null);
+    setFormError(null);
     try {
       const payload: Record<string, unknown> = {
         accountId: form.accountId,
@@ -186,7 +200,7 @@ export function FinanceTransactions({
       setModalOpen(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar lançamento.");
+      setFormError(err instanceof Error ? err.message : "Erro ao salvar lançamento.");
     } finally {
       setSaving(false);
     }
@@ -205,7 +219,7 @@ export function FinanceTransactions({
       { method: "DELETE" },
     );
     if (!response.ok) {
-      setError(data?.error ?? "Erro ao excluir lançamento.");
+      setPageError(data?.error ?? "Erro ao excluir lançamento.");
       return;
     }
     onChanged();
@@ -314,45 +328,7 @@ export function FinanceTransactions({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Registre o que entra e sai — os relatórios são gerados automaticamente.
-        </p>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => startCreate("INCOME")}
-            disabled={accounts.length === 0}
-          >
-            <IconPlus size="sm" /> Entrada
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => startCreate("EXPENSE")}
-            disabled={accounts.length === 0}
-          >
-            <IconPlus size="sm" /> Saída
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => startCreate("TRANSFER")}
-            disabled={accounts.length < 2}
-          >
-            <IconPlus size="sm" /> Transferência
-          </Button>
-        </div>
-      </div>
-
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      ) : null}
+      {pageError ? <Alert variant="error">{pageError}</Alert> : null}
 
       <DataTable
         data={transactions}
@@ -360,10 +336,17 @@ export function FinanceTransactions({
         getRowKey={(row) => row.id}
         pageSize={10}
         searchPlaceholder="Buscar lançamento…"
-        emptyMessage={
-          accounts.length === 0
-            ? "Crie uma conta primeiro para registrar lançamentos."
-            : "Nenhum lançamento no período."
+        emptyMessage="Nenhum lançamento encontrado."
+        emptyState={
+          <EmptyState
+            icon={<IconReceipt className="h-6 w-6" />}
+            title={accounts.length === 0 ? "Crie uma conta primeiro" : "Nenhum lançamento no período"}
+            description={
+              accounts.length === 0
+                ? "Você precisa de ao menos uma conta para registrar lançamentos."
+                : "Tente outro período ou registre seu primeiro lançamento."
+            }
+          />
         }
       />
 
@@ -393,11 +376,7 @@ export function FinanceTransactions({
           </>
         }
       >
-        {error ? (
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {formError ? <Alert variant="error">{formError}</Alert> : null}
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">

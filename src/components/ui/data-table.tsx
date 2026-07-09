@@ -36,6 +36,8 @@ export type DataTableProps<T> = {
   searchPlaceholder?: string;
   searchFilter?: (row: T, query: string) => boolean;
   emptyMessage?: string;
+  /** Shown instead of the table when data is empty and there is no active search. */
+  emptyState?: ReactNode;
   className?: string;
   toolbar?: ReactNode;
   onRowClick?: (row: T) => void;
@@ -60,6 +62,7 @@ export function DataTable<T>({
   searchPlaceholder = "Filtrar…",
   searchFilter,
   emptyMessage = "Nenhum registro encontrado.",
+  emptyState,
   className,
   toolbar,
   onRowClick,
@@ -120,6 +123,10 @@ export function DataTable<T>({
     setSortColumn(columnId);
     setSortDirection("asc");
   };
+
+  if (data.length === 0 && !query && emptyState) {
+    return <div className={cn(className)}>{emptyState}</div>;
+  }
 
   return (
     <div className={cn("space-y-3", className)}>

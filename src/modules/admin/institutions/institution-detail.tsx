@@ -227,8 +227,8 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
-      <header className="space-y-4 border-b border-zinc-100 pb-6 dark:border-zinc-800/80">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+      <header className="space-y-3 border-b border-zinc-100 pb-4 dark:border-zinc-800/80">
         <nav className="-ml-1">
           <Link
             href="/admin/institutions"

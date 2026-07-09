@@ -91,7 +91,7 @@ export function CurrencyConverter() {
   const baseConverted = result ? numAmount * result.rate : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Input row */}
       <Card>
         <CardContent className="pt-4">
@@ -163,9 +163,6 @@ export function CurrencyConverter() {
               <IconTrendUp className="h-4 w-4 text-sky-500" />
               Comparativo por instituição — ordenado do melhor ao pior
             </CardTitle>
-            <p className="text-xs text-zinc-500">
-              Spread aplicado à taxa de mercado ({result.rate.toFixed(4)} {fromCurrency}/{toCurrency}). Valores aproximados — confirme antes de operar.
-            </p>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -234,9 +231,7 @@ export function CurrencyConverter() {
         </Card>
       )}
 
-      <p className="text-xs text-zinc-400">
-        * Cotação de mercado via Frankfurter. Spreads institucionais são estimativas — não representam taxas oficiais.
-      </p>
+      <p className="text-xs text-zinc-400">Cotação via Frankfurter. Spreads são estimativas.</p>
     </div>
   );
 }

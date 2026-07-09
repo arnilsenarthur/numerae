@@ -1217,7 +1217,17 @@ function LineChartView({
       return { ...item, points, linePath, areaPath };
     });
 
-    const labelStep = Math.max(1, Math.ceil(categories.length / Math.floor(plotWidth / 32)));
+    const maxLabelChars = categories.reduce(
+      (max, point) => Math.max(max, (point.label ?? "").length),
+      0,
+    );
+    // Approximate label footprint to avoid X-axis text overlap on dense timelines.
+    const estimatedLabelWidth = Math.max(28, Math.min(96, maxLabelChars * 5.2));
+    const maxLabelCount = Math.max(2, Math.floor(plotWidth / estimatedLabelWidth));
+    const labelStep = Math.max(
+      1,
+      Math.ceil((categories.length - 1) / Math.max(1, maxLabelCount - 1)),
+    );
 
     return {
       width,

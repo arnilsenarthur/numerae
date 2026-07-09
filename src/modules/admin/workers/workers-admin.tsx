@@ -138,11 +138,18 @@ function WorkerCard({
   const [runs, setRuns] = useState<SerializedWorkerRun[]>(worker.recentRuns ?? []);
   const [expanded, setExpanded] = useState(false);
   const [intervalSeconds, setIntervalSeconds] = useState(String(worker.intervalSeconds));
+  const [historyLookbackDays, setHistoryLookbackDays] = useState(
+    worker.historyLookbackDays ? String(worker.historyLookbackDays) : "",
+  );
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     setIntervalSeconds(String(worker.intervalSeconds));
   }, [worker.intervalSeconds]);
+
+  useEffect(() => {
+    setHistoryLookbackDays(worker.historyLookbackDays ? String(worker.historyLookbackDays) : "");
+  }, [worker.historyLookbackDays]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -236,6 +243,25 @@ function WorkerCard({
     }
   }
 
+  async function unlockWorker() {
+    setSaving(true);
+    setError(null);
+    try {
+      const { response, data } = await fetchJson<{ worker?: SerializedWorker; error?: string }>(
+        `/api/admin/workers/${worker.id}/unlock`,
+        { method: "POST" },
+      );
+      if (!response.ok || !data?.worker) {
+        throw new Error(data?.error ?? "Erro ao liberar trava.");
+      }
+      onChange(data.worker);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao liberar trava.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function loadMoreRuns() {
     const { response, data } = await fetchJson<{ runs?: SerializedWorkerRun[] }>(
       `/api/admin/workers/${worker.id}/runs?limit=30`,
@@ -254,6 +280,18 @@ function WorkerCard({
 
     if (parsed === worker.intervalSeconds) return;
     await patchWorker({ intervalSeconds: Math.round(parsed) });
+  }
+
+  async function saveLookbackDays() {
+    if (worker.id !== "market_quotes") return;
+    const parsed = Number(historyLookbackDays);
+    if (!Number.isFinite(parsed) || parsed < 30 || parsed > 2000) {
+      setError("Retroatividade deve ser entre 30 e 2000 dias.");
+      setHistoryLookbackDays(worker.historyLookbackDays ? String(worker.historyLookbackDays) : "400");
+      return;
+    }
+    if (parsed === worker.historyLookbackDays) return;
+    await patchWorker({ historyLookbackDays: Math.round(parsed) });
   }
 
   return (
@@ -279,15 +317,27 @@ function WorkerCard({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={running || saving}
-              onClick={() => void runNow()}
-            >
-              {running ? "Executando..." : "Executar agora"}
-            </Button>
+            {worker.isRunning ? (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                disabled={saving}
+                onClick={() => void unlockWorker()}
+              >
+                {saving ? "Liberando..." : "Liberar trava"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={running || saving}
+                onClick={() => void runNow()}
+              >
+                {running ? "Executando..." : "Executar agora"}
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -360,6 +410,25 @@ function WorkerCard({
                 : "Ative o automático para usar o intervalo · 300–86400s"}
             </p>
           </div>
+
+          {worker.id === "market_quotes" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor={`lookback-${worker.id}`}>Retroatividade de histórico (dias)</Label>
+              <NumberInput
+                id={`lookback-${worker.id}`}
+                value={historyLookbackDays}
+                min={30}
+                max={2000}
+                step={10}
+                disabled={saving}
+                onChange={(event) => setHistoryLookbackDays(event.target.value)}
+                onBlur={() => void saveLookbackDays()}
+              />
+              <p className="text-xs text-zinc-500">
+                Mantém apenas essa janela no banco, preenche lacunas e remove dados mais antigos.
+              </p>
+            </div>
+          ) : null}
 
           <div className="space-y-1.5">
             <Label>Provedor primário</Label>
@@ -456,13 +525,13 @@ export function WorkersAdmin() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div>
         <p className="text-sm text-emerald-600">Admin</p>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Workers / Crons</h2>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Workers / Crons</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Workers automáticos rodam no intervalo configurado. Com usuários logados, o app
-          também dispara workers pendentes a cada poucos minutos — além do cron diário na Vercel.
+          também dispara workers pendentes a cada poucos minutos — além do cron da Vercel.
         </p>
       </div>
 
@@ -498,7 +567,7 @@ export function WorkersAdmin() {
           <p>
             Configure <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-900">CRON_SECRET</code>{" "}
             e agende <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-900">POST /api/cron/workers</code>{" "}
-            a cada 1–5 min. Cada worker automático roda quando{" "}
+            a cada 20 min (ou menor, se preferir). Cada worker automático roda quando{" "}
             <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-900">última execução + intervalo</code>{" "}
             já passou.
           </p>

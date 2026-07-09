@@ -170,11 +170,11 @@ export function InstitutionsAdmin() {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 sm:gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div>
         <p className="text-sm text-emerald-600">Admin</p>
         <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Instituições</h2>
-        <p className="mt-1 text-sm text-zinc-500 sm:mt-2">
+        <p className="mt-1 text-sm text-zinc-500">
           Bancos, fintechs, corretoras e remessadoras.
         </p>
       </div>

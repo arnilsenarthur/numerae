@@ -252,12 +252,12 @@ export function InvestmentPlansPanel() {
         <InvestmentPlansSkeleton />
       ) : plans.length === 0 ? (
         <EmptyState
-          icon={<IconTarget className="h-10 w-10 text-zinc-400" />}
+          icon={<IconTarget className="h-6 w-6" />}
           title="Nenhum plano de investimento"
           description="Crie um plano com valor inicial, aporte mensal e prazo para simular os caminhos."
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Criar plano
+              <IconPlus size="sm" /> Novo plano
             </Button>
           }
         />

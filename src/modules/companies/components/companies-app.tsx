@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CardGridSkeleton } from "@/components/ui/panel-skeleton";
 import { Select } from "@/components/ui/select";
 import { IconBuilding, IconPlus } from "@/components/ui/icons";
@@ -101,52 +101,39 @@ export function CompaniesApp() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <PageHeader
-        meta={companiesPageHeader}
-        actions={
-          <Button type="button" onClick={openCreate}>
-            <IconPlus size="sm" />
-            Nova empresa
-          </Button>
-        }
-      />
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
+      <PageHeader meta={companiesPageHeader} />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="w-full max-w-xs">
-          <Select
-            options={countryOptions}
-            value={countryFilter}
-            placeholder="Todos os países"
-            onChange={setCountryFilter}
-          />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full max-w-xs">
+            <Select
+              options={countryOptions}
+              value={countryFilter}
+              placeholder="Todos os países"
+              onChange={setCountryFilter}
+              size="sm"
+            />
+          </div>
+          <p className="text-sm text-zinc-500">
+            {companies.length} empresa{companies.length !== 1 ? "s" : ""}
+          </p>
         </div>
-        <Badge variant="outline">{companies.length} cadastrada(s)</Badge>
+        <Button type="button" size="sm" onClick={openCreate}>
+          <IconPlus size="sm" /> Nova empresa
+        </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
       {loading ? (
         <CardGridSkeleton count={4} />
       ) : companies.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-            <IconBuilding className="h-10 w-10 text-zinc-400" />
-            <div>
-              <p className="font-medium text-zinc-800 dark:text-zinc-200">Nenhuma empresa ainda</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Cadastre sua primeira empresa para simular impostos e PJ no mapa do dinheiro.
-              </p>
-            </div>
-            <Button type="button" onClick={openCreate}>
-              Cadastrar empresa
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<IconBuilding className="h-6 w-6" />}
+          title="Nenhuma empresa ainda"
+          description="Cadastre sua primeira empresa para simular impostos e PJ no mapa do dinheiro."
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {companies.map((company) => (

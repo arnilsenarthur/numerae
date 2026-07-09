@@ -59,6 +59,8 @@ export function ForgotPasswordForm() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {error ? <Alert variant="error">{error}</Alert> : null}
+
         <FormField delay={80}>
           <Field
             label="E-mail"
@@ -78,8 +80,6 @@ export function ForgotPasswordForm() {
             />
           </Field>
         </FormField>
-
-        {error ? <Alert variant="error">{error}</Alert> : null}
 
         <FormField delay={160}>
           <Button type="submit" className="w-full" loading={loading}>

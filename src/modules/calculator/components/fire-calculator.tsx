@@ -121,7 +121,7 @@ export function FireCalculator() {
   }, [spend, savings, monthly, returnPct, annualSpend, currency, variants]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Inputs */}
       <Card>
         <CardContent className="pt-4">

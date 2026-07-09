@@ -303,7 +303,7 @@ export function TaxCalculator() {
   const best = results.find((r) => !r.warning && r.effectiveRate > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Inputs */}
       <Card>
         <CardContent className="pt-4 space-y-4">
@@ -416,7 +416,7 @@ export function TaxCalculator() {
 
       {/* Regime cards */}
       {results.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {results.map((regime, i) => {
             const isBest = regime.id === best?.id;
             const isDisabled = !!regime.warning && regime.id === "mei";
@@ -487,7 +487,7 @@ export function TaxCalculator() {
                       {/* Notes */}
                       {regime.notes.length > 0 && (
                         <ul className="space-y-0.5">
-                          {regime.notes.map((note) => (
+                          {regime.notes.slice(0, 3).map((note) => (
                             <li key={note} className="text-[10px] text-zinc-500">
                               · {note}
                             </li>

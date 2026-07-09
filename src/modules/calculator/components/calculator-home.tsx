@@ -23,41 +23,41 @@ const CALCULATOR_CARDS: {
   {
     tab: "exchange",
     icon: <IconExchange size="md" />,
-    description: "Converta moedas com taxas atualizadas e compare spreads entre instituições.",
+    description: "Converta moedas e compare taxas entre instituições.",
   },
   {
     tab: "taxes",
     icon: <IconPercent size="md" />,
-    description: "Compare MEI, Simples (Anexo III/V) e Lucro Presumido com otimização de Fator R.",
+    description: "Compare MEI, Simples e Presumido com Fator R.",
   },
   {
     tab: "salary",
     icon: <IconSalary size="md" />,
-    description: "Encontre a melhor forma de receber PJ do exterior considerando câmbio e impostos.",
+    description: "Otimize recebimento PJ do exterior com câmbio e impostos.",
   },
   {
     tab: "loan",
     icon: <IconLoan size="md" />,
-    description: "Simule financiamentos SAC e Price: parcelas, juros e saldo devedor.",
+    description: "Simule SAC e Price com parcelas, juros e saldo.",
   },
   {
     tab: "fire",
     icon: <IconTarget size="md" />,
-    description: "Calcule quanto acumular para independência financeira pela regra dos 25×.",
+    description: "Estime independência financeira pela regra dos 25x.",
   },
 ];
 
 export function CalculatorHome() {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
       <PageHeader meta={calculatorHomePageHeader} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {CALCULATOR_CARDS.map(({ tab, icon, description }) => (
           <Link key={tab} href={calculatorTabPath(tab)} className="block">
             <Card className={cn("h-full transition-shadow", cardClickable)}>
-              <CardContent className="flex flex-col gap-3 p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+              <CardContent className="flex flex-col gap-2.5 p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                   {icon}
                 </div>
                 <div className="flex flex-col gap-1">

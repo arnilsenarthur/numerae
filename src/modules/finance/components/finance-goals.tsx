@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, NumberInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field, fieldControlProps, useValidatedField } from "@/components/ui/field";
 import { validationRules } from "@/components/ui/field-validation";
+import { Alert } from "@/components/ui/alert";
 import { IconPicker } from "@/components/ui/icon-picker";
 import {
   IconCheck,
@@ -86,7 +87,7 @@ function daysVariant(days: number | null): "default" | "success" | "warning" | "
   return "default";
 }
 
-export function FinanceGoals() {
+export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) {
   const [goals, setGoals] = useState<SerializedFinancialGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +157,11 @@ export function FinanceGoals() {
     currentField.reset();
     setModalOpen(true);
   }
+
+  useEffect(() => {
+    if (openCreateSeq > 0) startCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreateSeq]);
 
   function startEdit(goal: SerializedFinancialGoal) {
     setEditingId(goal.id);
@@ -264,44 +270,30 @@ export function FinanceGoals() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Defina metas e acompanhe o progresso de cada uma.
-          </p>
-          {achieved.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAchieved((v) => !v)}
-              className="mt-1 text-xs text-emerald-600 hover:underline dark:text-emerald-400"
-            >
-              {showAchieved
-                ? "Ocultar concluídas"
-                : `Ver ${achieved.length} meta${achieved.length !== 1 ? "s" : ""} concluída${achieved.length !== 1 ? "s" : ""}`}
-            </button>
-          )}
-        </div>
-        <Button type="button" size="sm" className="w-full shrink-0 sm:w-auto" onClick={startCreate}>
-          <IconPlus size="sm" /> Nova meta
-        </Button>
-      </div>
+      {achieved.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAchieved((v) => !v)}
+          className="text-xs text-emerald-600 hover:underline dark:text-emerald-400"
+        >
+          {showAchieved
+            ? "Ocultar concluídas"
+            : `Ver ${achieved.length} concluída${achieved.length !== 1 ? "s" : ""}`}
+        </button>
+      )}
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
       {loading ? (
         <GoalListSkeleton />
       ) : shown.length === 0 ? (
         <EmptyState
-          icon={<IconTarget className="h-10 w-10 text-zinc-400" />}
+          icon={<IconTarget className="h-6 w-6" />}
           title="Nenhuma meta"
           description="Crie uma meta para acompanhar o progresso rumo a um objetivo financeiro."
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Criar meta
+              <IconPlus size="sm" /> Nova meta
             </Button>
           }
         />
@@ -318,27 +310,26 @@ export function FinanceGoals() {
             return (
               <Card
                 key={goal.id}
-                className={`transition-all ${goal.achieved ? "opacity-60" : "hover:border-emerald-500/40 hover:shadow-sm"}`}
+                className={`overflow-hidden transition-all ${goal.achieved ? "opacity-60" : ""}`}
               >
-                <CardContent className="pt-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                {/* Header: icon + title + badges */}
+                <CardHeader className="p-3 pb-2">
+                  <div className="flex items-start gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
                       <AppIcon name={goal.icon ?? categoryDefaultIcon(goal.category)} size="sm" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3
-                          className={`font-medium ${goal.achieved ? "line-through text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <CardTitle
+                          className={`text-sm ${goal.achieved ? "line-through text-zinc-400" : ""}`}
                         >
                           {goal.title}
-                        </h3>
+                        </CardTitle>
                         <Badge variant="default" className="text-[10px]">
                           {GOAL_CATEGORY_LABELS[goal.category] ?? goal.category}
                         </Badge>
                         {goal.achieved ? (
-                          <Badge variant="success" className="text-[10px]">
-                            Concluída
-                          </Badge>
+                          <Badge variant="success" className="text-[10px]">Concluída</Badge>
                         ) : null}
                         {goal.daysRemaining !== null && !goal.achieved ? (
                           <Badge variant={daysVariant(goal.daysRemaining)} className="text-[10px]">
@@ -346,68 +337,72 @@ export function FinanceGoals() {
                           </Badge>
                         ) : null}
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
-                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                          {formatMoney(goal.currentAmount, { currency: goal.currency })}
-                        </span>
-                        <span className="text-zinc-400">de</span>
-                        <span className="text-zinc-600 dark:text-zinc-400">
-                          {formatMoney(goal.targetAmount, { currency: goal.currency })}
-                        </span>
-                        <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                          {goal.progressPercent.toFixed(0)}%
-                        </span>
-                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        type="button"
-                        iconOnly
-                        size="sm"
-                        variant={goal.achieved ? "secondary" : "primary"}
-                        className={
-                          goal.achieved
-                            ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/60"
-                            : undefined
-                        }
-                        tooltip={goal.achieved ? "Reabrir" : "Concluir"}
-                        onClick={() => void toggleAchieved(goal)}
-                        disabled={deletingId === goal.id}
-                      >
-                        {goal.achieved ? <IconX size="xs" /> : <IconCheck size="xs" />}
-                      </Button>
-                      <Button
-                        type="button"
-                        iconOnly
-                        size="sm"
-                        variant="secondary"
-                        tooltip="Editar"
-                        onClick={() => startEdit(goal)}
-                        disabled={deletingId === goal.id}
-                      >
-                        <IconPencil size="xs" />
-                      </Button>
-                      <Button
-                        type="button"
-                        iconOnly
-                        size="sm"
-                        variant="danger"
-                        tooltip="Excluir"
-                        loading={deletingId === goal.id}
-                        onClick={() => void deleteGoalById(goal)}
-                      >
-                        <IconTrash size="xs" />
-                      </Button>
-                    </div>
+                  </div>
+                </CardHeader>
+
+                {/* Content: amounts + progress */}
+                <CardContent className="space-y-2 px-3 pb-3 pt-0">
+                  <div className="flex items-baseline gap-2 text-sm">
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      {formatMoney(goal.currentAmount, { currency: goal.currency })}
+                    </span>
+                    <span className="text-xs text-zinc-400">de</span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {formatMoney(goal.targetAmount, { currency: goal.currency })}
+                    </span>
+                    <span className="ml-auto text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      {goal.progressPercent.toFixed(0)}%
+                    </span>
                   </div>
                   <Progress
                     value={goal.progressPercent}
                     max={100}
                     variant={progressVariant}
-                    size="md"
-                    className="mt-3"
+                    size="sm"
                   />
                 </CardContent>
+
+                {/* Action strip — same pattern as accounts/companies/positions */}
+                <div className="flex gap-1.5 border-t border-zinc-100 p-2 dark:border-zinc-800">
+                  <Button
+                    type="button"
+                    variant={goal.achieved ? "secondary" : "primary"}
+                    size="sm"
+                    className={
+                      goal.achieved
+                        ? "flex-1 border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/60"
+                        : "flex-1"
+                    }
+                    onClick={() => void toggleAchieved(goal)}
+                    disabled={deletingId === goal.id}
+                  >
+                    {goal.achieved ? <IconX size="xs" /> : <IconCheck size="xs" />}
+                    {goal.achieved ? "Reabrir" : "Concluir"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => startEdit(goal)}
+                    disabled={deletingId === goal.id}
+                  >
+                    <IconPencil size="xs" />
+                    Editar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    className="flex-1"
+                    loading={deletingId === goal.id}
+                    onClick={() => void deleteGoalById(goal)}
+                  >
+                    <IconTrash size="xs" />
+                    Excluir
+                  </Button>
+                </div>
               </Card>
             );
           })}
@@ -446,11 +441,7 @@ export function FinanceGoals() {
           </>
         }
       >
-        {formError ? (
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {formError}
-          </div>
-        ) : null}
+        {formError ? <Alert variant="error">{formError}</Alert> : null}
         <div className="space-y-3">
           <Field
             label="Título"

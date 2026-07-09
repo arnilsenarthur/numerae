@@ -41,7 +41,7 @@ export function InvestmentsApp({
       : investmentPageHeader(tab);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
       <PageHeader meta={page} />
 
       <Tabs
@@ -49,7 +49,7 @@ export function InvestmentsApp({
         defaultValue={tab}
         onValueChange={(value) => setTab(value as InvestmentTabSlug)}
       >
-        <TabsList className="h-auto flex-wrap gap-1 bg-zinc-50 p-1 dark:bg-zinc-900/50">
+          <TabsList>
           {VALID_TABS.map((id) => (
             <TabsTrigger key={id} value={id} className="text-xs">
               {INVESTMENT_TAB_LABELS[id]}

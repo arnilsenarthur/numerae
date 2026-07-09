@@ -182,7 +182,7 @@ const marketKindSubtitles: Record<MarketKindSlug, string> = {
   etf: "Fundos negociados em bolsa com diversificação por cesta de ativos.",
   fii: "Fundos imobiliários listados na B3 e acompanhamento de dividendos.",
   crypto: "Criptomoedas e tokens com preço em tempo quase real.",
-  index: "Índices de referência de mercado e benchmarks.",
+  indices: "Índices de referência de mercado e benchmarks.",
   commodity: "Commodities e ativos físicos negociados em bolsa.",
 };
 

@@ -28,7 +28,7 @@ export const MARKET_KIND_SLUGS = {
   ETF: "etf",
   FII: "fii",
   CRYPTO: "crypto",
-  INDEX: "index",
+  INDEX: "indices",
   COMMODITY: "commodity",
 } as const;
 
@@ -39,7 +39,7 @@ export const MARKET_KIND_SLUG_TO_KIND: Record<MarketKindSlug, MarketAssetKind> =
   etf: "ETF",
   fii: "FII",
   crypto: "CRYPTO",
-  index: "INDEX",
+  indices: "INDEX",
   commodity: "COMMODITY",
 };
 
@@ -48,7 +48,7 @@ export const MARKET_KIND_NAV: { slug: MarketKindSlug; label: string }[] = [
   { slug: "etf", label: "ETF" },
   { slug: "fii", label: "FII" },
   { slug: "crypto", label: "Cripto" },
-  { slug: "index", label: "Índice" },
+  { slug: "indices", label: "Índices" },
   { slug: "commodity", label: "Commodity" },
 ];
 

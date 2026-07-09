@@ -113,6 +113,8 @@ export function LoginForm() {
           </Alert>
         ) : null}
 
+        {error ? <Alert variant="error">{error}</Alert> : null}
+
         <FormField delay={80}>
           <Field
             label="E-mail"
@@ -152,8 +154,6 @@ export function LoginForm() {
             />
           </Field>
         </FormField>
-
-        {error ? <Alert variant="error">{error}</Alert> : null}
 
         <FormField delay={200}>
           <Button type="submit" className="w-full" loading={loading}>

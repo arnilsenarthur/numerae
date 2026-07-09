@@ -119,7 +119,7 @@ export function LoanCalculator() {
   const hasData = sac.length > 0 && price.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Inputs */}
       <Card>
         <CardContent className="pt-4">

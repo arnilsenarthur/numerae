@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Field, fieldControlProps, useValidatedField } from "@/components/ui/field";
 import { validationRules } from "@/components/ui/field-validation";
+import { Alert } from "@/components/ui/alert";
 import { Money } from "@/components/ui/money";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -48,16 +49,19 @@ export function FinanceAccounts({
   accounts,
   catalog,
   onChanged,
+  openCreateSeq = 0,
 }: {
   accounts: SerializedAccount[];
   catalog: CatalogData;
   onChanged: () => void;
+  openCreateSeq?: number;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm());
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { confirm, dialog } = useConfirm();
 
@@ -86,9 +90,15 @@ export function FinanceAccounts({
     setForm(emptyForm());
     nameField.reset();
     balanceField.reset();
-    setError(null);
+    setPageError(null);
+    setFormError(null);
     setModalOpen(true);
   }
+
+  useEffect(() => {
+    if (openCreateSeq > 0) startCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreateSeq]);
 
   function startEdit(account: SerializedAccount) {
     setEditingId(account.id);
@@ -103,7 +113,8 @@ export function FinanceAccounts({
     nameField.setValue(account.name);
     balanceField.reset();
     balanceField.setValue(String(account.initialBalance));
-    setError(null);
+    setPageError(null);
+    setFormError(null);
     setModalOpen(true);
   }
 
@@ -121,7 +132,7 @@ export function FinanceAccounts({
     if (!nameField.isValid || !balanceField.isValid) return;
 
     setSaving(true);
-    setError(null);
+    setFormError(null);
     try {
       const payload = {
         name: form.name.trim(),
@@ -142,7 +153,7 @@ export function FinanceAccounts({
       setModalOpen(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar conta.");
+      setFormError(err instanceof Error ? err.message : "Erro ao salvar conta.");
     } finally {
       setSaving(false);
     }
@@ -158,7 +169,7 @@ export function FinanceAccounts({
     if (!ok) return;
 
     setDeletingId(account.id);
-    setError(null);
+    setPageError(null);
     try {
       const { response, data } = await fetchJson<{ error?: string }>(
         `/api/accounts/${account.id}`,
@@ -168,7 +179,7 @@ export function FinanceAccounts({
       if (editingId === account.id) setModalOpen(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir conta.");
+      setPageError(err instanceof Error ? err.message : "Erro ao excluir conta.");
     } finally {
       setDeletingId(null);
     }
@@ -183,26 +194,16 @@ export function FinanceAccounts({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button type="button" size="sm" onClick={startCreate}>
-          <IconPlus size="sm" /> Nova conta
-        </Button>
-      </div>
-
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      ) : null}
+      {pageError ? <Alert variant="error">{pageError}</Alert> : null}
 
       {accounts.length === 0 ? (
         <EmptyState
-          icon={<IconWallet className="h-10 w-10 text-zinc-400" />}
+          icon={<IconWallet className="h-6 w-6" />}
           title="Nenhuma conta ainda"
           description="Crie sua primeira conta para registrar entradas e saídas."
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Criar conta
+              <IconPlus size="sm" /> Nova conta
             </Button>
           }
         />
@@ -296,11 +297,7 @@ export function FinanceAccounts({
           </>
         }
       >
-        {error ? (
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {formError ? <Alert variant="error">{formError}</Alert> : null}
         <div className="space-y-3">
           <Field
             label="Nome"

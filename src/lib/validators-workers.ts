@@ -12,6 +12,7 @@ export const workerUpdateSchema = z
     primaryProvider: providerSchema.optional(),
     secondaryProvider: providerSchema.nullable().optional(),
     intervalSeconds: z.number().int().min(300).max(86400).optional(),
+    historyLookbackDays: z.number().int().min(30).max(2000).nullable().optional(),
   })
   .refine(
     (data) =>

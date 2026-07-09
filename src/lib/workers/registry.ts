@@ -64,7 +64,7 @@ export const WORKER_DEFINITIONS = {
     defaultPrimaryProvider: "marketdata_auto" as WorkerProviderId,
     defaultSecondaryProvider: "database" as WorkerProviderId,
     allowedProviders: ["marketdata_auto", "database"] as WorkerProviderId[],
-    defaultIntervalSeconds: 3600,
+    defaultIntervalSeconds: 1200,
   },
   [WORKER_IDS.RECURRING_TXN]: {
     id: WORKER_IDS.RECURRING_TXN,

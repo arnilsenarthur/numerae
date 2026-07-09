@@ -103,10 +103,10 @@ export function AuditAdmin() {
   }, [loadLogs]);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div>
         <p className="text-sm text-emerald-600">Admin</p>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Log de auditoria</h2>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Log de auditoria</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Registro de criações, alterações e remoções feitas por administradores.
         </p>
