@@ -3,6 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { serializeTransaction } from "@/lib/finance-serializer";
 import { createTransactionSchema } from "@/lib/validators-finance";
+import type { TransactionKind } from "@/types/finance";
+
+function parseKindFilter(kind: string | undefined): TransactionKind | undefined {
+  if (kind === "INCOME" || kind === "EXPENSE" || kind === "TRANSFER") return kind;
+  return undefined;
+}
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -19,6 +25,8 @@ export async function GET(request: Request) {
   const limit = Math.min(Number(searchParams.get("limit")) || 200, 500);
   const includeSummary = searchParams.get("summary") === "true";
 
+  const kindFilter = parseKindFilter(kind);
+
   const dateFilter =
     from || to
       ? {
@@ -32,7 +40,7 @@ export async function GET(request: Request) {
   const baseWhere = {
     userId: session.user.id,
     ...(accountId ? { accountId } : {}),
-    ...(kind === "INCOME" || kind === "EXPENSE" || kind === "TRANSFER" ? { kind } : {}),
+    ...(kindFilter ? { kind: kindFilter } : {}),
     ...(category ? { category } : {}),
     ...dateFilter,
   };

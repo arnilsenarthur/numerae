@@ -1,5 +1,6 @@
 import type { JWT } from "next-auth/jwt";
 import { prisma } from "@/lib/db";
+import type { UserRole } from "@/lib/user-roles";
 
 /** Marks token as invalid — session callbacks should treat this as logged out. */
 export function invalidateToken(token: JWT): JWT {
@@ -19,7 +20,7 @@ export function isTokenValid(token: JWT): boolean {
 // caching this adds 1 DB query per HTTP request. 60 s TTL is a safe trade-off:
 // role/active changes take at most 60 s to propagate.
 type CachedUser = {
-  role: string;
+  role: UserRole;
   active: boolean;
   name: string | null;
   email: string | null;
@@ -57,7 +58,7 @@ export async function syncTokenWithUser(token: JWT): Promise<JWT> {
     }
 
     userCache.set(userId, {
-      role: user.role,
+      role: user.role as UserRole,
       active: user.active,
       name: user.name,
       email: user.email,
