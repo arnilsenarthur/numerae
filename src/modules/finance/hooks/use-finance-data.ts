@@ -27,21 +27,18 @@ export function useFinanceData(period: FinancePeriod) {
     setLoading(true);
     setError(null);
 
-    const summaryQuery = new URLSearchParams();
-    if (period.from) summaryQuery.set("from", period.from);
-    if (period.to) summaryQuery.set("to", period.to);
+    const txQuery = new URLSearchParams({ summary: "true", limit: "300" });
+    if (period.from) txQuery.set("from", period.from);
+    if (period.to) txQuery.set("to", period.to);
 
-    const txQuery = new URLSearchParams(summaryQuery);
-    txQuery.set("limit", "300");
-
-    const [accountsRes, transactionsRes, summaryRes] = await Promise.all([
+    // Two parallel requests instead of three — transactions+summary merged into one.
+    const [accountsRes, transactionsRes] = await Promise.all([
       fetchJson<{ accounts?: SerializedAccount[]; error?: string }>("/api/accounts"),
-      fetchJson<{ transactions?: SerializedTransaction[]; error?: string }>(
-        `/api/transactions?${txQuery.toString()}`,
-      ),
-      fetchJson<FinanceSummary & { error?: string }>(
-        `/api/transactions/summary?${summaryQuery.toString()}`,
-      ),
+      fetchJson<{
+        transactions?: SerializedTransaction[];
+        summary?: FinanceSummary;
+        error?: string;
+      }>(`/api/transactions?${txQuery.toString()}`),
     ]);
 
     setLoading(false);
@@ -52,10 +49,14 @@ export function useFinanceData(period: FinancePeriod) {
     }
 
     setAccounts(accountsRes.data?.accounts ?? []);
-    setTransactions(
-      transactionsRes.response.ok ? (transactionsRes.data?.transactions ?? []) : [],
-    );
-    setSummary(summaryRes.response.ok ? (summaryRes.data ?? null) : null);
+
+    if (transactionsRes.response.ok) {
+      setTransactions(transactionsRes.data?.transactions ?? []);
+      setSummary(transactionsRes.data?.summary ?? null);
+    } else {
+      setTransactions([]);
+      setSummary(null);
+    }
   }, [period.from, period.to]);
 
   useEffect(() => {

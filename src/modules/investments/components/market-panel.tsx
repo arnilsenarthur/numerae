@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -232,6 +232,12 @@ export function MarketPanel({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Keep a ref so the load effect can read the latest searchParams for the
+  // legacy-symbol redirect without adding it as a dependency (which would cause
+  // a full API refetch whenever the period query param changes).
+  const searchParamsRef = useRef(searchParams);
+  useEffect(() => { searchParamsRef.current = searchParams; });
+
   const assetKind = MARKET_KIND_SLUG_TO_KIND[kindSlug];
   const [assets, setAssets] = useState<SerializedMarketAsset[]>([]);
   const [history, setHistory] = useState<Record<string, SerializedMarketQuote[]>>({});
@@ -257,7 +263,9 @@ export function MarketPanel({
     async function load() {
       setLoading(true);
       setError(null);
-      const query = new URLSearchParams({ history: "true" });
+      // Always fetch the full year so all periods are available client-side.
+      // Changing `period` only re-filters already-loaded data — no extra DB call.
+      const query = new URLSearchParams({ history: "true", days: "365" });
       if (!legacySymbol) query.set("kind", assetKind);
       const { response, data } = await fetchJson<{
         assets?: SerializedMarketAsset[];
@@ -279,8 +287,9 @@ export function MarketPanel({
           (a) => a.symbol.toUpperCase() === legacySymbol.toUpperCase(),
         );
         if (match) {
-          const next = new URLSearchParams(searchParams.toString());
-          next.set("period", period);
+          const sp = searchParamsRef.current;
+          const next = new URLSearchParams(sp.toString());
+          if (!next.has("period")) next.set("period", "3M");
           router.replace(
             `${marketAssetPath(marketKindSlugForAsset(match.kind), match.symbol)}?${next.toString()}`,
           );
@@ -291,7 +300,10 @@ export function MarketPanel({
     return () => {
       cancelled = true;
     };
-  }, [assetKind, assetSymbol, legacySymbol, period, router, searchParams]);
+    // `period` and `searchParams` are intentionally excluded: period changes only
+    // re-filter data client-side; searchParams is accessed via searchParamsRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetKind, assetSymbol, legacySymbol, router]);
 
   const selectedAsset = useMemo(() => {
     if (!assetSymbol) return null;

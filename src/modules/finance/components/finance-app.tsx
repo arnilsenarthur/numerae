@@ -19,7 +19,6 @@ import { FinanceOverview } from "@/modules/finance/components/finance-overview";
 import { FinanceRecurring } from "@/modules/finance/components/finance-recurring";
 import { FinanceTransactions } from "@/modules/finance/components/finance-transactions";
 import { useFinanceData } from "@/modules/finance/hooks/use-finance-data";
-import { useCatalog } from "@/hooks/use-catalog";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import {
   FINANCE_DEFAULT_TAB,
@@ -77,7 +76,6 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
   });
   const [preset, setPreset] = useState<PeriodPreset>("month");
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
-  const catalog = useCatalog();
   const currentRange = useMemo(() => periodRange(preset), [preset]);
   const finance = useFinanceData(currentRange);
 
@@ -322,7 +320,6 @@ export function FinanceApp({ initialTab }: { initialTab?: string | null }) {
       ) : tab === "accounts" ? (
         <FinanceAccounts
           accounts={finance.accounts}
-          catalog={catalog}
           onChanged={() => void finance.reload()}
           openCreateSeq={accountCreateSeq}
         />

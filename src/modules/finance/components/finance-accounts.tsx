@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -17,12 +17,24 @@ import { InstitutionAvatar } from "@/lib/institution-visual";
 import { IconPencil, IconPlus, IconTrash, IconWallet } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { useConfirm } from "@/hooks/use-confirm";
-import type { CatalogData } from "@/hooks/use-catalog";
+import {
+  buildInstitutionSelectOptions,
+  type SerializedCurrency,
+} from "@/lib/catalog-serializer";
+import type { SerializedInstitution } from "@/lib/institution-serializer";
 import {
   ACCOUNT_KIND_LABELS,
   type FinancialAccountKind,
   type SerializedAccount,
 } from "@/types/finance";
+
+const FALLBACK_CURRENCY_OPTIONS = [
+  { value: "BRL", label: "BRL — Real" },
+  { value: "USD", label: "USD — Dólar" },
+  { value: "EUR", label: "EUR — Euro" },
+];
+
+const FALLBACK_INSTITUTION_OPTIONS = [{ value: "", label: "Sem instituição" }];
 
 const KIND_OPTIONS = Object.entries(ACCOUNT_KIND_LABELS).map(([value, label]) => ({
   value,
@@ -47,12 +59,10 @@ const emptyForm = (): AccountForm => ({
 
 export function FinanceAccounts({
   accounts,
-  catalog,
   onChanged,
   openCreateSeq = 0,
 }: {
   accounts: SerializedAccount[];
-  catalog: CatalogData;
   onChanged: () => void;
   openCreateSeq?: number;
 }) {
@@ -64,6 +74,11 @@ export function FinanceAccounts({
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { confirm, dialog } = useConfirm();
+
+  // Catalog is loaded lazily — only fetched the first time the modal opens.
+  const catalogFetched = useRef(false);
+  const [currencies, setCurrencies] = useState<SerializedCurrency[]>([]);
+  const [institutions, setInstitutions] = useState<SerializedInstitution[]>([]);
 
   const nameField = useValidatedField(
     [
@@ -80,10 +95,28 @@ export function FinanceAccounts({
     showSuccess: false,
   });
 
-  const institutionOptions = useMemo(
-    () => [{ value: "", label: "Sem instituição" }, ...catalog.institutionOptions],
-    [catalog.institutionOptions],
-  );
+  const currencyOptions = useMemo(() => {
+    if (currencies.length === 0) return FALLBACK_CURRENCY_OPTIONS;
+    return currencies.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }, [currencies]);
+
+  const institutionOptions = useMemo(() => {
+    const opts = buildInstitutionSelectOptions(institutions);
+    return [{ value: "", label: "Sem instituição" }, ...opts];
+  }, [institutions]);
+
+  async function ensureCatalogLoaded() {
+    if (catalogFetched.current) return;
+    catalogFetched.current = true;
+    const res = await fetchJson<{
+      currencies?: SerializedCurrency[];
+      institutions?: SerializedInstitution[];
+    }>("/api/catalog");
+    if (res.response.ok) {
+      setCurrencies(res.data?.currencies ?? []);
+      setInstitutions(res.data?.institutions ?? []);
+    }
+  }
 
   function startCreate() {
     setEditingId(null);
@@ -92,6 +125,7 @@ export function FinanceAccounts({
     balanceField.reset();
     setPageError(null);
     setFormError(null);
+    void ensureCatalogLoaded();
     setModalOpen(true);
   }
 
@@ -115,6 +149,7 @@ export function FinanceAccounts({
     balanceField.setValue(String(account.initialBalance));
     setPageError(null);
     setFormError(null);
+    void ensureCatalogLoaded();
     setModalOpen(true);
   }
 
@@ -332,7 +367,7 @@ export function FinanceAccounts({
             <div className="space-y-1">
               <Label>Moeda</Label>
               <Select
-                options={catalog.currencyOptions}
+                options={currencyOptions}
                 value={form.currencyCode}
                 onChange={(value) => setForm((prev) => ({ ...prev, currencyCode: value }))}
               />

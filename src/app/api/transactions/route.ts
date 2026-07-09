@@ -17,31 +17,92 @@ export async function GET(request: Request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const limit = Math.min(Number(searchParams.get("limit")) || 200, 500);
+  const includeSummary = searchParams.get("summary") === "true";
+
+  const dateFilter =
+    from || to
+      ? {
+          date: {
+            ...(from ? { gte: new Date(from) } : {}),
+            ...(to ? { lte: new Date(to) } : {}),
+          },
+        }
+      : {};
+
+  const baseWhere = {
+    userId: session.user.id,
+    ...(accountId ? { accountId } : {}),
+    ...(kind === "INCOME" || kind === "EXPENSE" || kind === "TRANSFER" ? { kind } : {}),
+    ...(category ? { category } : {}),
+    ...dateFilter,
+  };
 
   try {
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId: session.user.id,
-        ...(accountId ? { accountId } : {}),
-        ...(kind === "INCOME" || kind === "EXPENSE" || kind === "TRANSFER"
-          ? { kind }
-          : {}),
-        ...(category ? { category } : {}),
-        ...(from || to
-          ? {
-              date: {
-                ...(from ? { gte: new Date(from) } : {}),
-                ...(to ? { lte: new Date(to) } : {}),
-              },
-            }
-          : {}),
-      },
+    // When summary is requested, fetch all rows (for accurate aggregation) with a
+    // higher cap, then return the most-recent `limit` rows for the display list.
+    const fetchAll = includeSummary;
+    const rows = await prisma.transaction.findMany({
+      where: baseWhere,
       include: { account: { select: { name: true } } },
       orderBy: { date: "desc" },
-      take: limit,
+      ...(fetchAll ? { take: 2000 } : { take: limit }),
     });
 
-    return NextResponse.json({ transactions: transactions.map(serializeTransaction) });
+    // Display list: top `limit` rows (already ordered desc by date)
+    const displayRows = fetchAll ? rows.slice(0, limit) : rows;
+
+    if (!includeSummary) {
+      return NextResponse.json({ transactions: displayRows.map(serializeTransaction) });
+    }
+
+    // Compute summary from all rows (server-side, no extra DB query)
+    type Totals = { income: number; expense: number };
+    const byCurrency = new Map<string, Totals>();
+    const byCategory = new Map<string, { currencyCode: string; total: number; kind: string }>();
+    const byMonth = new Map<string, Map<string, Totals>>();
+    let summaryCount = 0;
+
+    for (const tx of rows) {
+      if (tx.kind === "TRANSFER") continue; // exclude transfers from summary
+      summaryCount++;
+      const amount = tx.amount.toNumber();
+      const currency = tx.currencyCode;
+
+      let totals = byCurrency.get(currency);
+      if (!totals) { totals = { income: 0, expense: 0 }; byCurrency.set(currency, totals); }
+      if (tx.kind === "INCOME") totals.income += amount; else totals.expense += amount;
+
+      const catKey = `${tx.category}::${currency}`;
+      const cat = byCategory.get(catKey);
+      if (cat) cat.total += amount;
+      else byCategory.set(catKey, { currencyCode: currency, total: amount, kind: tx.kind });
+
+      const monthKey = `${tx.date.getUTCFullYear()}-${String(tx.date.getUTCMonth() + 1).padStart(2, "0")}`;
+      let monthMap = byMonth.get(monthKey);
+      if (!monthMap) { monthMap = new Map(); byMonth.set(monthKey, monthMap); }
+      let mt = monthMap.get(currency);
+      if (!mt) { mt = { income: 0, expense: 0 }; monthMap.set(currency, mt); }
+      if (tx.kind === "INCOME") mt.income += amount; else mt.expense += amount;
+    }
+
+    return NextResponse.json({
+      transactions: displayRows.map(serializeTransaction),
+      summary: {
+        totals: [...byCurrency.entries()].map(([currencyCode, t]) => ({
+          currencyCode, income: t.income, expense: t.expense, net: t.income - t.expense,
+        })),
+        categories: [...byCategory.entries()].map(([key, v]) => ({
+          category: key.split("::")[0], currencyCode: v.currencyCode, kind: v.kind, total: v.total,
+        })),
+        monthly: [...byMonth.entries()].map(([month, currencies]) => ({
+          month,
+          series: [...currencies.entries()].map(([currencyCode, t]) => ({
+            currencyCode, income: t.income, expense: t.expense,
+          })),
+        })),
+        count: summaryCount,
+      },
+    });
   } catch (error) {
     console.error("[GET /api/transactions]", error);
     return NextResponse.json({ error: "Erro ao carregar lançamentos." }, { status: 500 });

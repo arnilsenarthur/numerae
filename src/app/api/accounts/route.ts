@@ -12,17 +12,19 @@ const INSTITUTION_ACCOUNT_SELECT = {
 } as const;
 
 async function loadBalances(userId: string) {
-  const grouped = await prisma.transaction.groupBy({
-    by: ["accountId", "kind"],
-    where: { userId },
-    _sum: { amount: true },
-  });
-
-  const transfersIn = await prisma.transaction.groupBy({
-    by: ["counterAccountId"],
-    where: { userId, kind: "TRANSFER", counterAccountId: { not: null } },
-    _sum: { counterAmount: true, amount: true },
-  });
+  // Both groupBy queries scan different slices of the same table — run in parallel.
+  const [grouped, transfersIn] = await Promise.all([
+    prisma.transaction.groupBy({
+      by: ["accountId", "kind"],
+      where: { userId },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.groupBy({
+      by: ["counterAccountId"],
+      where: { userId, kind: "TRANSFER", counterAccountId: { not: null } },
+      _sum: { counterAmount: true, amount: true },
+    }),
+  ]);
 
   const byAccount = new Map<
     string,
