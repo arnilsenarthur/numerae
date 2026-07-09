@@ -23,6 +23,7 @@ import {
   normalizeMarketPeriod,
   type MarketHistoryPeriod,
 } from "@/lib/market-period";
+import { formatLastUpdated } from "@/lib/spoilable-field";
 import {
   MARKET_ASSET_KIND_LABELS,
   type SerializedMarketAsset,
