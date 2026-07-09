@@ -6,7 +6,13 @@ export const Table = forwardRef<
   HTMLTableElement,
   HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className={cn("w-full overflow-x-auto border border-zinc-200 dark:border-zinc-800", ui.surfaceRadius)}>
+  <div
+    className={cn(
+      "w-full overflow-x-auto overscroll-x-contain border border-zinc-200 dark:border-zinc-800",
+      "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+      ui.surfaceRadius,
+    )}
+  >
     <table
       ref={ref}
       className={cn("w-full min-w-[32rem] border-collapse text-sm", className)}

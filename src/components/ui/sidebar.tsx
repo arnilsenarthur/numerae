@@ -101,7 +101,13 @@ export function SidebarNav({
   className?: string;
 }) {
   return (
-    <nav className={cn("flex-1 overflow-y-auto px-2 py-3", className)}>
+    <nav
+      className={cn(
+        "flex-1 overflow-y-auto overscroll-y-contain px-2 py-3",
+        "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+    >
       {children}
     </nav>
   );

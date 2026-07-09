@@ -27,7 +27,8 @@ export function ButtonGroup({
   return (
     <div
       className={cn(
-        "inline-flex max-w-full overflow-x-auto border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60",
+        "inline-flex max-w-full overflow-x-auto overscroll-x-contain border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60",
+        "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
         ui.controlRadius,
         fullWidth && "flex w-full",
         className,

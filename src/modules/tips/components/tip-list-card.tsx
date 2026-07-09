@@ -22,7 +22,7 @@ export function TipListCard({ tip }: TipListCardProps) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           {tip.sourceUrl ? (
             <span className="text-sm text-emerald-600 dark:text-emerald-400">
-              {tip.sourceLabel ?? t("tips.openSource")} ↗
+              {tip.sourceLabel ?? t("tips.openSource")}
             </span>
           ) : null}
           <Badge variant="outline">{tipCategoryLabel(tip.category, t)}</Badge>

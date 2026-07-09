@@ -1,11 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipAnchor,
-  getTooltipPositionStyle,
-} from "@/components/ui/tooltip";
+import { CursorTooltip, type CursorPoint } from "@/components/ui/tooltip";
 import { HTMLAttributes, useMemo, useState } from "react";
 
 type ProgressProps = HTMLAttributes<HTMLDivElement> & {
@@ -93,23 +89,18 @@ export function StackedProgress({
   ...props
 }: StackedProgressProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<CursorPoint | null>(null);
 
   const layout = useMemo(() => {
-    let offset = 0;
-
     return segments
       .map((segment, index) => {
         const width = Math.min(100, Math.max(0, (segment.value / max) * 100));
         if (width <= 0) return null;
 
-        const center = offset + width / 2;
-        offset += width;
-
         return {
           segment,
           index,
           width,
-          center,
           color: segment.className ?? segmentColors[index % segmentColors.length],
         };
       })
@@ -117,29 +108,23 @@ export function StackedProgress({
       segment: ProgressFill;
       index: number;
       width: number;
-      center: number;
       color: string;
     }>;
   }, [segments, max]);
 
   const active = activeIndex !== null ? layout.find((item) => item.index === activeIndex) : null;
 
+  function clearHover() {
+    setActiveIndex(null);
+    setCursorPoint(null);
+  }
+
   return (
-    <div
-      className={cn("relative", className)}
-      onMouseLeave={() => setActiveIndex(null)}
-      {...props}
-    >
-      {active ? (
-        <TooltipAnchor
-          className="pointer-events-none absolute z-20"
-          style={{
-            top: 0,
-            ...getTooltipPositionStyle(active.center / 100, { gap: 8 }),
-          }}
-        >
-          <Tooltip>{formatValue(active.segment.value, active.segment.label)}</Tooltip>
-        </TooltipAnchor>
+    <div className={cn("relative", className)} onMouseLeave={clearHover} {...props}>
+      {active && cursorPoint ? (
+        <CursorTooltip point={cursorPoint}>
+          {formatValue(active.segment.value, active.segment.label)}
+        </CursorTooltip>
       ) : null}
 
       <div
@@ -147,6 +132,7 @@ export function StackedProgress({
           "flex overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800",
           sizes[size],
         )}
+        onMouseMove={(event) => setCursorPoint({ x: event.clientX, y: event.clientY })}
       >
         {layout.map(({ segment, index, width, color }) => {
           const isActive = activeIndex === index;
@@ -163,7 +149,10 @@ export function StackedProgress({
                 isActive && "brightness-110",
               )}
               style={{ width: `${width}%` }}
-              onMouseEnter={() => setActiveIndex(index)}
+              onMouseEnter={(event) => {
+                setActiveIndex(index);
+                setCursorPoint({ x: event.clientX, y: event.clientY });
+              }}
             />
           );
         })}

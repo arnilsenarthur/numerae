@@ -193,7 +193,7 @@ export function FinanceReports() {
         <>
           {/* KPI cards */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="h-full">
               <CardContent className="py-3">
                 <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                   <IconTrendUp size="xs" /> {t("finance.pages.reports.income")}
@@ -207,7 +207,7 @@ export function FinanceReports() {
                 />
               </CardContent>
             </Card>
-            <Card>
+            <Card className="h-full">
               <CardContent className="py-3">
                 <div className="flex items-center gap-2 text-xs font-medium text-red-600 dark:text-red-400">
                   <IconTrendDown size="xs" /> {t("finance.pages.reports.expense")}
@@ -221,7 +221,7 @@ export function FinanceReports() {
                 />
               </CardContent>
             </Card>
-            <Card>
+            <Card className="h-full">
               <CardContent className="py-3">
                 <p className="text-xs font-medium text-zinc-500">{t("finance.pages.reports.netBalance")}</p>
                 <Money
@@ -234,7 +234,7 @@ export function FinanceReports() {
                 />
               </CardContent>
             </Card>
-            <Card>
+            <Card className="h-full">
               <CardContent className="py-3">
                 <p className="text-xs font-medium text-zinc-500">{t("finance.pages.reports.monthlyBudget")}</p>
                 {budgets.length > 0 ? (
@@ -257,15 +257,15 @@ export function FinanceReports() {
           </div>
 
           {/* Charts row 1: monthly + expense donut */}
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <div className="grid gap-4 lg:grid-cols-2">
             {barData.length > 0 ? (
-              <Card>
+              <Card className="flex h-full flex-col">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <IconBarChart size="sm" /> {t("finance.pages.reports.monthlyEvolution")}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-1 flex-col">
                   <ColumnChart
                     data={barData}
                     formatValue={(v) => formatMoney(v, { currency })}
@@ -277,11 +277,11 @@ export function FinanceReports() {
             ) : null}
 
             {expenseDonut.length > 0 ? (
-              <Card>
+              <Card className="flex h-full flex-col">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">{t("finance.pages.reports.expenseDistribution")}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-1 flex-col justify-center">
                   <DonutChart
                     segments={expenseDonut}
                     size={160}
@@ -304,13 +304,13 @@ export function FinanceReports() {
                 })}
               </h3>
 
-              <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+              <div className="grid gap-4 lg:grid-cols-2">
                 {budgetBarData.length > 0 ? (
-                  <Card>
+                  <Card className="flex h-full flex-col">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">{t("finance.pages.reports.spendVsLimit")}</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex flex-1 flex-col">
                       <BarChart
                         data={budgetBarData}
                         formatValue={(v) => formatMoney(v, { currency })}
@@ -320,11 +320,11 @@ export function FinanceReports() {
                   </Card>
                 ) : null}
 
-                <Card className="h-fit">
+                <Card className="flex h-full flex-col">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">{t("finance.pages.reports.budgetUtilization")}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="flex flex-1 flex-col space-y-3">
                     {budgetVsSpent.map((item) => {
                       const variant =
                         item.pct >= 100 ? "danger" : item.pct >= 80 ? "warning" : "default";
@@ -357,7 +357,7 @@ export function FinanceReports() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{t("finance.pages.reports.topCategories")}</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="px-4 pt-0 pb-0">
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                   {report.topExpenseCategories.map((cat) => {
                     const pct =
@@ -365,7 +365,7 @@ export function FinanceReports() {
                         ? ((cat.expense / report.totalExpense) * 100).toFixed(1)
                         : "0";
                     return (
-                      <div key={cat.category} className="flex items-center justify-between gap-3 px-4 py-2">
+                      <div key={cat.category} className="flex items-center justify-between gap-3 py-2">
                         <p className="min-w-0 truncate text-sm">{labels.categoryLabel(cat.category)}</p>
                         <div className="flex items-baseline gap-2">
                           <span className="text-sm font-medium tabular-nums">

@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   queryParamKey,
   useUrlQueryPage,
@@ -101,17 +101,48 @@ export function DataTable<T>({
   const searchParams = useSearchParams();
   const patchQuery = useUrlQueryPatch();
   const [urlPage, setUrlPage] = useUrlQueryPage({ key: pageKey });
-  const [urlQuery, setUrlQuery] = useUrlQueryString({ key: queryKey });
+  const [urlQuery] = useUrlQueryString({ key: queryKey });
 
   const [localQuery, setLocalQuery] = useState("");
+  const [draftQuery, setDraftQuery] = useState("");
   const [localSortColumn, setLocalSortColumn] = useState<string | null>(null);
   const [localSortDirection, setLocalSortDirection] = useState<SortDirection>("asc");
   const [localPage, setLocalPage] = useState(0);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const query = syncQuery ? urlQuery : localQuery;
-  const setQuery = syncQuery ? setUrlQuery : setLocalQuery;
   const page = syncQuery ? urlPage : localPage;
   const setPage = syncQuery ? setUrlPage : setLocalPage;
+  const activeQuery = syncQuery ? draftQuery : localQuery;
+  const isSearchPending = syncQuery && draftQuery !== urlQuery;
+
+  useEffect(() => {
+    setDraftQuery(query);
+  }, [query]);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, []);
+
+  function handleSearchChange(next: string) {
+    setDraftQuery(next);
+
+    if (!syncQuery) {
+      setLocalQuery(next);
+      setLocalPage(0);
+      return;
+    }
+
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      patchQuery({
+        [queryKey]: next.trim() === "" ? null : next,
+        [pageKey]: null,
+      });
+    }, 250);
+  }
 
   const sortColumn = useMemo(() => {
     if (!syncQuery) return localSortColumn;
@@ -139,7 +170,7 @@ export function DataTable<T>({
   };
 
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = activeQuery.trim().toLowerCase();
     if (!normalized) return data;
 
     if (searchFilter) {
@@ -152,7 +183,7 @@ export function DataTable<T>({
         return String(column.sortValue(row)).toLowerCase().includes(normalized);
       }),
     );
-  }, [columns, data, query, searchFilter]);
+  }, [columns, data, activeQuery, searchFilter]);
 
   const sorted = useMemo(() => {
     if (!sortColumn) return filtered;
@@ -169,7 +200,8 @@ export function DataTable<T>({
   }, [columns, filtered, sortColumn, sortDirection, locale]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const currentPage = Math.min(page, totalPages - 1);
+  const effectivePage = isSearchPending ? 0 : page;
+  const currentPage = Math.min(effectivePage, totalPages - 1);
   const pageRows = sorted.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
 
   useEffect(() => {
@@ -193,7 +225,7 @@ export function DataTable<T>({
     applySort(columnId, "asc");
   };
 
-  if (data.length === 0 && !query && emptyState) {
+  if (data.length === 0 && !activeQuery && emptyState) {
     return <div className={cn(className)}>{emptyState}</div>;
   }
 
@@ -208,14 +240,8 @@ export function DataTable<T>({
                 className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
               />
               <Input
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setPage(0);
-                  if (syncQuery) {
-                    patchQuery({ [pageKey]: null });
-                  }
-                }}
+                value={activeQuery}
+                onChange={(event) => handleSearchChange(event.target.value)}
                 placeholder={resolvedSearchPlaceholder}
                 className="pl-8"
               />

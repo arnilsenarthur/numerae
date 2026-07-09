@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
@@ -235,6 +235,7 @@ type AppShellProps = {
 
 function AppShellInner({ children, title, subtitle, actions }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const scrollYRef = useRef(0);
   const { data: session } = useSession();
   const t = useT();
 
@@ -258,13 +259,50 @@ function AppShellInner({ children, title, subtitle, actions }: AppShellProps) {
     return () => window.clearInterval(interval);
   }, [session?.user]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    scrollYRef.current = window.scrollY;
+    const { style } = document.body;
+    const previous = {
+      position: style.position,
+      top: style.top,
+      left: style.left,
+      right: style.right,
+      width: style.width,
+      overflow: style.overflow,
+    };
+
+    style.position = "fixed";
+    style.top = `-${scrollYRef.current}px`;
+    style.left = "0";
+    style.right = "0";
+    style.width = "100%";
+    style.overflow = "hidden";
+
+    return () => {
+      style.position = previous.position;
+      style.top = previous.top;
+      style.left = previous.left;
+      style.right = previous.right;
+      style.width = previous.width;
+      style.overflow = previous.overflow;
+
+      const root = document.documentElement;
+      const previousScrollBehavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      window.scrollTo({ top: scrollYRef.current, left: 0, behavior: "auto" });
+      root.style.scrollBehavior = previousScrollBehavior;
+    };
+  }, [mobileOpen]);
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <Dimmer open={mobileOpen} onClose={() => setMobileOpen(false)} className="lg:hidden" />
 
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 h-dvh overflow-hidden transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

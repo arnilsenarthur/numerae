@@ -558,6 +558,11 @@ export function MarketPanel({
                 getRowKey={(row) => row.id}
                 pageSize={10}
                 searchPlaceholder={t("investments.pages.marketPanel.searchPlaceholder")}
+                searchFilter={(row, query) =>
+                  `${row.symbol} ${row.name} ${row.countryCode ?? ""}`
+                    .toLowerCase()
+                    .includes(query)
+                }
                 emptyMessage={t("investments.pages.marketPanel.emptySearch")}
                 onRowClick={(row) => openAsset(row)}
               />
