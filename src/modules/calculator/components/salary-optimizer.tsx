@@ -14,31 +14,15 @@ import { formatMoney } from "@/lib/format-money";
 import { useT } from "@/i18n/locale-provider";
 import type { TranslateFn } from "@/i18n/translate";
 import { useCompanies } from "@/modules/calculator/hooks/use-companies";
+import {
+  calcMonthlyTaxByRegime,
+  calcSimplesEffectiveRate,
+  type PjRegimeId,
+} from "@/modules/calculator/engines/br/regime-comparison";
+import { SIMPLES_ANNEX_III, SIMPLES_ANNEX_V } from "@/modules/calculator/engines/br/tables/2025";
+import { FATOR_R_THRESHOLD } from "@/modules/calculator/engines/br/fator-r";
 
 const IOF_RATE = 0.0138;
-
-const SIMPLES_III_TABLE = [
-  { maxRevenue: 180000, nominalRate: 0.06, deduction: 0 },
-  { maxRevenue: 360000, nominalRate: 0.112, deduction: 9360 },
-  { maxRevenue: 720000, nominalRate: 0.135, deduction: 17640 },
-  { maxRevenue: 1800000, nominalRate: 0.16, deduction: 35640 },
-  { maxRevenue: 3600000, nominalRate: 0.21, deduction: 125640 },
-];
-
-const SIMPLES_V_TABLE = [
-  { maxRevenue: 180000, nominalRate: 0.155, deduction: 0 },
-  { maxRevenue: 360000, nominalRate: 0.18, deduction: 4500 },
-  { maxRevenue: 720000, nominalRate: 0.195, deduction: 9900 },
-  { maxRevenue: 1800000, nominalRate: 0.205, deduction: 17100 },
-  { maxRevenue: 3600000, nominalRate: 0.23, deduction: 62100 },
-];
-
-function calcSimples(annual: number, table: typeof SIMPLES_III_TABLE): number {
-  if (annual <= 0) return 0;
-  const range = table.find((r) => annual <= r.maxRevenue);
-  if (!range) return annual * 0.33;
-  return Math.max(0, annual * range.nominalRate - range.deduction);
-}
 
 type Institution = {
   name: string;
@@ -58,25 +42,7 @@ const INSTITUTIONS: Institution[] = [
 ];
 
 function calcTax(brlGross: number, regime: string, manualRatePercent = 0): number {
-  const annual = brlGross * 12;
-  if (regime === "manual") {
-    const rate = Math.max(0, manualRatePercent) / 100;
-    return brlGross * rate;
-  }
-  if (regime === "mei") return Math.min(brlGross, 75.9);
-  if (regime === "simples_iii") return calcSimples(annual, SIMPLES_III_TABLE) / 12;
-  if (regime === "simples_v") return calcSimples(annual, SIMPLES_V_TABLE) / 12;
-  if (regime === "lucro_presumido") {
-    // IRPJ + CSLL + PIS + COFINS + ISS
-    const presumed = annual * 0.32;
-    const irpj = presumed * 0.15 + Math.max(0, presumed - 240000) * 0.1;
-    const csll = presumed * 0.09;
-    const pis = annual * 0.0065;
-    const cofins = annual * 0.03;
-    const iss = annual * 0.05;
-    return (irpj + csll + pis + cofins + iss) / 12;
-  }
-  return 0;
+  return calcMonthlyTaxByRegime(regime as PjRegimeId, brlGross, manualRatePercent);
 }
 
 function taxLabel(regime: string, t: TranslateFn): string {
@@ -193,14 +159,11 @@ export function SalaryOptimizer() {
   // Effective annual tax rate for advisory tip
   const annualBrlEstimate = numAmount * (marketRate ?? 0) * 12;
   const simplesIIIRate =
-    annualBrlEstimate > 0
-      ? calcSimples(annualBrlEstimate, SIMPLES_III_TABLE) / annualBrlEstimate
-      : 0;
+    annualBrlEstimate > 0 ? calcSimplesEffectiveRate(annualBrlEstimate, SIMPLES_ANNEX_III) : 0;
   const simplesVRate =
-    annualBrlEstimate > 0
-      ? calcSimples(annualBrlEstimate, SIMPLES_V_TABLE) / annualBrlEstimate
-      : 0;
-  const minProlaboreIII = annualBrlEstimate > 0 ? (annualBrlEstimate * 0.28) / 12 : 0;
+    annualBrlEstimate > 0 ? calcSimplesEffectiveRate(annualBrlEstimate, SIMPLES_ANNEX_V) : 0;
+  const minProlaboreIII =
+    annualBrlEstimate > 0 ? (annualBrlEstimate * FATOR_R_THRESHOLD) / 12 : 0;
 
   return (
     <div className="space-y-4">

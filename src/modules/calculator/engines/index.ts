@@ -33,5 +33,20 @@ export {
   minProLaboreForFatorR,
   FATOR_R_THRESHOLD,
 } from "@/modules/calculator/engines/br/fator-r";
+export {
+  comparePjRegimesBr,
+  calcMonthlyTaxByRegime,
+  calcSimplesAnnual,
+  calcSimplesEffectiveRate,
+  calcLucroPresumidoAnnual,
+} from "@/modules/calculator/engines/br/regime-comparison";
+export type {
+  PjRegimeId,
+  PjRegimeResult,
+  PjRegimeComparisonInput,
+  PjRegimeComparisonResult,
+  TaxLineItem,
+} from "@/modules/calculator/engines/br/regime-comparison";
+export { TAX_YEAR_BR } from "@/modules/calculator/engines/br/tables/2025";
 
 export { CNAE_CATALOG_BR, findCnaePreset } from "@/modules/calculator/engines/br/cnae-catalog";

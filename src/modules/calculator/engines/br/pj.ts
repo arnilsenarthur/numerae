@@ -1,10 +1,10 @@
-import type { PjInput, SalaryCalculationResult } from "@/modules/calculator/types";
+import { calcMonthlyTaxByRegime } from "@/modules/calculator/engines/br/regime-comparison";
 import { findCnaePreset } from "@/modules/calculator/engines/br/cnae-catalog";
+import type { PjInput, SalaryCalculationResult } from "@/modules/calculator/types";
 
 export function calculatePjBr(input: PjInput): SalaryCalculationResult {
   const gross = Math.max(0, input.grossRevenue);
   const rate = Math.min(100, Math.max(0, input.taxRatePercent));
-  const tax = Math.round(gross * (rate / 100) * 100) / 100;
   const cnae = input.cnaeCode ? findCnaePreset(input.cnaeCode) : undefined;
 
   const regimeLabel =
@@ -13,6 +13,13 @@ export function calculatePjBr(input: PjInput): SalaryCalculationResult {
       : input.taxRegime === "presumido"
         ? "Lucro presumido (estimativa)"
         : "Simples Nacional (estimativa)";
+
+  const tax =
+    input.taxRegime === "presumido"
+      ? calcMonthlyTaxByRegime("lucro_presumido", gross)
+      : input.taxRegime === "manual"
+        ? calcMonthlyTaxByRegime("manual", gross, rate)
+        : calcMonthlyTaxByRegime("simples_iii", gross, rate);
 
   const deductions = [
     {
