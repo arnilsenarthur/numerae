@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Bump when schema changes require regenerating the cached dev client. */
-const PRISMA_CLIENT_VERSION = 8;
+const PRISMA_CLIENT_VERSION = 10;
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -45,7 +45,8 @@ function isClientCurrent(client: PrismaClient) {
     typeof client.passwordReset?.findMany === "function" &&
     typeof client.tip?.findMany === "function" &&
     typeof client.budget?.findMany === "function" &&
-    typeof client.userPreference?.findMany === "function"
+    typeof client.userPreference?.findMany === "function" &&
+    typeof client.currencyQuote?.findMany === "function"
   );
 }
 

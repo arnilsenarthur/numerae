@@ -281,32 +281,12 @@ export function FinanceReports() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">{t("finance.pages.reports.expenseDistribution")}</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <CardContent>
                   <DonutChart
                     segments={expenseDonut}
-                    size={140}
+                    size={160}
                     formatValue={(v) => formatMoney(v, { currency })}
                   />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    {expenseDonut.map((seg) => {
-                      const pct =
-                        report.totalExpense > 0
-                          ? ((seg.value / report.totalExpense) * 100).toFixed(1)
-                          : "0";
-                      return (
-                        <div key={seg.label} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="flex min-w-0 items-center gap-1.5 truncate">
-                            <span
-                              className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: seg.color }}
-                            />
-                            {seg.label}
-                          </span>
-                          <span className="shrink-0 text-[10px] text-zinc-400">{pct}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </CardContent>
               </Card>
             ) : null}

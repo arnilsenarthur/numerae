@@ -2,6 +2,7 @@ import {
   CALCULATOR_TABS,
   FINANCE_LEDGER_TABS,
   INVESTMENT_TABS,
+  MARKET_CURRENCY_SLUG,
   MARKET_DEFAULT_KIND_SLUG,
   MARKET_KIND_NAV,
   calculatorTabPath,
@@ -15,6 +16,7 @@ import {
   type InvestmentTabSlug,
   type MarketKindSlug,
 } from "@/lib/app-routes";
+import { currencyDisplayCode } from "@/lib/currency-market";
 import type { BreadcrumbItem } from "@/components/ui/breadcrumbs";
 import type { TranslateFn } from "@/i18n/translate";
 
@@ -156,20 +158,28 @@ export function marketPageHeader(
   kindSlug: MarketKindSlug,
   t: TranslateFn,
   assetSymbol?: string | null,
+  asset?: { name: string; symbol: string } | null,
 ): PageHeaderMeta {
   const kindLabel = t(`section.market.kind.${kindSlug}`);
 
   if (assetSymbol) {
-    const symbol = assetSymbol.toUpperCase();
+    const code =
+      kindSlug === MARKET_CURRENCY_SLUG
+        ? currencyDisplayCode(assetSymbol)
+        : assetSymbol.toUpperCase();
+    const title = asset
+      ? t("market.assetPageTitle", { name: asset.name, symbol: code })
+      : code;
+
     return {
       kicker: t("section.group.finance"),
-      title: symbol,
-      subtitle: t("section.market.assetDetail", { symbol }),
+      title,
+      subtitle: t("section.market.assetDetail", { symbol: code }),
       breadcrumbs: [
         financesCrumb(t),
         { label: t("section.market.title"), href: marketKindPath(MARKET_DEFAULT_KIND_SLUG) },
         { label: kindLabel, href: marketKindPath(kindSlug) },
-        { label: symbol },
+        { label: title },
       ],
     };
   }

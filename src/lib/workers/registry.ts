@@ -50,7 +50,7 @@ export const WORKER_DEFINITIONS = {
   [WORKER_IDS.USD_RATE]: {
     id: WORKER_IDS.USD_RATE,
     name: "Taxas USD (moedas)",
-    description: "Atualiza Currency.usdRate a partir de APIs externas de câmbio.",
+    description: "Atualiza Currency.usdRate, grava histórico em CurrencyQuote e preenche séries via Frankfurter.",
     defaultPrimaryProvider: "frankfurter" as WorkerProviderId,
     defaultSecondaryProvider: "openexchangerates" as WorkerProviderId,
     allowedProviders: ["frankfurter", "openexchangerates", "database"] as WorkerProviderId[],

@@ -23,6 +23,7 @@ import { marketPageHeader } from "@/lib/page-meta";
 import { formatLastUpdated } from "@/lib/spoilable-field";
 import { useT } from "@/i18n/locale-provider";
 import { MarketPanel } from "@/modules/investments/components/market-panel";
+import type { SerializedMarketAsset } from "@/types/market";
 
 export function MarketApp({
   kindSlug = MARKET_DEFAULT_KIND_SLUG,
@@ -38,7 +39,11 @@ export function MarketApp({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const page = marketPageHeader(kindSlug, t, assetSymbol);
+  const [detailAsset, setDetailAsset] = useState<SerializedMarketAsset | null>(null);
+  const page = useMemo(
+    () => marketPageHeader(kindSlug, t, assetSymbol, detailAsset),
+    [kindSlug, t, assetSymbol, detailAsset],
+  );
 
   const period = useMemo(
     () => normalizeMarketPeriod(searchParams.get("period")),
@@ -117,6 +122,7 @@ export function MarketApp({
         assetSymbol={assetSymbol}
         legacySymbol={legacySymbol}
         onLastUpdate={setLastUpdate}
+        onDetailAsset={setDetailAsset}
       />
     </div>
   );

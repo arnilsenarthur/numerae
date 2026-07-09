@@ -6,6 +6,7 @@ export type MoneyTone = "auto" | "income" | "expense" | "transfer";
 type MoneyProps = {
   value: number;
   currency?: string;
+  locale?: string;
   showSign?: boolean;
   tone?: MoneyTone;
   size?: "sm" | "md" | "lg";
@@ -30,6 +31,7 @@ function resolveTone(value: number, showSign: boolean, tone: MoneyTone): string 
 export function Money({
   value,
   currency,
+  locale,
   showSign = false,
   tone = "auto",
   size = "md",
@@ -46,7 +48,7 @@ export function Money({
         className,
       )}
     >
-      {formatMoney(value, { currency, showSign })}
+      {formatMoney(value, { currency, locale, showSign })}
     </span>
   );
 }

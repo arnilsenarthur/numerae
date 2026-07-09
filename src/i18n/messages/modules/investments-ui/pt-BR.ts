@@ -173,6 +173,8 @@ export const investmentsUiPtBR = {
     loadError: "Erro ao carregar mercado.",
     typeLabel: "Tipo",
     currencyCountryLabel: "Moeda / País",
+    currentQuoteLabel: "Cotação atual",
+    currencyUsdRate: "1 {code} = {rate}",
     periodReturnLabel: "Retorno no período",
     noHistory: "Sem histórico",
     emptyCategoryTitle: "Nenhum ativo nesta categoria",

@@ -249,3 +249,61 @@ export function crossRateFromUsdRates(
 
   return fromUsd / toUsd;
 }
+
+export type UsdRateHistoryPoint = {
+  quotedAt: Date;
+  usdRate: number;
+};
+
+/** Daily USD rates (USD per 1 unit of currency) from Frankfurter timeseries. */
+export async function fetchFrankfurterUsdHistory(
+  codes: string[],
+  lookbackDays = 365,
+): Promise<Map<string, UsdRateHistoryPoint[]>> {
+  const symbols = [
+    ...new Set(codes.map((code) => code.toUpperCase()).filter((code) => !isStableUsdCode(code))),
+  ];
+  const historyByCode = new Map<string, UsdRateHistoryPoint[]>();
+  if (symbols.length === 0) return historyByCode;
+
+  const end = new Date();
+  const start = new Date(end.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+  const startIso = start.toISOString().slice(0, 10);
+  const endIso = end.toISOString().slice(0, 10);
+  const url = `https://api.frankfurter.app/${startIso}..${endIso}?from=USD&to=${encodeURIComponent(symbols.join(","))}`;
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 0 },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Frankfurter histórico retornou ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    rates?: Record<string, Record<string, number>>;
+  };
+
+  for (const code of symbols) {
+    historyByCode.set(code, []);
+  }
+
+  for (const [date, rates] of Object.entries(data.rates ?? {})) {
+    const quotedAt = new Date(`${date}T12:00:00.000Z`);
+    for (const code of symbols) {
+      const unitsPerUsd = rates[code];
+      if (unitsPerUsd === undefined) continue;
+      historyByCode.get(code)!.push({
+        quotedAt,
+        usdRate: unitsPerUsdToUsdRate(unitsPerUsd),
+      });
+    }
+  }
+
+  for (const points of historyByCode.values()) {
+    points.sort((a, b) => a.quotedAt.getTime() - b.quotedAt.getTime());
+  }
+
+  return historyByCode;
+}

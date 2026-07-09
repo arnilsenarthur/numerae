@@ -15,7 +15,7 @@ import {
   translateWorkerRunStatus,
   translateWorkerRunTrigger,
 } from "@/i18n/labels";
-import { WORKER_PROVIDER_OPTIONS } from "@/lib/workers/registry";
+import { WORKER_IDS, WORKER_PROVIDER_OPTIONS } from "@/lib/workers/registry";
 import {
   formatWorkerNextRunLabel,
   getWorkerScheduleMeta,
@@ -441,7 +441,7 @@ function WorkerCard({
             </p>
           </div>
 
-          {worker.id === "market_quotes" ? (
+          {worker.id === WORKER_IDS.MARKET_QUOTES || worker.id === WORKER_IDS.USD_RATE ? (
             <div className="space-y-1.5">
               <Label htmlFor={`lookback-${worker.id}`}>{t("admin.workers.lookbackDays")}</Label>
               <NumberInput

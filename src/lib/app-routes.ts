@@ -26,7 +26,7 @@ export type InvestmentTabSlug = (typeof INVESTMENT_TABS)[keyof typeof INVESTMENT
 export const MARKET_BASE = "/market" as const;
 
 /** URL segment per asset kind — ex.: /market/share/AAPL */
-export const MARKET_KIND_SLUGS = {
+export const MARKET_ASSET_KIND_SLUGS = {
   STOCK: "share",
   ETF: "etf",
   FII: "fii",
@@ -35,9 +35,14 @@ export const MARKET_KIND_SLUGS = {
   COMMODITY: "commodity",
 } as const;
 
-export type MarketKindSlug = (typeof MARKET_KIND_SLUGS)[MarketAssetKind];
+export const MARKET_CURRENCY_SLUG = "currency" as const;
 
-export const MARKET_KIND_SLUG_TO_KIND: Record<MarketKindSlug, MarketAssetKind> = {
+export type MarketAssetKindSlug =
+  (typeof MARKET_ASSET_KIND_SLUGS)[Exclude<MarketAssetKind, "CURRENCY">];
+
+export type MarketKindSlug = MarketAssetKindSlug | typeof MARKET_CURRENCY_SLUG;
+
+export const MARKET_KIND_SLUG_TO_KIND: Record<MarketAssetKindSlug, Exclude<MarketAssetKind, "CURRENCY">> = {
   share: "STOCK",
   etf: "ETF",
   fii: "FII",
@@ -47,6 +52,7 @@ export const MARKET_KIND_SLUG_TO_KIND: Record<MarketKindSlug, MarketAssetKind> =
 };
 
 export const MARKET_KIND_NAV: { slug: MarketKindSlug }[] = [
+  { slug: MARKET_CURRENCY_SLUG },
   { slug: "share" },
   { slug: "etf" },
   { slug: "fii" },
@@ -55,14 +61,19 @@ export const MARKET_KIND_NAV: { slug: MarketKindSlug }[] = [
   { slug: "commodity" },
 ];
 
-export const MARKET_DEFAULT_KIND_SLUG: MarketKindSlug = "share";
+export const MARKET_DEFAULT_KIND_SLUG: MarketKindSlug = MARKET_CURRENCY_SLUG;
 
 export function isMarketKindSlug(value: string): value is MarketKindSlug {
+  return value === MARKET_CURRENCY_SLUG || value in MARKET_KIND_SLUG_TO_KIND;
+}
+
+export function isMarketAssetKindSlug(value: string): value is MarketAssetKindSlug {
   return value in MARKET_KIND_SLUG_TO_KIND;
 }
 
 export function marketKindSlugForAsset(kind: MarketAssetKind): MarketKindSlug {
-  return MARKET_KIND_SLUGS[kind];
+  if (kind === "CURRENCY") return MARKET_CURRENCY_SLUG;
+  return MARKET_ASSET_KIND_SLUGS[kind];
 }
 
 export function marketKindPath(kind: MarketKindSlug = MARKET_DEFAULT_KIND_SLUG) {

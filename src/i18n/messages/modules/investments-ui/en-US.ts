@@ -172,6 +172,8 @@ export const investmentsUiEnUS = {
     loadError: "Could not load market.",
     typeLabel: "Type",
     currencyCountryLabel: "Currency / Country",
+    currentQuoteLabel: "Current quote",
+    currencyUsdRate: "1 {code} = {rate}",
     periodReturnLabel: "Period return",
     noHistory: "No history",
     emptyCategoryTitle: "No assets in this category",

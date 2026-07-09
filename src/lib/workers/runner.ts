@@ -119,7 +119,12 @@ async function executeWorkerTask(
 ) {
   switch (workerId) {
     case WORKER_IDS.USD_RATE:
-      return runUsdRateWorker({ primaryProvider, secondaryProvider, trigger });
+      return runUsdRateWorker({
+        primaryProvider,
+        secondaryProvider,
+        trigger,
+        historyLookbackDays: options.historyLookbackDays,
+      });
     case WORKER_IDS.MARKET_QUOTES:
       return runMarketQuotesWorker({
         primaryProvider,
@@ -304,7 +309,8 @@ export async function ensureWorkersSeeded() {
           primaryProvider: def.defaultPrimaryProvider,
           secondaryProvider: def.defaultSecondaryProvider,
           intervalSeconds: def.defaultIntervalSeconds,
-          historyLookbackDays: id === WORKER_IDS.MARKET_QUOTES ? 400 : null,
+          historyLookbackDays:
+            id === WORKER_IDS.MARKET_QUOTES || id === WORKER_IDS.USD_RATE ? 400 : null,
         },
         update: {
           name: def.name,
@@ -334,4 +340,12 @@ export async function ensureWorkersSeeded() {
       });
     }
   }
+
+  await prisma.worker.updateMany({
+    where: {
+      id: { in: [WORKER_IDS.MARKET_QUOTES, WORKER_IDS.USD_RATE] },
+      historyLookbackDays: null,
+    },
+    data: { historyLookbackDays: 400 },
+  });
 }

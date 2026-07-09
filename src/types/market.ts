@@ -4,7 +4,8 @@ export type MarketAssetKind =
   | "FII"
   | "CRYPTO"
   | "INDEX"
-  | "COMMODITY";
+  | "COMMODITY"
+  | "CURRENCY";
 
 export type SerializedMarketAsset = {
   id: string;
@@ -31,7 +32,7 @@ export type SerializedMarketQuote = {
   quotedAt: string;
 };
 
-export const MARKET_ASSET_KIND_LABELS: Record<MarketAssetKind, string> = {
+export const MARKET_ASSET_KIND_LABELS: Record<Exclude<MarketAssetKind, "CURRENCY">, string> = {
   STOCK: "Ação",
   ETF: "ETF",
   FII: "FII",

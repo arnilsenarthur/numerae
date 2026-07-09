@@ -147,6 +147,7 @@ export const ptBR = {
       title: "Mercado",
       assetDetail: "Detalhes, cotação e histórico de {symbol}.",
       kind: {
+        currency: "Moedas",
         share: "Ações",
         etf: "ETF",
         fii: "FII",
@@ -155,6 +156,7 @@ export const ptBR = {
         commodity: "Commodity",
       },
       kindSubtitle: {
+        currency: "Câmbio oficial e histórico de cotações por moeda.",
         share: "Ações listadas em bolsas do mundo — cotações e histórico.",
         etf: "Fundos negociados em bolsa com diversificação por cesta de ativos.",
         fii: "Fundos imobiliários listados na B3 e acompanhamento de dividendos.",
@@ -379,7 +381,7 @@ export const ptBR = {
     calculators: "Calculadoras",
     calculatorsHint: "Câmbio, impostos, FIRE",
     market: "Mercado",
-    marketHint: "Ações, ETFs, cripto",
+    marketHint: "Moedas, ações, ETFs, cripto",
     bestExchange: "Melhor câmbio",
     bestExchangeHint: "Compare taxas por banco",
     projections: "Projeções",
@@ -478,6 +480,7 @@ export const ptBR = {
   },
   market: {
     assetKind: {
+      CURRENCY: "Moeda",
       STOCK: "Ação",
       ETF: "ETF",
       FII: "FII",
@@ -491,7 +494,9 @@ export const ptBR = {
       BALANCE_UPDATE: "Atualização de saldo",
     },
     backToList: "Voltar para lista",
-    priceHistory: "Histórico de preço ({period}) — {count}/{total} cotações",
+    assetPageTitle: "{name} ({symbol})",
+    currencyUsdRate: "1 {code} = {rate}",
+    priceHistory: "Histórico de cotação ({period}) — {count}/{total} pontos",
     returnColumn: "Retorno {period}",
   },
   email: {

@@ -11,11 +11,13 @@ import { Money } from "@/components/ui/money";
 import { LineChart, Sparkline } from "@/components/ui/chart";
 import { IconChart } from "@/components/ui/icons";
 import {
+  MARKET_CURRENCY_SLUG,
   MARKET_KIND_SLUG_TO_KIND,
   marketAssetPath,
   marketKindSlugForAsset,
   type MarketKindSlug,
 } from "@/lib/app-routes";
+import { currencyDisplayCode } from "@/lib/currency-market";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
 import {
@@ -91,6 +93,10 @@ function resampleByStep(quotes: SerializedMarketQuote[], stepMs: number) {
   return sampled;
 }
 
+function marketListingCode(asset: SerializedMarketAsset) {
+  return asset.kind === "CURRENCY" ? currencyDisplayCode(asset.symbol) : asset.symbol.toUpperCase();
+}
+
 function AssetDetailPanel({
   asset,
   quotes,
@@ -131,20 +137,27 @@ function AssetDetailPanel({
           {asset.logoUrl ? (
             <img
               src={asset.logoUrl}
-              alt={asset.symbol}
+              alt={marketListingCode(asset)}
               className="h-9 w-9 rounded-lg object-contain"
             />
           ) : null}
           <div>
-            <p className="text-sm text-zinc-500">{asset.name}</p>
-            <Badge variant="outline" className="mt-1 text-[10px]">
-              {translateMarketAssetKind(asset.kind, t)}
-            </Badge>
+            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{asset.name}</p>
+            <p className="text-sm text-zinc-500">{marketListingCode(asset)}</p>
           </div>
         </div>
         <div className="text-right">
           {asset.price !== null ? (
-            <Money value={asset.price} currency={asset.currencyCode} size="lg" />
+            asset.kind === "CURRENCY" ? (
+              <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {t("investments.pages.marketPanel.currencyUsdRate", {
+                  code: currencyDisplayCode(asset.symbol),
+                  rate: formatMoney(asset.price, { currency: "USD", locale }),
+                })}
+              </p>
+            ) : (
+              <Money value={asset.price} currency={asset.currencyCode} locale={locale} size="lg" />
+            )
           ) : null}
           {asset.changePercent !== null ? (
             <p
@@ -166,14 +179,41 @@ function AssetDetailPanel({
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">{t("investments.pages.marketPanel.currencyCountryLabel")}</p>
+            <p className="text-xs text-zinc-500">
+              {t("investments.pages.marketPanel.currencyCountryLabel")}
+            </p>
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              {asset.currencyCode}
-              {asset.countryCode ? ` · ${asset.countryCode}` : ""}
+              {asset.kind === "CURRENCY" ? (
+                <>
+                  {currencyDisplayCode(asset.symbol)}
+                  {asset.countryCode ? ` · ${asset.countryCode}` : ""}
+                </>
+              ) : (
+                <>
+                  {asset.currencyCode}
+                  {asset.countryCode ? ` · ${asset.countryCode}` : ""}
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
-        {rangeReturn !== null ? (
+        {asset.kind === "CURRENCY" ? (
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-xs text-zinc-500">
+                {t("investments.pages.marketPanel.currentQuoteLabel")}
+              </p>
+              <p className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {asset.price !== null
+                  ? t("investments.pages.marketPanel.currencyUsdRate", {
+                      code: currencyDisplayCode(asset.symbol),
+                      rate: formatMoney(asset.price, { currency: "USD", locale }),
+                    })
+                  : "—"}
+              </p>
+            </CardContent>
+          </Card>
+        ) : rangeReturn !== null ? (
           <Card>
             <CardContent className="pt-4">
               <p className="text-xs text-zinc-500">{t("investments.pages.marketPanel.periodReturnLabel")}</p>
@@ -202,7 +242,12 @@ function AssetDetailPanel({
           <CardContent>
             <LineChart
               data={chartData}
-              formatValue={(v) => formatMoney(v, { currency: asset.currencyCode })}
+              formatValue={(v) =>
+                formatMoney(v, {
+                  currency: asset.kind === "CURRENCY" ? "USD" : asset.currencyCode,
+                  locale,
+                })
+              }
               showArea
               showGrid
               fullWidth
@@ -229,11 +274,13 @@ export function MarketPanel({
   assetSymbol,
   legacySymbol,
   onLastUpdate,
+  onDetailAsset,
 }: {
   kindSlug: MarketKindSlug;
   assetSymbol?: string | null;
   legacySymbol?: string | null;
   onLastUpdate?: (iso: string | null) => void;
+  onDetailAsset?: (asset: SerializedMarketAsset | null) => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -243,7 +290,8 @@ export function MarketPanel({
   const searchParamsRef = useRef(searchParams);
   useEffect(() => { searchParamsRef.current = searchParams; });
 
-  const assetKind = MARKET_KIND_SLUG_TO_KIND[kindSlug];
+  const assetKind =
+    kindSlug === MARKET_CURRENCY_SLUG ? "CURRENCY" : MARKET_KIND_SLUG_TO_KIND[kindSlug];
   const [assets, setAssets] = useState<SerializedMarketAsset[]>([]);
   const [history, setHistory] = useState<Record<string, SerializedMarketQuote[]>>({});
   const [loading, setLoading] = useState(true);
@@ -332,6 +380,10 @@ export function MarketPanel({
     onLastUpdate?.(lastUpdate);
   }, [lastUpdate, onLastUpdate]);
 
+  useEffect(() => {
+    onDetailAsset?.(selectedAsset);
+  }, [onDetailAsset, selectedAsset]);
+
   const columns = useMemo<DataTableColumn<SerializedMarketAsset>[]>(
     () => [
       {
@@ -349,8 +401,13 @@ export function MarketPanel({
               />
             ) : null}
             <div>
-              <span className="font-medium">{row.symbol}</span>
+              <span className="font-medium">
+                {row.kind === "CURRENCY" ? currencyDisplayCode(row.symbol) : row.symbol}
+              </span>
               <span className="ml-2 text-xs text-zinc-500">{row.name}</span>
+              {row.kind === "CURRENCY" && row.countryCode ? (
+                <span className="ml-1 text-xs text-zinc-400">· {row.countryCode}</span>
+              ) : null}
             </div>
           </div>
         ),
@@ -363,7 +420,13 @@ export function MarketPanel({
         sortValue: (row) => row.price ?? 0,
         cell: (row) =>
           row.price !== null ? (
-            <Money value={row.price} currency={row.currencyCode} size="sm" />
+            row.kind === "CURRENCY" ? (
+              <span className="text-sm font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                {formatMoney(row.price, { currency: "USD", locale })}
+              </span>
+            ) : (
+              <Money value={row.price} currency={row.currencyCode} locale={locale} size="sm" />
+            )
           ) : (
             <span className="text-xs text-zinc-400">—</span>
           ),
@@ -439,7 +502,7 @@ export function MarketPanel({
               <Sparkline
                 points={sparkQuotes.map((quote) => quote.price)}
                 labels={sparkQuotes.map((quote) => formatQuoteLabel(quote.quotedAt, period, locale))}
-                formatValue={(v) => formatMoney(v, { currency: row.currencyCode })}
+                formatValue={(v) => formatMoney(v, { currency: row.currencyCode, locale })}
               />
             </div>
           );

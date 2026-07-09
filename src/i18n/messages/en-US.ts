@@ -141,6 +141,7 @@ export const enUS = {
       title: "Market",
       assetDetail: "Details, quote, and history for {symbol}.",
       kind: {
+        currency: "Currencies",
         share: "Stocks",
         etf: "ETF",
         fii: "REIT",
@@ -149,6 +150,7 @@ export const enUS = {
         commodity: "Commodity",
       },
       kindSubtitle: {
+        currency: "Official FX rates and historical quotes per currency.",
         share: "Listed stocks worldwide — quotes and history.",
         etf: "Exchange-traded funds with diversified baskets.",
         fii: "Listed real estate funds and dividend tracking.",
@@ -372,7 +374,7 @@ export const enUS = {
     calculators: "Calculators",
     calculatorsHint: "Exchange, taxes, FIRE",
     market: "Market",
-    marketHint: "Stocks, ETFs, crypto",
+    marketHint: "Currencies, stocks, ETFs, crypto",
     bestExchange: "Best exchange rate",
     bestExchangeHint: "Compare bank rates",
     projections: "Projections",
@@ -470,6 +472,7 @@ export const enUS = {
   },
   market: {
     assetKind: {
+      CURRENCY: "Currency",
       STOCK: "Stock",
       ETF: "ETF",
       FII: "REIT",
@@ -483,7 +486,9 @@ export const enUS = {
       BALANCE_UPDATE: "Balance update",
     },
     backToList: "Back to list",
-    priceHistory: "Price history ({period}) — {count}/{total} quotes",
+    assetPageTitle: "{name} ({symbol})",
+    currencyUsdRate: "1 {code} = {rate}",
+    priceHistory: "Quote history ({period}) — {count}/{total} points",
     returnColumn: "Return {period}",
   },
   email: {

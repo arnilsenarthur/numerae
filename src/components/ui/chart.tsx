@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipAnchor, getTooltipAlign, getTooltipPositionStyle } from "@/components/ui/tooltip";
+import { CursorTooltip, type CursorPoint } from "@/components/ui/tooltip";
 import {
   ReactNode,
   useLayoutEffect,
@@ -252,95 +252,6 @@ function describeArc(
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
 }
 
-type PlotMetrics = { left: number; top: number; width: number; height: number };
-
-function usePlotMetrics(
-  frameRef: React.RefObject<HTMLDivElement | null>,
-  svgRef: React.RefObject<SVGSVGElement | null>,
-  viewWidth: number,
-  viewHeight: number,
-  padding: number | ReturnType<typeof normalizePadding>,
-) {
-  const [metrics, setMetrics] = useState<PlotMetrics | null>(null);
-  const pad = normalizePadding(padding);
-  const plotW = viewWidth - pad.left - pad.right;
-  const plotH = viewHeight - pad.top - pad.bottom;
-
-  useLayoutEffect(() => {
-    const frame = frameRef.current;
-    const svg = svgRef.current;
-    if (!frame || !svg) return;
-
-    const update = () => {
-      const fRect = frame.getBoundingClientRect();
-      const sRect = svg.getBoundingClientRect();
-      if (sRect.width === 0 || sRect.height === 0) return;
-
-      const scale = Math.min(sRect.width / viewWidth, sRect.height / viewHeight);
-      const renderedW = viewWidth * scale;
-      const renderedH = viewHeight * scale;
-      const offsetX = (sRect.width - renderedW) / 2;
-      const offsetY = (sRect.height - renderedH) / 2;
-
-      setMetrics({
-        left: sRect.left - fRect.left + offsetX + pad.left * scale,
-        top: sRect.top - fRect.top + offsetY + pad.top * scale,
-        width: plotW * scale,
-        height: plotH * scale,
-      });
-    };
-
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(frame);
-    window.addEventListener("resize", update);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [frameRef, svgRef, viewWidth, viewHeight, pad.left, pad.top, plotW, plotH]);
-
-  return { metrics, pad, plotW, plotH };
-}
-
-function PlotTooltip({
-  metrics,
-  pad,
-  plotW,
-  plotH,
-  x,
-  y,
-  children,
-}: {
-  metrics: PlotMetrics;
-  pad: ReturnType<typeof normalizePadding>;
-  plotW: number;
-  plotH: number;
-  x: number;
-  y: number;
-  children: ReactNode;
-}) {
-  const ratio = Math.min(1, Math.max(0, (x - pad.left) / plotW));
-  const yRatio = Math.min(1, Math.max(0, (y - pad.top) / plotH));
-  const align = getTooltipAlign(ratio);
-  const translateX =
-    align === "start" ? "0" : align === "end" ? "-100%" : "-50%";
-
-  return (
-    <TooltipAnchor
-      className="pointer-events-none z-30"
-      style={{
-        left: metrics.left + ratio * metrics.width,
-        top: metrics.top + yRatio * metrics.height,
-        transform: `translateX(${translateX}) translateY(calc(-100% - 8px))`,
-      }}
-    >
-      <Tooltip>{children}</Tooltip>
-    </TooltipAnchor>
-  );
-}
-
 function ChartSvgRoot({
   viewWidth,
   viewHeight,
@@ -360,17 +271,10 @@ function ChartSvgRoot({
   animateKey?: string | number;
   onMouseLeave?: () => void;
   children: ReactNode;
-  tooltip?: { x: number; y: number; content: ReactNode } | null;
+  tooltip?: { content: ReactNode; point: CursorPoint } | null;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const { metrics, pad, plotW, plotH } = usePlotMetrics(
-    frameRef,
-    svgRef,
-    viewWidth,
-    viewHeight,
-    padding,
-  );
 
   return (
     <ChartFrame
@@ -396,42 +300,9 @@ function ChartSvgRoot({
           {children}
         </svg>
       </div>
-      {tooltip && metrics ? (
-        <PlotTooltip
-          metrics={metrics}
-          pad={pad}
-          plotW={plotW}
-          plotH={plotH}
-          x={tooltip.x}
-          y={tooltip.y}
-        >
-          {tooltip.content}
-        </PlotTooltip>
-      ) : null}
+      {tooltip ? <CursorTooltip point={tooltip.point}>{tooltip.content}</CursorTooltip> : null}
     </ChartFrame>
   );
-}
-
-function getBarTooltipRatio(
-  trackRatio: number,
-  itemLabel: string,
-  activeKey: string | null,
-  segmentBlocks: Array<{ key: string; width: number }>,
-) {
-  if (!activeKey?.startsWith(`${itemLabel}|`)) return trackRatio * 0.5;
-
-  const activeSegment = segmentBlocks.find((block) => block.key === activeKey);
-  if (!activeSegment) return trackRatio * 0.5;
-
-  let offset = 0;
-  for (const block of segmentBlocks) {
-    if (block.key === activeKey) {
-      return trackRatio * ((offset + block.width / 2) / 100);
-    }
-    offset += block.width;
-  }
-
-  return trackRatio * 0.5;
 }
 
 function BarChartView({
@@ -450,6 +321,7 @@ function BarChartView({
   animateKey?: string | number;
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<CursorPoint | null>(null);
 
   const rows = useMemo(
     () =>
@@ -488,12 +360,6 @@ function BarChartView({
           const activeSegment = segmentBlocks.find((block) => block.key === activeKey);
           const tooltipLabel = activeSegment ?? item;
           const tooltipValue = activeSegment?.value ?? item.total;
-          const tooltipRatio = getBarTooltipRatio(
-            trackRatio,
-            item.label,
-            activeKey,
-            segmentBlocks,
-          );
 
           return (
             <div key={item.label} className="relative">
@@ -519,7 +385,13 @@ function BarChartView({
 
               <div
                 className="relative h-2.5 overflow-visible rounded-full bg-zinc-100 dark:bg-zinc-800"
-                onMouseLeave={() => setActiveKey(null)}
+                onMouseMove={(event) =>
+                  setCursorPoint({ x: event.clientX, y: event.clientY })
+                }
+                onMouseLeave={() => {
+                  setActiveKey(null);
+                  setCursorPoint(null);
+                }}
               >
                 {segmentBlocks.length ? (
                   <div
@@ -547,7 +419,10 @@ function BarChartView({
                                 : "opacity-90",
                           )}
                           style={{ width: `${block.width}%`, ...colorProps.style }}
-                          onMouseEnter={() => setActiveKey(block.key)}
+                          onMouseEnter={(event) => {
+                            setActiveKey(block.key);
+                            setCursorPoint({ x: event.clientX, y: event.clientY });
+                          }}
                         />
                       );
                     })}
@@ -565,22 +440,17 @@ function BarChartView({
                           : "opacity-90",
                     )}
                     style={{ width: fillWidth, animationDelay: `${rowIndex * 60}ms` }}
-                    onMouseEnter={() => setActiveKey(`${item.label}|total`)}
+                    onMouseEnter={(event) => {
+                      setActiveKey(`${item.label}|total`);
+                      setCursorPoint({ x: event.clientX, y: event.clientY });
+                    }}
                   />
                 )}
 
-                {isRowActive ? (
-                  <TooltipAnchor
-                    className="pointer-events-none absolute z-30"
-                    style={{
-                      top: 0,
-                      ...getTooltipPositionStyle(tooltipRatio, { gap: 8 }),
-                    }}
-                  >
-                    <Tooltip>
-                      {tooltipLabel.label}: {formatValue(tooltipValue, tooltipLabel.label)}
-                    </Tooltip>
-                  </TooltipAnchor>
+                {isRowActive && cursorPoint ? (
+                  <CursorTooltip point={cursorPoint}>
+                    {tooltipLabel.label}: {formatValue(tooltipValue, tooltipLabel.label)}
+                  </CursorTooltip>
                 ) : null}
               </div>
             </div>
@@ -607,6 +477,7 @@ function ColumnChartView({
 }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
+  const [cursorPoint, setCursorPoint] = useState<CursorPoint | null>(null);
   const { width, height, padding, plotWidth, plotHeight, heightClass } = getPlotBox();
 
   const columnTotals = data.map((item) =>
@@ -666,12 +537,12 @@ function ColumnChartView({
       onMouseLeave={() => {
         setActiveIndex(null);
         setActiveSegmentIndex(0);
+        setCursorPoint(null);
       }}
       tooltip={
-        activeSegment
+        activeSegment && cursorPoint
           ? {
-              x: activeSegment.x + activeSegment.innerWidth / 2,
-              y: activeSegment.y,
+              point: cursorPoint,
               content: `${activeSegment.label}: ${formatValue(activeSegment.value, activeSegment.label)}`,
             }
           : null
@@ -743,10 +614,14 @@ function ColumnChartView({
                     animationDelay: `${column.index * 70 + segment.segmentIndex * 35}ms`,
                     ...colorProps.style,
                   }}
-                  onMouseEnter={() => {
+                  onMouseEnter={(event) => {
                     setActiveIndex(column.index);
                     setActiveSegmentIndex(segment.segmentIndex);
+                    setCursorPoint({ x: event.clientX, y: event.clientY });
                   }}
+                  onMouseMove={(event) =>
+                    setCursorPoint({ x: event.clientX, y: event.clientY })
+                  }
                 />
               );
             })}
@@ -787,6 +662,7 @@ function SparklineView({
 }) {
   const resolvedSeries = useMemo(() => resolveSeries(data, series), [data, series]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<CursorPoint | null>(null);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
 
@@ -852,6 +728,7 @@ function SparklineView({
   const plotW = SPARKLINE.width - SPARKLINE.padding * 2;
 
   function handlePlotHover(event: React.MouseEvent<SVGRectElement>) {
+    setCursorPoint({ x: event.clientX, y: event.clientY });
     const svgPoint = svgPointFromMouse(event);
     if (!svgPoint) return;
 
@@ -868,12 +745,14 @@ function SparklineView({
       heightClass={SPARKLINE.heightClass}
       className={className}
       animateKey={animateKey}
-      onMouseLeave={() => setActiveIndex(null)}
+      onMouseLeave={() => {
+        setActiveIndex(null);
+        setCursorPoint(null);
+      }}
       tooltip={
-        activePoint
+        activePoint && cursorPoint
           ? {
-              x: activePoint.x,
-              y: activePoint.y,
+              point: cursorPoint,
               content: (
                 <span className="flex flex-col gap-0.5">
                   <span className="font-medium">
@@ -969,7 +848,7 @@ function DonutChartView({
   animateKey?: string | number;
 }) {
   const [active, setActive] = useState<string | null>(null);
-  const [pointerY, setPointerY] = useState<number | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<CursorPoint | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const total = segments.reduce((sum, item) => sum + item.value, 0) || 1;
   const cx = 18;
@@ -998,15 +877,9 @@ function DonutChartView({
   });
 
   const activeSegment = arcs.find((segment) => segment.label === active);
-  const tooltipRatio = activeSegment ? activeSegment.anchorX / 36 : 0.5;
-  const tooltipAlign = getTooltipAlign(tooltipRatio);
-  const tooltipTranslateX =
-    tooltipAlign === "start" ? "0" : tooltipAlign === "end" ? "-100%" : "-50%";
 
   function handlePointerMove(event: React.MouseEvent<HTMLDivElement>) {
-    if (!wrapRef.current) return;
-    const rect = wrapRef.current.getBoundingClientRect();
-    setPointerY(event.clientY - rect.top);
+    setCursorPoint({ x: event.clientX, y: event.clientY });
   }
 
   return (
@@ -1029,25 +902,16 @@ function DonutChartView({
         onMouseMove={handlePointerMove}
         onMouseLeave={() => {
           setActive(null);
-          setPointerY(null);
+          setCursorPoint(null);
         }}
       >
-        {activeSegment ? (
-          <TooltipAnchor
-            className="pointer-events-none absolute z-30"
-            style={{
-              left: (activeSegment.anchorX / 36) * size,
-              top: pointerY ?? 0,
-              transform: `translateX(${tooltipTranslateX}) translateY(calc(-100% - 8px))`,
-            }}
-          >
-            <Tooltip>
-              {activeSegment.label}:{" "}
-              {formatValue
-                ? formatValue(activeSegment.value, activeSegment.label)
-                : `${Math.round((activeSegment.value / total) * 100)}%`}
-            </Tooltip>
-          </TooltipAnchor>
+        {activeSegment && cursorPoint ? (
+          <CursorTooltip point={cursorPoint}>
+            {activeSegment.label}:{" "}
+            {formatValue
+              ? formatValue(activeSegment.value, activeSegment.label)
+              : `${Math.round((activeSegment.value / total) * 100)}%`}
+          </CursorTooltip>
         ) : null}
         <svg width={size} height={size} viewBox="0 0 36 36">
           <circle
@@ -1083,7 +947,10 @@ function DonutChartView({
                   animationDelay: `${segment.index * 80}ms`,
                   ...(isHexColor ? { stroke: segment.color } : null),
                 }}
-                onMouseEnter={() => setActive(segment.label)}
+                onMouseEnter={(event) => {
+                  setActive(segment.label);
+                  setCursorPoint({ x: event.clientX, y: event.clientY });
+                }}
               />
             );
           })}
@@ -1103,9 +970,9 @@ function DonutChartView({
                 isActive && "bg-zinc-100 dark:bg-zinc-900",
                 active !== null && !isActive && "opacity-50",
               )}
-              onMouseEnter={() => {
+              onMouseEnter={(event) => {
                 setActive(segment.label);
-                setPointerY(null);
+                setCursorPoint({ x: event.clientX, y: event.clientY });
               }}
               onMouseLeave={() => setActive(null)}
             >
@@ -1201,6 +1068,7 @@ function LineChartView({
   const chartWidth = fullWidth ? measuredWidth : AXIS.width;
 
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<CursorPoint | null>(null);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
 
@@ -1285,6 +1153,7 @@ function LineChartView({
   const hasHover = activeIndex !== null;
 
   function handlePlotHover(event: React.MouseEvent<SVGRectElement>) {
+    setCursorPoint({ x: event.clientX, y: event.clientY });
     const svgPoint = svgPointFromMouse(event);
     if (!svgPoint || !layout) return;
 
@@ -1307,12 +1176,14 @@ function LineChartView({
       heightClass={layout.heightClass}
       className={className}
       animateKey={animateKey}
-      onMouseLeave={() => setActiveIndex(null)}
+      onMouseLeave={() => {
+        setActiveIndex(null);
+        setCursorPoint(null);
+      }}
       tooltip={
-        activePoint
+        activePoint && cursorPoint
           ? {
-              x: activePoint.x,
-              y: activePoint.y,
+              point: cursorPoint,
               content: (
                 <span className="flex flex-col gap-0.5">
                   <span className="font-medium">{activePoint.label}</span>

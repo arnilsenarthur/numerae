@@ -2,6 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { decimalToNumber } from "@/lib/institutions";
 import { prisma } from "@/lib/db";
 import {
+  fetchFrankfurterUsdHistory,
   fetchUsdRatesWithFallback,
   isStableUsdCode,
   type UsdRateMap,
@@ -547,6 +548,7 @@ export async function runUsdRateWorker(input: {
   primaryProvider: WorkerProviderId;
   secondaryProvider?: WorkerProviderId | null;
   trigger: WorkerRunTrigger;
+  historyLookbackDays?: number | null;
 }): Promise<WorkerExecutionResult> {
   void input.trigger;
 
@@ -557,6 +559,8 @@ export async function runUsdRateWorker(input: {
 
   const codes = currencies.map((c) => c.code.toUpperCase());
   const existingRates = buildExistingUsdRateMap(currencies);
+  const lookbackDays = Math.max(30, Math.min(input.historyLookbackDays ?? 365, 2000));
+  const lookbackStart = new Date(Date.now() - lookbackDays * DAY_MS);
 
   try {
     const { result, attempts, fallbackUsed } = await fetchUsdRatesWithFallback({
@@ -567,6 +571,7 @@ export async function runUsdRateWorker(input: {
     });
 
     const now = new Date();
+    const quoteBucket = hourBucket(now);
     const summary: WorkerRunSummary = {
       updated: 0,
       unchanged: 0,
@@ -593,21 +598,86 @@ export async function runUsdRateWorker(input: {
       const changed =
         currentRate === null || currentRate.toString() !== nextRate.toString();
 
-      if (!changed) {
+      if (changed) {
+        await prisma.currency.update({
+          where: { id: currency.id },
+          data: {
+            usdRate: new Prisma.Decimal(nextRate),
+            usdRateUpdatedAt: now,
+          },
+        });
+        summary.updated += 1;
+      } else {
         summary.unchanged += 1;
-        continue;
       }
 
-      await prisma.currency.update({
-        where: { id: currency.id },
-        data: {
+      await prisma.currencyQuote.upsert({
+        where: {
+          currencyId_quotedAt: { currencyId: currency.id, quotedAt: quoteBucket },
+        },
+        update: { usdRate: new Prisma.Decimal(nextRate) },
+        create: {
+          currencyId: currency.id,
+          quotedAt: quoteBucket,
           usdRate: new Prisma.Decimal(nextRate),
-          usdRateUpdatedAt: now,
         },
       });
-
-      summary.updated += 1;
     }
+
+    const currencyIds = currencies.map((currency) => currency.id);
+    const minQuotesForLookback = Math.max(30, Math.floor(lookbackDays * 0.5));
+    const quoteCounts = await prisma.currencyQuote.groupBy({
+      by: ["currencyId"],
+      where: { currencyId: { in: currencyIds }, quotedAt: { gte: lookbackStart } },
+      _count: { _all: true },
+    });
+    const sparseCodes = currencies
+      .filter((currency) => {
+        const count =
+          quoteCounts.find((row) => row.currencyId === currency.id)?._count._all ?? 0;
+        return count < minQuotesForLookback && !isStableUsdCode(currency.code);
+      })
+      .map((currency) => currency.code.toUpperCase());
+
+    const codesToBackfill =
+      input.trigger === "MANUAL"
+        ? currencies
+            .filter((currency) => !isStableUsdCode(currency.code))
+            .map((currency) => currency.code.toUpperCase())
+        : sparseCodes;
+
+    if (codesToBackfill.length > 0 && input.primaryProvider !== "database") {
+      try {
+        const historyByCode = await fetchFrankfurterUsdHistory(codesToBackfill, lookbackDays);
+        const currencyByCode = new Map(
+          currencies.map((currency) => [currency.code.toUpperCase(), currency]),
+        );
+
+        for (const [code, points] of historyByCode) {
+          const currency = currencyByCode.get(code);
+          if (!currency || points.length === 0) continue;
+
+          const toCreate = points.map((point) => ({
+            currencyId: currency.id,
+            quotedAt: point.quotedAt,
+            usdRate: new Prisma.Decimal(point.usdRate),
+          }));
+
+          await prisma.currencyQuote.createMany({
+            data: toCreate,
+            skipDuplicates: true,
+          });
+        }
+      } catch (error) {
+        summary.errors.push(
+          error instanceof Error ? error.message : "Erro ao carregar histórico de moedas.",
+        );
+      }
+    }
+
+    await prisma.currencyQuote.deleteMany({
+      where: { currencyId: { in: currencyIds }, quotedAt: { lt: lookbackStart } },
+    });
 
     const status =
       summary.errors.length > 0 || summary.missing.length > 0
@@ -639,4 +709,8 @@ export async function runUsdRateWorker(input: {
       error: error instanceof Error ? error.message : "Erro desconhecido.",
     };
   }
+}
+
+function hourBucket(date: Date) {
+  return new Date(Math.floor(date.getTime() / HOUR_MS) * HOUR_MS);
 }

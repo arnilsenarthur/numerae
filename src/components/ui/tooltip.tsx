@@ -2,7 +2,8 @@
 
 import { cn } from "@/lib/utils";
 import { ui } from "@/components/ui/tokens";
-import { CSSProperties, ReactNode } from "react";
+import { CSSProperties, ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type TooltipProps = {
   children: ReactNode;
@@ -115,6 +116,102 @@ export function getTooltipPositionStyle(
     left,
     transform: `translateX(${translateX}) translateY(${translateY})`,
   };
+}
+
+export type CursorPoint = { x: number; y: number };
+
+export function getCursorTooltipPosition(
+  clientX: number,
+  clientY: number,
+  size: { width: number; height: number },
+  options?: { gap?: number; pad?: number },
+): { left: number; top: number; placement: "above" | "below" } {
+  const gap = options?.gap ?? 12;
+  const pad = options?.pad ?? 8;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  const aboveTop = clientY - gap - size.height;
+  const belowTop = clientY + gap;
+
+  let placement: "above" | "below" = "above";
+  let top = aboveTop;
+
+  const fitsAbove = aboveTop >= pad;
+  const fitsBelow = belowTop + size.height <= viewportHeight - pad;
+
+  if (!fitsAbove && fitsBelow) {
+    placement = "below";
+    top = belowTop;
+  } else if (!fitsAbove && !fitsBelow) {
+    const aboveOverflow = pad - aboveTop;
+    const belowOverflow = belowTop + size.height - (viewportHeight - pad);
+    if (belowOverflow < aboveOverflow) {
+      placement = "below";
+      top = belowTop;
+    } else {
+      top = aboveTop;
+    }
+    top = Math.max(pad, Math.min(top, viewportHeight - pad - size.height));
+  } else if (fitsAbove) {
+    top = aboveTop;
+  }
+
+  let left = clientX - size.width / 2;
+  left = Math.max(pad, Math.min(left, viewportWidth - pad - size.width));
+
+  return { left, top, placement };
+}
+
+type CursorTooltipProps = {
+  point: CursorPoint | null;
+  children: ReactNode;
+  className?: string;
+  gap?: number;
+  pad?: number;
+};
+
+/** Tooltip that follows the cursor with viewport-aware above/below placement. */
+export function CursorTooltip({
+  point,
+  children,
+  className,
+  gap = 12,
+  pad = 8,
+}: CursorTooltipProps) {
+  const [mounted, setMounted] = useState(false);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  useLayoutEffect(() => {
+    if (!point || !tooltipRef.current) {
+      setPosition(null);
+      return;
+    }
+
+    const { width, height } = tooltipRef.current.getBoundingClientRect();
+    const next = getCursorTooltipPosition(point.x, point.y, { width, height }, { gap, pad });
+    setPosition({ left: next.left, top: next.top });
+  }, [point, children, gap, pad]);
+
+  if (!mounted || !point) return null;
+
+  return createPortal(
+    <span
+      ref={tooltipRef}
+      className={cn("pointer-events-none fixed z-[100]", className)}
+      style={
+        position
+          ? { left: position.left, top: position.top }
+          : { left: point.x, top: point.y, visibility: "hidden" }
+      }
+    >
+      <Tooltip>{children}</Tooltip>
+    </span>,
+    document.body,
+  );
 }
 
 type TooltipAnchorProps = {

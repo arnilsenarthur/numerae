@@ -165,9 +165,22 @@ model Currency {
   active            Boolean   @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  quotes            CurrencyQuote[]
 
   @@unique([code, countryCode])
   @@index([countryCode])
+}
+
+model CurrencyQuote {
+  id         String   @id @default(cuid())
+  currencyId String
+  currency   Currency @relation(fields: [currencyId], references: [id], onDelete: Cascade)
+  usdRate    Decimal  @db.Decimal(18, 8)
+  quotedAt   DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([currencyId, quotedAt])
+  @@index([currencyId, quotedAt])
 }
 
 model Institution {
