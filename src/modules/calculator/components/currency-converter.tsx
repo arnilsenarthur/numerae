@@ -11,6 +11,7 @@ import { InlineResultSkeleton } from "@/components/ui/panel-skeleton";
 import { IconExchange, IconTrendUp } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
+import { useLocale, useT } from "@/i18n/locale-provider";
 
 const POPULAR_CURRENCIES = [
   { value: "USD", label: "USD — Dólar americano" },
@@ -49,6 +50,8 @@ const INSTITUTION_SPREADS: { name: string; spread: number; fee: number; notes: s
 ];
 
 export function CurrencyConverter() {
+  const t = useT();
+  const { locale } = useLocale();
   const [amount, setAmount] = useState("1000");
   const [fromCurrency, setFromCurrency] = useState("USD");
   const [toCurrency, setToCurrency] = useState("BRL");
@@ -71,9 +74,9 @@ export function CurrencyConverter() {
     if (response.ok && data) {
       setResult(data);
     } else {
-      setError((data as { error?: string })?.error ?? "Erro ao buscar cotação.");
+      setError((data as { error?: string })?.error ?? t("calculator.pages.exchange.fetchError"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -89,15 +92,17 @@ export function CurrencyConverter() {
 
   const numAmount = Math.max(0, Number(amount) || 0);
   const baseConverted = result ? numAmount * result.rate : null;
+  const formattedRate = result
+    ? result.rate.toLocaleString(locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+    : null;
 
   return (
     <div className="space-y-4">
-      {/* Input row */}
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label>Valor</Label>
+              <Label>{t("calculator.pages.exchange.amountLabel")}</Label>
               <div className="w-36">
                 <NumberInput
                   value={amount}
@@ -107,7 +112,7 @@ export function CurrencyConverter() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>De</Label>
+              <Label>{t("calculator.pages.exchange.fromLabel")}</Label>
               <div className="w-52">
                 <Select
                   options={POPULAR_CURRENCIES}
@@ -117,10 +122,10 @@ export function CurrencyConverter() {
               </div>
             </div>
             <Button type="button" variant="secondary" size="sm" onClick={swap} className="mb-0.5">
-              <IconExchange className="h-4 w-4" /> Inverter
+              <IconExchange className="h-4 w-4" /> {t("calculator.pages.exchange.swap")}
             </Button>
             <div className="space-y-1">
-              <Label>Para</Label>
+              <Label>{t("calculator.pages.exchange.toLabel")}</Label>
               <div className="w-52">
                 <Select
                   options={POPULAR_CURRENCIES}
@@ -144,10 +149,14 @@ export function CurrencyConverter() {
                     : "—"}
                 </span>
                 <span className="text-sm text-zinc-500">
-                  1 {fromCurrency} = {result.rate.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {toCurrency}
+                  {t("calculator.pages.exchange.rateLabel", {
+                    from: fromCurrency,
+                    rate: formattedRate ?? "",
+                    to: toCurrency,
+                  })}
                 </span>
                 <Badge variant="default" className="ml-auto text-[10px]">
-                  Mercado · {result.date}
+                  {t("calculator.pages.exchange.updatedAt", { time: result.date })}
                 </Badge>
               </div>
             </div>
@@ -155,13 +164,12 @@ export function CurrencyConverter() {
         </CardContent>
       </Card>
 
-      {/* Institution comparison */}
       {result && baseConverted !== null && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <IconTrendUp className="h-4 w-4 text-sky-500" />
-              Comparativo por instituição — ordenado do melhor ao pior
+              {t("calculator.pages.exchange.compareTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -189,10 +197,10 @@ export function CurrencyConverter() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium">{inst.name}</p>
-                          {isBest && <Badge variant="success" className="text-[10px]">Melhor opção</Badge>}
+                          {isBest && <Badge variant="success" className="text-[10px]">{t("calculator.pages.exchange.bestOption")}</Badge>}
                         </div>
                         <p className="text-xs text-zinc-500">
-                          {inst.notes} · spread {inst.spread}%{inst.fee > 0 ? ` + ${inst.fee} ${toCurrency} fixo` : ""}
+                          {inst.notes} · {t("calculator.pages.exchange.spreadLabel", { spread: inst.spread, fee: inst.fee > 0 ? `+ ${inst.fee} ${toCurrency}` : "0" })}
                         </p>
                       </div>
                       <div className="text-right">
@@ -200,7 +208,7 @@ export function CurrencyConverter() {
                           {formatMoney(Math.max(0, inst.converted), { currency: toCurrency })}
                         </p>
                         <p className={`text-xs ${inst.diffPct < -3 ? "text-red-500" : inst.diffPct < -1.5 ? "text-amber-500" : "text-zinc-400"}`}>
-                          {inst.diffPct.toFixed(2)}% vs. mercado
+                          {t("calculator.pages.exchange.savingsVsWorst", { pct: inst.diffPct.toFixed(2) })}
                         </p>
                       </div>
                     </div>
@@ -210,7 +218,7 @@ export function CurrencyConverter() {
 
             {numAmount > 0 && (
               <div className="mt-3 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-                Diferença entre a <strong>melhor</strong> e a <strong>pior</strong> opção:{" "}
+                {t("calculator.pages.exchange.savingsHint")}{" "}
                 <span className="font-medium text-zinc-700 dark:text-zinc-200">
                   {formatMoney(
                     Math.max(0,
@@ -223,15 +231,14 @@ export function CurrencyConverter() {
                     ),
                     { currency: toCurrency }
                   )}
-                </span>{" "}
-                a mais na melhor.
+                </span>
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      <p className="text-xs text-zinc-400">Cotação via Frankfurter. Spreads são estimativas.</p>
+      <p className="text-xs text-zinc-400">{t("calculator.pages.exchange.disclaimer")}</p>
     </div>
   );
 }

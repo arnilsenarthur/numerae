@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminLoadingFallback } from "@/components/admin/admin-loading-fallback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SmartTableModalFields as SmartForm } from "@/components/ui/smart-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useUrlQueryEnum } from "@/hooks/use-url-query-state";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useT } from "@/i18n/locale-provider";
 import {
   buildCountrySelectOptions,
   countryNameMap,
@@ -29,16 +32,9 @@ import {
 
 type DetailTab = "general" | "exchange" | "products";
 
-function parseDetailTab(value: string | null): DetailTab {
-  if (value === "exchange" || value === "products") {
-    return value;
-  }
-  return "general";
-}
-
 export function InstitutionDetail({ institutionId }: { institutionId: string }) {
+  const t = useT();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [countries, setCountries] = useState<SerializedCountry[]>([]);
   const [currencies, setCurrencies] = useState<SerializedCurrency[]>([]);
@@ -49,7 +45,11 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
   const [error, setError] = useState<string | null>(null);
   const { confirm, dialog } = useConfirm();
 
-  const initialTab: DetailTab = parseDetailTab(searchParams.get("tab"));
+  const [tab, setTab] = useUrlQueryEnum<DetailTab>({
+    key: "tab",
+    validValues: ["general", "exchange", "products"] as const,
+    defaultValue: "general",
+  });
 
   const countryFormOptions = useMemo(() => buildCountrySelectOptions(countries), [countries]);
   const countryNames = useMemo(() => countryNameMap(countries), [countries]);
@@ -84,17 +84,17 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
       }>(`/api/admin/institutions/${institutionId}`);
 
       if (!response.ok || !data?.institution) {
-        throw new Error(data?.error ?? "Instituição não encontrada.");
+        throw new Error(data?.error ?? t("admin.institutions.notFound"));
       }
 
       setInstitution(data.institution);
       setForm(institutionToForm(data.institution));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.load"));
     } finally {
       setLoading(false);
     }
-  }, [institutionId]);
+  }, [institutionId, t]);
 
   useEffect(() => {
     void loadCatalog();
@@ -114,7 +114,7 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
       });
 
       if (!response.ok) {
-        const message = data?.error ?? "Erro ao salvar.";
+        const message = data?.error ?? t("admin.common.error.save");
         setError(message);
         throw new Error(message);
       }
@@ -124,17 +124,18 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
         setForm(institutionToForm(data.institution));
       }
     },
-    [],
+    [t],
   );
 
   const columns = useMemo(
     () =>
       buildInstitutionColumns({
+        t,
         patchInstitution,
         countryFormOptions,
         resolveCountryName,
       }),
-    [countryFormOptions, patchInstitution, resolveCountryName],
+    [countryFormOptions, patchInstitution, resolveCountryName, t],
   );
 
   function updateFormField(key: string, value: unknown) {
@@ -160,13 +161,13 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
       });
 
       if (!response.ok || !data?.institution) {
-        throw new Error(data?.error ?? "Erro ao salvar.");
+        throw new Error(data?.error ?? t("admin.common.error.save"));
       }
 
       setInstitution(data.institution);
       setForm(institutionToForm(data.institution));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.save"));
     } finally {
       setSaving(false);
     }
@@ -174,9 +175,9 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
 
   async function deleteInstitution() {
     const ok = await confirm({
-      title: "Excluir instituição",
-      message: "Excluir esta instituição e todas as taxas de câmbio?",
-      confirmLabel: "Excluir",
+      title: t("admin.institutions.confirmDeleteTitle"),
+      message: t("admin.institutions.confirmDeleteMessage"),
+      confirmLabel: t("admin.common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -191,36 +192,30 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
       );
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Erro ao excluir.");
+        throw new Error(data?.error ?? t("admin.common.error.delete"));
       }
 
       router.push("/admin/institutions");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.delete"));
     } finally {
       setSaving(false);
     }
   }
 
-  function handleTabChange(value: string) {
-    const next = value as DetailTab;
-    const base = `/admin/institutions/${institutionId}`;
-    router.replace(next === "general" ? base : `${base}?tab=${next}`, { scroll: false });
-  }
-
   if (loading) {
-    return <p className="py-12 text-center text-sm text-zinc-500">Carregando...</p>;
+    return <AdminLoadingFallback />;
   }
 
   if (!institution || !form) {
     return (
       <div className="mx-auto max-w-lg space-y-4 py-12 text-center">
-        <p className="text-sm text-zinc-500">{error ?? "Instituição não encontrada."}</p>
+        <p className="text-sm text-zinc-500">{error ?? t("admin.institutions.notFound")}</p>
         <Link
           href="/admin/institutions"
           className="inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
         >
-          Voltar à lista
+          {t("admin.common.backToList")}
         </Link>
       </div>
     );
@@ -237,7 +232,7 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
             <span aria-hidden className="text-base leading-none">
               ←
             </span>
-            Instituições
+            {t("admin.institutions.breadcrumb")}
           </Link>
         </nav>
         <div className="flex flex-wrap items-start gap-3">
@@ -248,7 +243,7 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
             />
           ) : null}
           <div className="min-w-0">
-            <p className="text-sm text-emerald-600">Instituição</p>
+            <p className="text-sm text-emerald-600">{t("admin.institutions.kicker")}</p>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {institution.name}
             </h2>
@@ -263,21 +258,17 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
         </div>
       ) : null}
 
-      <Tabs
-        key={`${institutionId}-${initialTab}`}
-        defaultValue={initialTab}
-        onValueChange={handleTabChange}
-      >
+      <Tabs key={tab} defaultValue={tab} onValueChange={(value) => setTab(value as DetailTab)}>
         <TabsList>
-          <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="products">Produtos</TabsTrigger>
-          <TabsTrigger value="exchange">Câmbio</TabsTrigger>
+          <TabsTrigger value="general">{t("admin.institutions.tabs.general")}</TabsTrigger>
+          <TabsTrigger value="products">{t("admin.institutions.tabs.products")}</TabsTrigger>
+          <TabsTrigger value="exchange">{t("admin.institutions.tabs.exchange")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-4 !border-0 !bg-transparent !p-0">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Dados gerais</CardTitle>
+              <CardTitle className="text-base">{t("admin.institutions.generalData")}</CardTitle>
             </CardHeader>
             <CardContent>
               <SmartForm
@@ -291,10 +282,10 @@ export function InstitutionDetail({ institutionId }: { institutionId: string }) 
             <CardFooter className="flex flex-wrap gap-2 border-t border-zinc-100 dark:border-zinc-900">
               <Button type="button" variant="danger" onClick={() => void deleteInstitution()} disabled={saving}>
                 <IconTrash size="sm" />
-                Excluir
+                {t("admin.common.delete")}
               </Button>
               <Button type="button" onClick={() => void saveInstitution()} disabled={saving}>
-                {saving ? "Salvando..." : "Salvar"}
+                {saving ? t("admin.common.saving") : t("admin.common.save")}
               </Button>
             </CardFooter>
           </Card>

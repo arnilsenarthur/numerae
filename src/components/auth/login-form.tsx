@@ -12,8 +12,10 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { validationRules } from "@/components/ui/field-validation";
 import { validateFormFields } from "@/lib/form-validation";
+import { useT } from "@/i18n/locale-provider";
 
 export function LoginForm() {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
@@ -29,7 +31,7 @@ export function LoginForm() {
   });
   const passwordField = useValidatedField([], {
     required: true,
-    requiredMessage: "Senha obrigatória.",
+    requiredMessage: t("auth.login.passwordRequired"),
     showSuccess: false,
   });
 
@@ -67,11 +69,11 @@ export function LoginForm() {
       }
 
       if (result.error === "ACCOUNT_DISABLED") {
-        setError("Esta conta está desativada. Entre em contato com o suporte.");
+        setError(t("auth.login.accountDisabled"));
         return;
       }
 
-      setError("E-mail ou senha incorretos.");
+      setError(t("auth.login.wrongCredentials"));
       return;
     }
 
@@ -81,41 +83,33 @@ export function LoginForm() {
 
   return (
     <AuthCard
-      title="Entrar"
-      subtitle="Acesse sua conta para gerenciar suas finanças."
+      title={t("auth.login.title")}
+      subtitle={t("auth.login.subtitle")}
       footer={
         <>
-          Não tem conta?{" "}
+          {t("auth.login.noAccount")}{" "}
           <Link href="/register" className={authLinkClass}>
-            Criar conta
+            {t("auth.login.createAccount")}
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {disabled ? (
-          <Alert variant="error">
-            Esta conta está desativada. Entre em contato com o suporte.
-          </Alert>
+          <Alert variant="error">{t("auth.login.accountDisabled")}</Alert>
         ) : null}
 
         {verified ? (
-          <Alert variant="success">
-            E-mail verificado. Entre com sua senha para continuar.
-          </Alert>
+          <Alert variant="success">{t("auth.login.verifiedSuccess")}</Alert>
         ) : null}
 
-        {reset ? (
-          <Alert variant="success">
-            Senha redefinida com sucesso. Entre com sua nova senha.
-          </Alert>
-        ) : null}
+        {reset ? <Alert variant="success">{t("auth.login.resetSuccess")}</Alert> : null}
 
         {error ? <Alert variant="error">{error}</Alert> : null}
 
         <FormField delay={80}>
           <Field
-            label="E-mail"
+            label={t("common.email")}
             htmlFor="email"
             required
             state={emailField.validation.state}
@@ -135,7 +129,7 @@ export function LoginForm() {
 
         <FormField delay={140}>
           <Field
-            label="Senha"
+            label={t("common.password")}
             htmlFor="password"
             required
             state={passwordField.validation.state}
@@ -155,13 +149,13 @@ export function LoginForm() {
 
         <FormField delay={200}>
           <Button type="submit" className="w-full" loading={loading}>
-            Entrar
+            {t("auth.login.submit")}
           </Button>
         </FormField>
 
         <p className="text-center text-sm">
           <Link href="/forgot-password" className={authLinkClass}>
-            Esqueci minha senha
+            {t("auth.login.forgotPassword")}
           </Link>
         </p>
       </form>

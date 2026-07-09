@@ -8,6 +8,7 @@ import { SmartTable, SmartTableModalFields } from "@/components/ui/smart-table";
 import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import {
   buildCurrencySelectOptions,
   type SerializedCurrency,
@@ -29,6 +30,8 @@ export function InstitutionProducts({
   institutionId: string;
   currencies: SerializedCurrency[];
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [products, setProducts] = useState<SerializedInstitutionProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,16 +59,16 @@ export function InstitutionProducts({
       }>(`/api/admin/institutions/${institutionId}/products`);
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Erro ao carregar produtos.");
+        throw new Error(data?.error ?? t("admin.institutions.products.errorLoad"));
       }
 
       setProducts(data?.products ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar produtos.");
+      setError(err instanceof Error ? err.message : t("admin.institutions.products.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, [institutionId]);
+  }, [institutionId, t]);
 
   useEffect(() => {
     void loadProducts();
@@ -84,7 +87,7 @@ export function InstitutionProducts({
       });
 
       if (!response.ok) {
-        const message = data?.error ?? "Erro ao salvar produto.";
+        const message = data?.error ?? t("admin.institutions.products.errorSave");
         setError(message);
         throw new Error(message);
       }
@@ -97,12 +100,12 @@ export function InstitutionProducts({
         await loadProducts();
       }
     },
-    [institutionId, loadProducts],
+    [institutionId, loadProducts, t],
   );
 
   const columns = useMemo(
-    () => buildInstitutionProductColumns({ patchProduct, currencyOptions }),
-    [currencyOptions, patchProduct],
+    () => buildInstitutionProductColumns({ t, patchProduct, currencyOptions }),
+    [currencyOptions, patchProduct, t],
   );
 
   async function createProduct() {
@@ -120,16 +123,16 @@ export function InstitutionProducts({
       });
 
       if (!response.ok || !data?.product) {
-        throw new Error(data?.error ?? "Erro ao criar produto.");
+        throw new Error(data?.error ?? t("admin.institutions.products.errorCreate"));
       }
 
       setProducts((prev) =>
-        [...prev, data.product!].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+        [...prev, data.product!].sort((a, b) => a.name.localeCompare(b.name, locale)),
       );
       setCreateOpen(false);
       setCreateForm(emptyProductForm());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar produto.");
+      setError(err instanceof Error ? err.message : t("admin.institutions.products.errorCreate"));
     } finally {
       setCreating(false);
     }
@@ -154,9 +157,9 @@ export function InstitutionProducts({
 
   async function deleteProduct(product: SerializedInstitutionProduct) {
     const ok = await confirm({
-      title: "Excluir produto",
-      message: `Excluir "${product.name}"?`,
-      confirmLabel: "Excluir",
+      title: t("admin.institutions.products.confirmDeleteTitle"),
+      message: t("admin.institutions.products.confirmDeleteMessage", { name: product.name }),
+      confirmLabel: t("admin.common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -168,7 +171,7 @@ export function InstitutionProducts({
     );
 
     if (!response.ok) {
-      setError(data?.error ?? "Erro ao excluir produto.");
+      setError(data?.error ?? t("admin.institutions.products.errorDelete"));
       return;
     }
 
@@ -187,21 +190,19 @@ export function InstitutionProducts({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Produtos e contas</CardTitle>
-          <p className="text-sm text-zinc-500">
-            Edite na tabela ou use Editar para o formulário completo.
-          </p>
+          <CardTitle className="text-base">{t("admin.institutions.products.title")}</CardTitle>
+          <p className="text-sm text-zinc-500">{t("admin.institutions.products.subtitle")}</p>
         </CardHeader>
         <CardContent className="pt-0">
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando produtos...</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.institutions.products.loading")}</p>
           ) : (
             <SmartTable
               data={products}
               columns={columns}
               getRowKey={(row) => row.id}
               pageSize={10}
-              searchPlaceholder="Buscar produtos…"
+              searchPlaceholder={t("admin.institutions.products.search")}
               searchFilter={(row, query) =>
                 [row.name, row.slug, row.description ?? ""].some((field) =>
                   field.toLowerCase().includes(query),
@@ -211,7 +212,7 @@ export function InstitutionProducts({
                 setCreateForm(emptyProductForm());
                 setCreateOpen(true);
               }}
-              createLabel="Novo produto"
+              createLabel={t("admin.institutions.products.new")}
               onEdit={(row) => {
                 setEditProduct(row);
                 setEditForm(productToForm(row));
@@ -224,7 +225,7 @@ export function InstitutionProducts({
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Novo produto / conta"
+        title={t("admin.institutions.products.newTitle")}
         size="lg"
         className="max-w-md"
         footer={
@@ -235,14 +236,14 @@ export function InstitutionProducts({
               onClick={() => setCreateOpen(false)}
               disabled={creating}
             >
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             <Button
               type="button"
               onClick={() => void createProduct()}
               disabled={creating || !createForm.name.trim()}
             >
-              {creating ? "Criando..." : "Criar"}
+              {creating ? t("admin.common.creating") : t("admin.common.create")}
             </Button>
           </>
         }
@@ -264,7 +265,11 @@ export function InstitutionProducts({
           setEditProduct(null);
           setEditForm(null);
         }}
-        title={editProduct ? `Editar — ${editProduct.name}` : "Editar produto"}
+        title={
+          editProduct
+            ? t("admin.common.editTitle", { name: editProduct.name })
+            : t("admin.institutions.products.edit")
+        }
         size="lg"
         className="max-w-md"
         footer={
@@ -278,7 +283,7 @@ export function InstitutionProducts({
               }}
               disabled={savingEdit}
             >
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             <Button
               type="button"
@@ -287,14 +292,14 @@ export function InstitutionProducts({
               disabled={savingEdit}
             >
               <IconTrash size="sm" />
-              Excluir
+              {t("admin.common.delete")}
             </Button>
             <Button
               type="button"
               onClick={() => void saveEditProduct()}
               disabled={savingEdit || !editForm?.name.trim()}
             >
-              {savingEdit ? "Salvando..." : "Salvar"}
+              {savingEdit ? t("admin.common.saving") : t("admin.common.save")}
             </Button>
           </>
         }

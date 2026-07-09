@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/locale-provider";
 
 export type PaginationProps = {
   /** Zero-based current page index. */
@@ -57,6 +58,8 @@ export function Pagination({
   pageSize,
   className,
 }: PaginationProps) {
+  const t = useT();
+
   if (totalPages <= 1) return null;
 
   const currentPage = Math.min(page, totalPages - 1);
@@ -65,9 +68,13 @@ export function Pagination({
   const rangeLabel =
     totalItems != null && pageSize != null
       ? totalItems === 0
-        ? "0 resultados"
-        : `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, totalItems)} de ${totalItems}`
-      : `Página ${currentPage + 1} de ${totalPages}`;
+        ? t("ui.pagination.noResults")
+        : t("ui.pagination.rangeOf", {
+            from: currentPage * pageSize + 1,
+            to: Math.min((currentPage + 1) * pageSize, totalItems),
+            total: totalItems,
+          })
+      : t("ui.pagination.pageOf", { page: currentPage + 1, total: totalPages });
 
   return (
     <div
@@ -78,7 +85,7 @@ export function Pagination({
     >
       <span>{rangeLabel}</span>
 
-      <nav className="flex items-center gap-0.5" aria-label="Paginação">
+      <nav className="flex items-center gap-0.5" aria-label={t("ui.pagination.navLabel")}>
         <Button
           type="button"
           variant="secondary"
@@ -87,7 +94,7 @@ export function Pagination({
           className="min-w-8 px-0 font-mono text-base leading-none"
           disabled={currentPage === 0}
           onClick={() => onPageChange(currentPage - 1)}
-          aria-label="Página anterior"
+          aria-label={t("ui.pagination.prev")}
         >
           &lt;
         </Button>
@@ -110,7 +117,7 @@ export function Pagination({
               iconOnly
               className="min-w-8 px-0 tabular-nums"
               onClick={() => onPageChange(item)}
-              aria-label={`Página ${item + 1}`}
+              aria-label={t("ui.pagination.pageLabel", { page: item + 1 })}
               aria-current={item === currentPage ? "page" : undefined}
             >
               {item + 1}
@@ -126,7 +133,7 @@ export function Pagination({
           className="min-w-8 px-0 font-mono text-base leading-none"
           disabled={currentPage >= totalPages - 1}
           onClick={() => onPageChange(currentPage + 1)}
-          aria-label="Próxima página"
+          aria-label={t("ui.pagination.next")}
         >
           &gt;
         </Button>

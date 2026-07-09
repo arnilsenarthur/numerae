@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { HoverTooltip } from "@/components/ui/tooltip";
 import { getSpoilableFieldCellClass } from "@/lib/spoilable-field";
 import { ReactNode, useMemo, useState } from "react";
+import { useLocale, useT } from "@/i18n/locale-provider";
 
 export type SmartFieldType =
   | "text"
@@ -321,7 +322,10 @@ type ModalFieldEntry<T> = {
   field: SmartTableField<T>;
 };
 
-function collectModalFields<T>(columns: SmartTableColumn<T>[]): ModalFieldEntry<T>[] {
+function collectModalFields<T>(
+  columns: SmartTableColumn<T>[],
+  locale: string,
+): ModalFieldEntry<T>[] {
   return columns
     .filter((column) => {
       if (!column.field) return false;
@@ -331,7 +335,7 @@ function collectModalFields<T>(columns: SmartTableColumn<T>[]): ModalFieldEntry<
     .sort(
       (a, b) =>
         (a.field!.modalOrder ?? 0) - (b.field!.modalOrder ?? 0) ||
-        a.header.localeCompare(b.header, "pt-BR"),
+        a.header.localeCompare(b.header, locale),
     )
     .map((column) => ({ column, field: column.field! }));
 }
@@ -494,10 +498,11 @@ export function SmartTableModalFields<T>({
   saving?: boolean;
   excludeIds?: string[];
 }) {
+  const { locale } = useLocale();
   const entries = useMemo(
     () =>
-      collectModalFields(columns).filter(({ column }) => !excludeIds.includes(column.id)),
-    [columns, excludeIds],
+      collectModalFields(columns, locale).filter(({ column }) => !excludeIds.includes(column.id)),
+    [columns, excludeIds, locale],
   );
 
   const ctx: SmartTableModalContext<T> = { row, isCreating, saving };
@@ -528,14 +533,17 @@ export function SmartTableModalFields<T>({
 export function SmartTable<T>({
   columns,
   onEdit,
-  editLabel = "Editar",
+  editLabel,
   showEdit = true,
   onCreate,
-  createLabel = "Adicionar",
+  createLabel,
   rowActions = [],
   getRowKey,
   ...tableProps
 }: SmartTableProps<T>) {
+  const t = useT();
+  const resolvedEditLabel = editLabel ?? t("ui.smartTable.edit");
+  const resolvedCreateLabel = createLabel ?? t("ui.smartTable.add");
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const visibleColumns = useMemo(
@@ -601,7 +609,7 @@ export function SmartTable<T>({
               ))}
               {showEditButton ? (
                 <Button type="button" size="sm" variant="secondary" onClick={() => onEdit(row)}>
-                  {editLabel}
+                  {resolvedEditLabel}
                 </Button>
               ) : null}
             </div>
@@ -611,12 +619,12 @@ export function SmartTable<T>({
     }
 
     return mapped;
-  }, [visibleColumns, editLabel, getRowKey, onEdit, rowActions, savingKey, showEdit]);
+  }, [visibleColumns, resolvedEditLabel, getRowKey, onEdit, rowActions, savingKey, showEdit]);
 
   const toolbar = onCreate ? (
     <Button type="button" onClick={onCreate}>
       <IconPlus size="sm" />
-      {createLabel}
+      {resolvedCreateLabel}
     </Button>
   ) : null;
 

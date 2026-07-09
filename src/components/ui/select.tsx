@@ -13,6 +13,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { registerDropdownEscapeLock } from "@/hooks/use-dropdown-escape-lock";
+import { useT } from "@/i18n/locale-provider";
 
 export type SelectOption = {
   value: string;
@@ -111,15 +112,18 @@ export function Select({
   options,
   value,
   onChange,
-  placeholder = "Selecione...",
+  placeholder,
   label,
   disabled,
   className,
   size = "md",
   searchable,
-  searchPlaceholder = "Buscar...",
+  searchPlaceholder,
   menuZIndex = ui.dropdownZIndex,
 }: SelectProps) {
+  const t = useT();
+  const resolvedPlaceholder = placeholder ?? t("ui.select.placeholder");
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t("ui.select.search");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -134,7 +138,7 @@ export function Select({
 
   const selected = options.find((option) => option.value === value);
   const displayValue =
-    selected?.label ?? (value !== undefined && value !== "" ? String(value) : placeholder);
+    selected?.label ?? (value !== undefined && value !== "" ? String(value) : resolvedPlaceholder);
   const hasSelection = Boolean(selected || (value !== undefined && value !== ""));
 
   const filteredOptions = useMemo(() => {
@@ -246,7 +250,7 @@ export function Select({
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder={searchPlaceholder}
+                  placeholder={resolvedSearchPlaceholder}
                   className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-zinc-400"
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
@@ -257,7 +261,7 @@ export function Select({
             <div className="max-h-56 overflow-y-auto overscroll-contain">
               {filteredOptions.length === 0 ? (
                 <p className="px-3 py-4 text-center text-xs text-zinc-500">
-                  Nenhum resultado.
+                  {t("ui.select.noResults")}
                 </p>
               ) : (
                 filteredOptions.map((option, index) => {

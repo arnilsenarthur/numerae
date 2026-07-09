@@ -11,6 +11,7 @@ import { Money } from "@/components/ui/money";
 import { cardClickable } from "@/components/ui/card";
 import { DonutChart } from "@/components/ui/chart";
 import { IconChevronDown } from "@/components/ui/icons";
+import { useT } from "@/i18n/locale-provider";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
 import { RISK_PROFILES, riskProfileMeta, type SerializedMarketAsset } from "@/types/market";
@@ -35,13 +36,35 @@ function saveProfile(monthlyBudget: string, profile: string, currency: string) {
 }
 
 /** Current approximate Brazilian market reference rates (educational) */
-const MARKET_INDICES = [
-  { label: "Selic", value: "10,75% a.a.", description: "Taxa básica de juros (Banco Central)" },
-  { label: "CDI", value: "~10,65% a.a.", description: "Referência renda fixa" },
-  { label: "IPCA", value: "~5,5% a.a.", description: "Inflação oficial (acum. 12m)" },
-  { label: "IBOV (5a)", value: "~12% a.a.", description: "Ibovespa — retorno histórico 5 anos" },
-  { label: "S&P 500 (USD)", value: "~10% a.a.", description: "Retorno histórico real de longo prazo" },
-];
+function marketIndices(t: (key: string) => string) {
+  return [
+    {
+      label: t("investments.pages.portfolio.benchmarkSelic"),
+      value: t("investments.pages.portfolio.benchmarkSelicValue"),
+      description: t("investments.pages.portfolio.benchmarkSelicDesc"),
+    },
+    {
+      label: t("investments.pages.portfolio.benchmarkCdi"),
+      value: t("investments.pages.portfolio.benchmarkCdiValue"),
+      description: t("investments.pages.portfolio.benchmarkCdiDesc"),
+    },
+    {
+      label: t("investments.pages.portfolio.benchmarkIpca"),
+      value: t("investments.pages.portfolio.benchmarkIpcaValue"),
+      description: t("investments.pages.portfolio.benchmarkIpcaDesc"),
+    },
+    {
+      label: t("investments.pages.portfolio.benchmarkIbov"),
+      value: t("investments.pages.portfolio.benchmarkIbovValue"),
+      description: t("investments.pages.portfolio.benchmarkIbovDesc"),
+    },
+    {
+      label: t("investments.pages.portfolio.benchmarkSp500"),
+      value: t("investments.pages.portfolio.benchmarkSp500Value"),
+      description: t("investments.pages.portfolio.benchmarkSp500Desc"),
+    },
+  ];
+}
 
 /** Alocação alvo por classe de ativo e perfil de risco (% do portfólio). */
 const ALLOCATION_TEMPLATES: Record<
@@ -175,6 +198,7 @@ function CategorySuggestionCard({
   categoryAssets,
   expanded,
   onToggle,
+  t,
 }: {
   label: string;
   pct: number;
@@ -185,6 +209,7 @@ function CategorySuggestionCard({
   categoryAssets: SerializedMarketAsset[];
   expanded: boolean;
   onToggle: () => void;
+  t: ReturnType<typeof useT>;
 }) {
   return (
     <Card
@@ -205,7 +230,7 @@ function CategorySuggestionCard({
         {monthlyValue > 0 ? (
           <p className="text-sm text-zinc-500">
             <Money value={monthlyValue} currency={currency} />
-            <span className="text-zinc-400"> / mês</span>
+            <span className="text-zinc-400"> {t("investments.pages.portfolio.perMonth")}</span>
           </p>
         ) : null}
       </CardHeader>
@@ -218,7 +243,7 @@ function CategorySuggestionCard({
 
           {categoryAssets.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Cotações</p>
+              <p className="text-sm font-medium">{t("investments.pages.portfolio.quotes")}</p>
               <ul className="space-y-2">
                 {categoryAssets.slice(0, 5).map((asset) => (
                   <li
@@ -251,7 +276,7 @@ function CategorySuggestionCard({
 
           {hints?.items.length ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Sugestões</p>
+              <p className="text-sm font-medium">{t("investments.pages.portfolio.suggestions")}</p>
               <ul className="space-y-2">
                 {hints.items.map((hint) => {
                   const { primary, secondary } = splitDetail(hint);
@@ -270,7 +295,7 @@ function CategorySuggestionCard({
 
           {hints?.institutions?.length ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Corretoras</p>
+              <p className="text-sm font-medium">{t("investments.pages.portfolio.brokers")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {hints.institutions.map((inst) => {
                   const { primary } = splitDetail(inst);
@@ -287,7 +312,7 @@ function CategorySuggestionCard({
       ) : (
         <CardContent className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
           <span className="inline-flex items-center gap-1 text-sm text-zinc-500">
-            Ver sugestões
+            {t("investments.pages.portfolio.expandDetails")}
             <IconChevronDown size="xs" className="opacity-60" />
           </span>
         </CardContent>
@@ -307,6 +332,7 @@ const CURRENCY_OPTIONS = [
 ];
 
 export function PortfolioPanel() {
+  const t = useT();
   const saved = typeof window !== "undefined" ? loadProfile() : null;
   const [monthlyBudget, setMonthlyBudget] = useState(saved?.monthlyBudget ?? "1000");
   const [profile, setProfile] = useState(saved?.profile ?? "moderate");
@@ -332,15 +358,37 @@ export function PortfolioPanel() {
   const allocation = ALLOCATION_TEMPLATES[profile] ?? ALLOCATION_TEMPLATES.moderate!;
   const budget = Math.max(0, Number(monthlyBudget) || 0);
   const profileMeta = riskProfileMeta(profile);
+  const profileDescription =
+    profile === "conservative"
+      ? t("investments.pages.portfolio.profileConservativeDesc")
+      : profile === "aggressive"
+        ? t("investments.pages.portfolio.profileAggressiveDesc")
+        : t("investments.pages.portfolio.profileModerateDesc");
+
+  const indices = useMemo(() => marketIndices(t), [t]);
+
+  const classLabel = (classKey: string) => {
+    const keyMap: Record<string, string> = {
+      "Renda fixa (CDI/Tesouro)": "investments.pages.portfolio.classFixedIncome",
+      "Ações brasileiras (B3)": "investments.pages.portfolio.classStocksBR",
+      "Ações globais (EUA)": "investments.pages.portfolio.classStocksUS",
+      "ETFs globais": "investments.pages.portfolio.classEtfs",
+      "FIIs": "investments.pages.portfolio.classFiis",
+      "Cripto": "investments.pages.portfolio.classCrypto",
+      "Renda fixa (reserva)": "investments.pages.portfolio.classReserve",
+    };
+    const key = keyMap[classKey];
+    return key ? t(key) : classKey;
+  };
 
   const donutData = useMemo(
     () =>
       allocation.map((item) => ({
-        label: item.label,
+        label: classLabel(item.label),
         value: (budget * item.pct) / 100,
         color: item.color,
       })),
-    [allocation, budget],
+    [allocation, budget, t],
   );
 
   function assetsForCategory(classes: string[]): SerializedMarketAsset[] {
@@ -372,7 +420,7 @@ export function PortfolioPanel() {
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
-              <Label>Aporte mensal</Label>
+              <Label>{t("investments.pages.portfolio.monthlyContributionLabel")}</Label>
               <div className="flex items-center gap-2">
                 <div className="w-24">
                   <Select options={CURRENCY_OPTIONS} value={currency} onChange={setCurrency} size="sm" />
@@ -387,14 +435,14 @@ export function PortfolioPanel() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Perfil de risco</Label>
+              <Label>{t("investments.pages.portfolio.profileLabel")}</Label>
               <div className="w-56">
                 <Select options={PROFILE_OPTIONS} value={profile} onChange={setProfile} />
               </div>
             </div>
             <div className="pb-1">
               <Badge variant="success">{profileMeta.label}</Badge>
-              <p className="mt-0.5 text-xs text-zinc-500">{profileMeta.description}</p>
+              <p className="mt-0.5 text-xs text-zinc-500">{profileDescription}</p>
             </div>
             <Button
               type="button"
@@ -403,7 +451,7 @@ export function PortfolioPanel() {
               onClick={handleSaveProfile}
               className="mb-0.5"
             >
-              {savedFeedback ? "Salvo ✓" : "Salvar perfil"}
+              {savedFeedback ? t("investments.pages.portfolio.saved") : t("investments.pages.portfolio.saveProfile")}
             </Button>
           </div>
         </CardContent>
@@ -412,11 +460,11 @@ export function PortfolioPanel() {
       {/* Market reference indices */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Índices de referência (Brasil · estimativas)</CardTitle>
+          <CardTitle className="text-sm">{t("investments.pages.portfolio.benchmarksTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            {MARKET_INDICES.map((idx) => (
+            {indices.map((idx) => (
               <div key={idx.label} className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
                 <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{idx.label}</p>
                 <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{idx.value}</p>
@@ -424,7 +472,7 @@ export function PortfolioPanel() {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[10px] text-zinc-400">Valores aproximados para referência. Atualize-os ao planejar.</p>
+          <p className="mt-2 text-[10px] text-zinc-400">{t("investments.pages.portfolio.benchmarksDisclaimer")}</p>
         </CardContent>
       </Card>
 
@@ -432,7 +480,7 @@ export function PortfolioPanel() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Distribuição sugerida — {formatMoney(budget, { currency })}/mês
+            {t("investments.pages.portfolio.allocationTitle")} — {formatMoney(budget, { currency })}{t("investments.pages.portfolio.perMonth")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -448,13 +496,13 @@ export function PortfolioPanel() {
       {/* Per-category deep dive */}
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Onde investir em cada categoria
+          {t("investments.pages.portfolio.allocationSubtitle")}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {allocation.map((item) => (
             <CategorySuggestionCard
               key={item.label}
-              label={item.label}
+              label={classLabel(item.label)}
               pct={item.pct}
               color={item.color}
               monthlyValue={(budget * item.pct) / 100}
@@ -463,6 +511,7 @@ export function PortfolioPanel() {
               categoryAssets={assetsForCategory(item.classes)}
               expanded={expanded === item.label}
               onToggle={() => setExpanded(expanded === item.label ? null : item.label)}
+              t={t}
             />
           ))}
         </div>
@@ -470,8 +519,7 @@ export function PortfolioPanel() {
 
       {/* Disclaimer */}
       <p className="text-xs text-zinc-400">
-        * Sugestões baseadas em alocações típicas por perfil. Não constituem recomendação de
-        investimento. Consulte um assessor financeiro antes de investir.
+        {t("investments.pages.portfolio.disclaimer")}
       </p>
     </div>
   );

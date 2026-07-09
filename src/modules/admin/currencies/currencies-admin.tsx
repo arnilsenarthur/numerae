@@ -9,7 +9,9 @@ import { Select } from "@/components/ui/select";
 import { SmartTable, SmartTableModalFields, type SmartTableColumn } from "@/components/ui/smart-table";
 import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useUrlQueryFilter } from "@/hooks/use-url-query-state";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useT } from "@/i18n/locale-provider";
 import {
   buildCountrySelectOptions,
   type SerializedCountry,
@@ -34,9 +36,10 @@ const emptyForm = (countryCode = "BR"): CurrencyForm => ({
 });
 
 export function CurrenciesAdmin() {
+  const t = useT();
   const [countries, setCountries] = useState<SerializedCountry[]>([]);
   const [currencies, setCurrencies] = useState<SerializedCurrency[]>([]);
-  const [countryFilter, setCountryFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useUrlQueryFilter({ key: "country", defaultValue: "" });
   const [form, setForm] = useState<CurrencyForm>(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -71,15 +74,15 @@ export function CurrenciesAdmin() {
         `/api/admin/currencies${query}`,
       );
       if (!response.ok || !data?.currencies) {
-        throw new Error(data?.error ?? "Erro ao carregar moedas.");
+        throw new Error(data?.error ?? t("admin.currencies.errorLoad"));
       }
       setCurrencies(data.currencies);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadCountries();
@@ -103,7 +106,7 @@ export function CurrenciesAdmin() {
       });
       if (!response.ok) {
         const details = data?.details ? `: ${data.details}` : "";
-        const message = (data?.error ?? "Erro ao salvar.") + details;
+        const message = (data?.error ?? t("admin.common.error.save")) + details;
         setError(message);
         throw new Error(message);
       }
@@ -114,7 +117,7 @@ export function CurrenciesAdmin() {
         await loadCurrencies(countryFilter || undefined);
       }
     },
-    [countryFilter, loadCurrencies],
+    [countryFilter, loadCurrencies, t],
   );
 
   function closeModal() {
@@ -157,11 +160,11 @@ export function CurrenciesAdmin() {
           body: JSON.stringify(payload),
         },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.save"));
       closeModal();
       await loadCurrencies(countryFilter || undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.save"));
     } finally {
       setSaving(false);
     }
@@ -170,9 +173,9 @@ export function CurrenciesAdmin() {
   async function remove() {
     if (!editingId) return;
     const ok = await confirm({
-      title: "Excluir moeda",
-      message: "Excluir esta moeda?",
-      confirmLabel: "Excluir",
+      title: t("admin.currencies.confirmDeleteTitle"),
+      message: t("admin.currencies.confirmDeleteMessage"),
+      confirmLabel: t("admin.common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -182,11 +185,11 @@ export function CurrenciesAdmin() {
         `/api/admin/currencies/${editingId}`,
         { method: "DELETE" },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao excluir.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.delete"));
       closeModal();
       await loadCurrencies(countryFilter || undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.delete"));
     } finally {
       setSaving(false);
     }
@@ -196,7 +199,7 @@ export function CurrenciesAdmin() {
     () => [
       {
         id: "code",
-        header: "Código",
+        header: t("admin.common.columns.code"),
         sortValue: (row) => row.code,
         field: {
           type: "text",
@@ -212,26 +215,26 @@ export function CurrenciesAdmin() {
       },
       {
         id: "name",
-        header: "Nome",
+        header: t("admin.common.columns.name"),
         sortValue: (row) => row.name,
         field: {
           type: "text",
           scope: "both",
           formKey: "name",
           getValue: (row) => row.name,
-          placeholder: "Nome da moeda",
+          placeholder: t("admin.currencies.currencyName"),
           onSave: (row, value) => patchCurrency(row.id, { name: String(value ?? "") }),
         },
       },
       {
         id: "country",
-        header: "País",
+        header: t("admin.common.columns.country"),
         sortValue: (row) => row.countryName ?? row.countryCode,
         field: {
           type: "select",
           scope: "both",
           formKey: "countryCode",
-          modalLabel: "País",
+          modalLabel: t("admin.common.columns.country"),
           getValue: (row) => row.countryCode,
           options: countryFormOptions,
           disabled: (row) => row.code === "USD",
@@ -257,7 +260,7 @@ export function CurrenciesAdmin() {
       },
       {
         id: "symbol",
-        header: "Símbolo",
+        header: t("admin.common.columns.symbol"),
         field: {
           type: "text",
           scope: "modal",
@@ -270,21 +273,21 @@ export function CurrenciesAdmin() {
       },
       {
         id: "active",
-        header: "Ativa",
+        header: t("admin.common.activeFeminine"),
         sortValue: (row) => (row.active ? 1 : 0),
         align: "center",
         field: {
           type: "boolean",
           scope: "both",
           formKey: "active",
-          modalLabel: "Ativa",
+          modalLabel: t("admin.common.activeFeminine"),
           getValue: (row) => row.active,
-          hint: "Ativa",
+          hint: t("admin.common.activeFeminine"),
           onSave: (row, value) => patchCurrency(row.id, { active: Boolean(value) }),
         },
       },
     ],
-    [countryFormOptions, patchCurrency],
+    [countryFormOptions, patchCurrency, t],
   );
 
   const modalOpen = isCreating || !!editingId;
@@ -298,11 +301,11 @@ export function CurrenciesAdmin() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-emerald-600">Admin</p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Moedas</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Edite na tabela ou use Editar para o formulário completo. Taxa USD: amarelo = ok, vermelho = expirada (1h).
-          </p>
+          <p className="text-sm text-emerald-600">{t("admin.common.kicker")}</p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+            {t("admin.currencies.title")}
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">{t("admin.currencies.subtitle")}</p>
         </div>
       </div>
 
@@ -314,34 +317,34 @@ export function CurrenciesAdmin() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Cadastradas</CardTitle>
+          <CardTitle className="text-base">{t("admin.common.registeredFeminine")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
           <div className="max-w-xs">
-            <Label>Filtrar por país</Label>
+            <Label>{t("admin.common.filterByCountry")}</Label>
             <Select
               options={countryOptions}
               value={countryFilter}
               onChange={setCountryFilter}
-              placeholder="Todos os países"
+              placeholder={t("admin.common.allCountries")}
             />
           </div>
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando...</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.common.loading")}</p>
           ) : (
             <SmartTable
               data={currencies}
               columns={columns}
               getRowKey={(row) => row.id}
               pageSize={10}
-              searchPlaceholder="Buscar moedas…"
+              searchPlaceholder={t("admin.currencies.search")}
               searchFilter={(row, query) =>
                 [row.code, row.name, row.countryCode, row.countryName ?? ""].some((field) =>
                   field.toLowerCase().includes(query),
                 )
               }
               onCreate={startCreate}
-              createLabel="Nova moeda"
+              createLabel={t("admin.currencies.new")}
               onEdit={startEdit}
             />
           )}
@@ -351,22 +354,30 @@ export function CurrenciesAdmin() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={isCreating ? "Nova moeda" : `Editar — ${form.code}`}
+        title={
+          isCreating
+            ? t("admin.currencies.new")
+            : t("admin.common.editTitle", { name: form.code })
+        }
         size="lg"
         className="max-w-md"
         footer={
           <>
             <Button type="button" variant="secondary" onClick={closeModal} disabled={saving}>
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             {!isCreating ? (
               <Button type="button" variant="danger" onClick={() => void remove()} disabled={saving}>
                 <IconTrash size="sm" />
-                Excluir
+                {t("admin.common.delete")}
               </Button>
             ) : null}
             <Button type="button" onClick={() => void save()} disabled={saving}>
-              {saving ? "Salvando..." : isCreating ? "Criar" : "Salvar"}
+              {saving
+                ? t("admin.common.saving")
+                : isCreating
+                  ? t("admin.common.create")
+                  : t("admin.common.save")}
             </Button>
           </>
         }

@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useT } from "@/i18n/locale-provider";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -49,6 +50,8 @@ function ToastViewport({
   toasts: ToastItem[];
   onDismiss: (id: string) => void;
 }) {
+  const t = useT();
+
   return (
     <div
       aria-live="polite"
@@ -71,10 +74,10 @@ function ToastViewport({
             )}
           >
             <p className="min-w-0 flex-1 text-sm leading-snug">{item.message}</p>
-            <HoverTooltip label="Fechar">
+            <HoverTooltip label={t("ui.toast.close")}>
               <button
                 type="button"
-                aria-label="Fechar notificação"
+                aria-label={t("ui.toast.closeNotification")}
                 onClick={() => onDismiss(item.id)}
                 className={cn(
                   "shrink-0 p-0.5 opacity-70 transition-opacity hover:opacity-100",

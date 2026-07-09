@@ -9,13 +9,16 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { SmartTable, SmartTableModalFields } from "@/components/ui/smart-table";
 import { fetchJson } from "@/lib/fetch-json";
+import { useUrlQueryFilter } from "@/hooks/use-url-query-state";
+import { useT } from "@/i18n/locale-provider";
+import { translateInstitutionType } from "@/i18n/labels";
 import {
   buildCountrySelectOptions,
   countryNameMap,
   type SerializedCountry,
 } from "@/lib/catalog-serializer";
 import type { SerializedInstitution } from "@/lib/institution-serializer";
-import { buildInstitutionColumns, institutionTypeLabel } from "./institution-columns";
+import { buildInstitutionColumns } from "./institution-columns";
 import {
   applyInstitutionFormField,
   emptyInstitutionForm,
@@ -24,6 +27,7 @@ import {
 } from "./institution-form";
 
 export function InstitutionsAdmin() {
+  const t = useT();
   const router = useRouter();
   const [countries, setCountries] = useState<SerializedCountry[]>([]);
   const [institutions, setInstitutions] = useState<SerializedInstitution[]>([]);
@@ -32,7 +36,7 @@ export function InstitutionsAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [countryFilter, setCountryFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useUrlQueryFilter({ key: "country", defaultValue: "" });
 
   const countryFilterOptions = useMemo(
     () => buildCountrySelectOptions(countries, true),
@@ -64,20 +68,20 @@ export function InstitutionsAdmin() {
       }>(`/api/admin/institutions${query}`);
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Erro ao carregar instituições.");
+        throw new Error(data?.error ?? t("admin.institutions.errorLoad"));
       }
 
       if (!data?.institutions) {
-        throw new Error("Resposta inválida do servidor.");
+        throw new Error(t("admin.common.error.invalidResponse"));
       }
 
       setInstitutions(data.institutions);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const patchInstitution = useCallback(
     async (id: string, body: Record<string, unknown>) => {
@@ -92,7 +96,7 @@ export function InstitutionsAdmin() {
       });
 
       if (!response.ok) {
-        const message = data?.error ?? "Erro ao salvar.";
+        const message = data?.error ?? t("admin.common.error.save");
         setError(message);
         throw new Error(message);
       }
@@ -105,7 +109,7 @@ export function InstitutionsAdmin() {
         await loadInstitutions(countryFilter || undefined);
       }
     },
-    [countryFilter, loadInstitutions],
+    [countryFilter, loadInstitutions, t],
   );
 
   useEffect(() => {
@@ -147,13 +151,13 @@ export function InstitutionsAdmin() {
       );
 
       if (!response.ok || !data?.institution) {
-        throw new Error(data?.error ?? "Erro ao criar.");
+        throw new Error(data?.error ?? t("admin.common.error.create"));
       }
 
       closeCreateModal();
       router.push(`/admin/institutions/${data.institution.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.create"));
     } finally {
       setSaving(false);
     }
@@ -162,21 +166,22 @@ export function InstitutionsAdmin() {
   const columns = useMemo(
     () =>
       buildInstitutionColumns({
+        t,
         patchInstitution,
         countryFormOptions,
         resolveCountryName,
       }),
-    [countryFormOptions, patchInstitution, resolveCountryName],
+    [countryFormOptions, patchInstitution, resolveCountryName, t],
   );
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div>
-        <p className="text-sm text-emerald-600">Admin</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Instituições</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Bancos, fintechs, corretoras e remessadoras.
-        </p>
+        <p className="text-sm text-emerald-600">{t("admin.common.kicker")}</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+          {t("admin.institutions.title")}
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">{t("admin.institutions.subtitle")}</p>
       </div>
 
       {error && !isCreating ? (
@@ -187,39 +192,39 @@ export function InstitutionsAdmin() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Cadastradas</CardTitle>
+          <CardTitle className="text-base">{t("admin.common.registeredFeminine")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
           <div className="max-w-xs">
-            <Label>Filtrar por país</Label>
+            <Label>{t("admin.common.filterByCountry")}</Label>
             <Select
               options={countryFilterOptions}
               value={countryFilter}
               onChange={setCountryFilter}
-              placeholder="Todos os países"
+              placeholder={t("admin.common.allCountries")}
             />
           </div>
 
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando...</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.common.loading")}</p>
           ) : (
             <SmartTable
               data={institutions}
               columns={columns}
               getRowKey={(row) => row.id}
               pageSize={8}
-              searchPlaceholder="Buscar instituições…"
+              searchPlaceholder={t("admin.institutions.search")}
               searchFilter={(row, query) =>
                 [
                   row.name,
                   row.slug,
                   row.countryCode,
                   resolveCountryName(row.countryCode),
-                  institutionTypeLabel(row.type),
+                  translateInstitutionType(row.type, t),
                 ].some((field) => field.toLowerCase().includes(query))
               }
               onCreate={startCreate}
-              createLabel="Nova instituição"
+              createLabel={t("admin.institutions.new")}
               onEdit={(row) => router.push(`/admin/institutions/${row.id}`)}
             />
           )}
@@ -229,17 +234,17 @@ export function InstitutionsAdmin() {
       <Modal
         open={isCreating}
         onClose={closeCreateModal}
-        title="Nova instituição"
-        description="Cadastre uma banca, fintech ou remessadora."
+        title={t("admin.institutions.new")}
+        description={t("admin.institutions.newDescription")}
         size="lg"
         className="max-w-lg"
         footer={
           <>
             <Button type="button" variant="secondary" onClick={closeCreateModal} disabled={saving}>
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             <Button type="button" onClick={() => void createInstitution()} disabled={saving}>
-              {saving ? "Criando..." : "Criar"}
+              {saving ? t("admin.common.creating") : t("admin.common.create")}
             </Button>
           </>
         }

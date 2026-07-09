@@ -10,6 +10,7 @@ import {
   registrationMetaForCountry,
   taxRegimeLabel,
 } from "@/modules/companies/lib/registration";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import type { SavedCompany } from "@/types/user-company";
 
 function formatRegistration(company: SavedCompany) {
@@ -34,8 +35,10 @@ export function CompanyCard({
   onEdit,
   onDelete,
 }: CompanyCardProps) {
-  const meta = registrationMetaForCountry(company.countryCode);
-  const regime = taxRegimeLabel(company.taxRegime, company.countryCode);
+  const t = useT();
+  const { locale } = useLocale();
+  const meta = registrationMetaForCountry(company.countryCode, t);
+  const regime = taxRegimeLabel(company.taxRegime, company.countryCode, t);
   const activity =
     company.activityCode || company.activityDescription
       ? [company.activityCode, company.activityDescription].filter(Boolean).join(" — ")
@@ -58,7 +61,7 @@ export function CompanyCard({
               <CardTitle className="truncate text-sm">{company.label}</CardTitle>
               {company.isDefault ? (
                 <Badge variant="success" className="shrink-0 text-[10px]">
-                  Padrão
+                  {t("companies.ui.card.defaultBadge")}
                 </Badge>
               ) : null}
             </div>
@@ -77,9 +80,9 @@ export function CompanyCard({
 
       <CardContent className="space-y-1.5 px-3 pb-2 pt-0">
         <div>
-          <p className="text-[10px] text-zinc-500">Alíquota efetiva</p>
+          <p className="text-[10px] text-zinc-500">{t("companies.ui.card.effectiveRate")}</p>
           <p className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
-            {company.taxRate.toLocaleString("pt-BR")}%
+            {company.taxRate.toLocaleString(locale)}%
           </p>
         </div>
 
@@ -91,7 +94,7 @@ export function CompanyCard({
             </p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-[10px] text-zinc-500">Regime</p>
+            <p className="text-[10px] text-zinc-500">{t("companies.ui.card.regime")}</p>
             <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{regime}</p>
           </div>
         </div>
@@ -102,7 +105,7 @@ export function CompanyCard({
       <div className="flex gap-1.5 border-t border-zinc-100 p-2 dark:border-zinc-800">
         <Button type="button" variant="secondary" size="sm" className="flex-1" onClick={onEdit}>
           <IconPencil size="xs" />
-          Editar
+          {t("companies.ui.card.edit")}
         </Button>
         <Button
           type="button"
@@ -113,7 +116,7 @@ export function CompanyCard({
           onClick={onDelete}
         >
           <IconTrash size="xs" />
-          Remover
+          {t("companies.ui.card.remove")}
         </Button>
       </div>
     </Card>

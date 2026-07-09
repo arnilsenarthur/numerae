@@ -1,8 +1,13 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/locale-provider";
 
 type SpinnerProps = {
   size?: "sm" | "md" | "lg";
   className?: string;
+  /** Override the default aria-label. */
+  ariaLabel?: string;
 };
 
 const sizes = {
@@ -11,7 +16,10 @@ const sizes = {
   lg: "h-8 w-8 border-[3px]",
 };
 
-export function Spinner({ size = "md", className }: SpinnerProps) {
+export function Spinner({ size = "md", className, ariaLabel }: SpinnerProps) {
+  const t = useT();
+  const resolvedAriaLabel = ariaLabel ?? t("ui.loader.ariaLabel");
+
   return (
     <span
       className={cn(
@@ -20,7 +28,7 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
         className,
       )}
       role="status"
-      aria-label="Carregando"
+      aria-label={resolvedAriaLabel}
     />
   );
 }
@@ -33,11 +41,14 @@ type LoaderProps = {
 };
 
 export function Loader({
-  label = "Carregando...",
+  label,
   size = "md",
   className,
   inline,
 }: LoaderProps) {
+  const t = useT();
+  const resolvedLabel = label ?? t("ui.loader.loading");
+
   return (
     <div
       className={cn(
@@ -49,8 +60,8 @@ export function Loader({
       role="status"
     >
       <Spinner size={size} />
-      {label ? (
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
+      {resolvedLabel ? (
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">{resolvedLabel}</span>
       ) : null}
     </div>
   );

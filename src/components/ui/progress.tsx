@@ -11,8 +11,8 @@ import { HTMLAttributes, useMemo, useState } from "react";
 type ProgressProps = HTMLAttributes<HTMLDivElement> & {
   value: number;
   max?: number;
-  size?: "sm" | "md";
-  variant?: "default" | "success" | "warning";
+  size?: "sm" | "md" | "xs";
+  variant?: "default" | "success" | "warning" | "danger";
 };
 
 export type ProgressFill = {
@@ -32,6 +32,7 @@ const barVariants = {
   default: "bg-emerald-500",
   success: "bg-emerald-500",
   warning: "bg-amber-500",
+  danger: "bg-red-500",
 };
 
 const segmentColors = [
@@ -43,6 +44,7 @@ const segmentColors = [
 ];
 
 const sizes = {
+  xs: "h-0.5",
   sm: "h-1",
   md: "h-1.5",
 };

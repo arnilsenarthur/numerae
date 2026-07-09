@@ -14,16 +14,19 @@ import {
   type SerializedCountry,
 } from "@/lib/catalog-serializer";
 import { fetchJson } from "@/lib/fetch-json";
+import { useUrlQueryFilter } from "@/hooks/use-url-query-state";
 import { useConfirm } from "@/hooks/use-confirm";
 import { CompanyCard } from "@/modules/companies/components/company-card";
 import { CompanyFormModal } from "@/modules/companies/components/company-form-modal";
 import type { SavedCompany } from "@/types/user-company";
 import { companiesPageHeader } from "@/lib/page-meta";
+import { useT } from "@/i18n/locale-provider";
 
 export function CompaniesApp() {
+  const t = useT();
   const [companies, setCompanies] = useState<SavedCompany[]>([]);
   const [countries, setCountries] = useState<SerializedCountry[]>([]);
-  const [countryFilter, setCountryFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useUrlQueryFilter({ key: "country", defaultValue: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -50,18 +53,18 @@ export function CompaniesApp() {
     setLoading(false);
 
     if (!catalogRes.response.ok) {
-      setError(catalogRes.data?.error ?? "Erro ao carregar países.");
+      setError(catalogRes.data?.error ?? t("companies.ui.app.loadCountriesError"));
       return;
     }
 
     if (!companiesRes.response.ok) {
-      setError(companiesRes.data?.error ?? "Erro ao carregar empresas.");
+      setError(companiesRes.data?.error ?? t("companies.ui.app.loadError"));
       return;
     }
 
     setCountries(catalogRes.data?.countries ?? []);
     setCompanies(companiesRes.data?.companies ?? []);
-  }, [countryFilter]);
+  }, [countryFilter, t]);
 
   useEffect(() => {
     void loadData();
@@ -69,9 +72,9 @@ export function CompaniesApp() {
 
   async function handleDelete(company: SavedCompany) {
     const ok = await confirm({
-      title: "Remover empresa",
-      message: `Remover "${company.label}"? Esta ação não pode ser desfeita.`,
-      confirmLabel: "Remover",
+      title: t("companies.ui.app.deleteTitle"),
+      message: t("companies.ui.app.deleteMessage", { label: company.label }),
+      confirmLabel: t("common.remove"),
       tone: "error",
     });
     if (!ok) return;
@@ -83,7 +86,7 @@ export function CompaniesApp() {
     setDeletingId(null);
 
     if (!response.ok) {
-      setError(data?.error ?? "Erro ao remover empresa.");
+      setError(data?.error ?? t("companies.ui.app.deleteError"));
       return;
     }
 
@@ -100,9 +103,14 @@ export function CompaniesApp() {
     setModalOpen(true);
   }
 
+  const companyCountLabel =
+    companies.length === 1
+      ? t("companies.ui.app.companyCount", { count: companies.length })
+      : t("companies.ui.app.companyCountPlural", { count: companies.length });
+
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
-      <PageHeader meta={companiesPageHeader} />
+      <PageHeader meta={companiesPageHeader(t)} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -110,17 +118,15 @@ export function CompaniesApp() {
             <Select
               options={countryOptions}
               value={countryFilter}
-              placeholder="Todos os países"
+              placeholder={t("companies.ui.app.allCountries")}
               onChange={setCountryFilter}
               size="sm"
             />
           </div>
-          <p className="text-sm text-zinc-500">
-            {companies.length} empresa{companies.length !== 1 ? "s" : ""}
-          </p>
+          <p className="text-sm text-zinc-500">{companyCountLabel}</p>
         </div>
         <Button type="button" size="sm" onClick={openCreate}>
-          <IconPlus size="sm" /> Nova empresa
+          <IconPlus size="sm" /> {t("companies.ui.app.newCompany")}
         </Button>
       </div>
 
@@ -131,8 +137,8 @@ export function CompaniesApp() {
       ) : companies.length === 0 ? (
         <EmptyState
           icon={<IconBuilding className="h-6 w-6" />}
-          title="Nenhuma empresa ainda"
-          description="Cadastre sua primeira empresa para simular impostos e PJ no mapa do dinheiro."
+          title={t("companies.ui.app.emptyTitle")}
+          description={t("companies.ui.app.emptyDescription")}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

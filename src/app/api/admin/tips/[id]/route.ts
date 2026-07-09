@@ -34,6 +34,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (parsed.data.quote !== undefined) data.quote = parsed.data.quote;
     if (parsed.data.author !== undefined) data.author = parsed.data.author;
     if (parsed.data.category !== undefined) data.category = parsed.data.category;
+    if (parsed.data.locale !== undefined) data.locale = parsed.data.locale;
     if (parsed.data.sourceUrl !== undefined) data.sourceUrl = parsed.data.sourceUrl;
     if (parsed.data.sourceLabel !== undefined) data.sourceLabel = parsed.data.sourceLabel;
     if (parsed.data.active !== undefined) data.active = parsed.data.active;

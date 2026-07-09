@@ -1,16 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import { ReactNode } from "react";
 import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { useT } from "@/i18n/locale-provider";
 import { CREATOR_LINKS, SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-type PublicShellProps = {
-  children: ReactNode;
-  className?: string;
-};
+function PublicShellInner({ children, className }: { children: ReactNode; className?: string }) {
+  const t = useT();
 
-export function PublicShell({ children, className }: PublicShellProps) {
   return (
     <div className={cn("relative flex min-h-screen flex-col", className)}>
       <div
@@ -24,14 +25,15 @@ export function PublicShell({ children, className }: PublicShellProps) {
             <span className="truncate text-base font-semibold tracking-tight">{SITE_NAME}</span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
+            <LanguageSwitcher />
             <Link href="/login">
               <Button type="button" variant="ghost" size="sm">
-                Entrar
+                {t("landing.login")}
               </Button>
             </Link>
             <Link href="/register">
               <Button type="button" size="sm">
-                Criar conta
+                {t("landing.register")}
               </Button>
             </Link>
           </div>
@@ -43,7 +45,7 @@ export function PublicShell({ children, className }: PublicShellProps) {
       <footer className="border-t border-zinc-200/80 dark:border-zinc-800">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-sm text-zinc-500 sm:flex-row sm:px-6">
           <p className="text-center sm:text-left">
-            {SITE_NAME} — plataforma de finanças pessoais
+            {t("landing.footerTagline", { siteName: SITE_NAME })}
           </p>
           <div className="flex items-center gap-4">
             <a
@@ -67,4 +69,13 @@ export function PublicShell({ children, className }: PublicShellProps) {
       </footer>
     </div>
   );
+}
+
+type PublicShellProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function PublicShell({ children, className }: PublicShellProps) {
+  return <PublicShellInner className={className}>{children}</PublicShellInner>;
 }

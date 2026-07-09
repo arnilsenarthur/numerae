@@ -24,31 +24,24 @@ import {
   IconTrendUp,
   IconTrendDown,
 } from "@/components/ui/icons";
+import { useLocale, useT } from "@/i18n/locale-provider";
+import {
+  investmentCategoryOptions,
+  translateInvestmentCategory,
+  translateInvestmentEntryKind,
+} from "@/i18n/labels";
 import { fetchJson } from "@/lib/fetch-json";
 import { investmentPositionPath } from "@/lib/app-routes";
 import { useConfirm } from "@/hooks/use-confirm";
 import { formatMoney } from "@/lib/format-money";
 import {
   INVESTMENT_CATEGORY_COLOR_HEX,
-  INVESTMENT_CATEGORY_LABELS,
-  INVESTMENT_CATEGORY_OPTIONS,
-  INVESTMENT_ENTRY_KIND_LABELS,
   type InvestmentEntryKind,
   type SerializedInvestmentEntry,
   type SerializedInvestmentPosition,
 } from "@/types/market";
 
-const CURRENCY_OPTIONS = [
-  { value: "BRL", label: "BRL — Real" },
-  { value: "USD", label: "USD — Dólar" },
-  { value: "EUR", label: "EUR — Euro" },
-];
-
-const ENTRY_KIND_OPTIONS: { value: InvestmentEntryKind; label: string }[] = [
-  { value: "DEPOSIT", label: "Aporte" },
-  { value: "WITHDRAWAL", label: "Retirada" },
-  { value: "BALANCE_UPDATE", label: "Atualização de saldo" },
-];
+const ENTRY_KIND_VALUES: InvestmentEntryKind[] = ["DEPOSIT", "WITHDRAWAL", "BALANCE_UPDATE"];
 
 type PositionForm = {
   name: string;
@@ -96,8 +89,8 @@ function emptyEntryForm(): EntryForm {
   };
 }
 
-function formatDateShort(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", {
+function formatDateShort(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
     year: "2-digit",
@@ -129,11 +122,22 @@ function PositionDetail({
   onUpdated: (updated: SerializedInvestmentPosition) => void;
   onEdit: () => void;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [entryModal, setEntryModal] = useState(false);
   const [form, setForm] = useState<EntryForm>(emptyEntryForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm, dialog } = useConfirm();
+
+  const entryKindOptions = useMemo(
+    () =>
+      ENTRY_KIND_VALUES.map((value) => ({
+        value,
+        label: translateInvestmentEntryKind(value, t),
+      })),
+    [t],
+  );
 
   const currency = position.currencyCode;
 
@@ -150,36 +154,36 @@ function PositionDetail({
       for (const entry of position.entries) {
         if (entry.kind === "DEPOSIT") running += entry.amount;
         else if (entry.kind === "WITHDRAWAL") running -= entry.amount;
-        points.push({ label: formatDateShort(entry.date), value: Math.max(0, running) });
+        points.push({ label: formatDateShort(entry.date, locale), value: Math.max(0, running) });
       }
       // Add current balance as last point if different from calculated
       if (points.length > 0) {
         points.push({
-          label: "Hoje",
+          label: t("investments.pages.positions.chartToday"),
           value: position.currentBalance,
         });
       }
     } else {
       for (const entry of entriesWithBalance) {
         points.push({
-          label: formatDateShort(entry.date),
+          label: formatDateShort(entry.date, locale),
           value: entry.balance!,
         });
       }
       // Always end with current balance
       const lastEntry = entriesWithBalance.at(-1);
       if (!lastEntry || lastEntry.balance !== position.currentBalance) {
-        points.push({ label: "Hoje", value: position.currentBalance });
+        points.push({ label: t("investments.pages.positions.chartToday"), value: position.currentBalance });
       }
     }
 
     // If only 1 point, duplicate it so the chart renders
     if (points.length === 1) {
-      points.unshift({ label: "Início", value: points[0]!.value });
+      points.unshift({ label: t("investments.pages.positions.chartStart"), value: points[0]!.value });
     }
 
     return points;
-  }, [position]);
+  }, [position, locale, t]);
 
   async function submitEntry() {
     setSaving(true);
@@ -207,12 +211,12 @@ function PositionDetail({
           updateCurrentBalance: balance !== null,
         }),
       });
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar.");
+      if (!response.ok) throw new Error(data?.error ?? t("investments.pages.positions.entrySaveError"));
       if (data?.position) onUpdated(data.position);
       setEntryModal(false);
       setForm(emptyEntryForm());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro.");
+      setError(err instanceof Error ? err.message : t("investments.pages.positions.genericError"));
     } finally {
       setSaving(false);
     }
@@ -220,9 +224,9 @@ function PositionDetail({
 
   async function deleteEntry(entry: SerializedInvestmentEntry) {
     const ok = await confirm({
-      title: "Remover lançamento",
-      message: "Remover este lançamento do histórico?",
-      confirmLabel: "Remover",
+      title: t("investments.pages.positions.entryDeleteTitle"),
+      message: t("investments.pages.positions.entryDeleteMessage"),
+      confirmLabel: t("common.remove"),
       tone: "error",
     });
     if (!ok) return;
@@ -243,7 +247,7 @@ function PositionDetail({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-[10px]">
-              {INVESTMENT_CATEGORY_LABELS[position.category] ?? position.category}
+              {translateInvestmentCategory(position.category, t)}
             </Badge>
             {position.institution ? (
               <span className="text-xs text-zinc-500">{position.institution}</span>
@@ -255,7 +259,7 @@ function PositionDetail({
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant="secondary" onClick={onEdit}>
-            <IconPencil size="sm" /> Editar posição
+            <IconPencil size="sm" /> {t("investments.pages.positions.edit")}
           </Button>
           <Button
             type="button"
@@ -267,7 +271,7 @@ function PositionDetail({
               setEntryModal(true);
             }}
           >
-            <IconRepeat size="sm" /> Atualizar saldo
+            <IconRepeat size="sm" /> {t("investments.pages.positions.updateBalance")}
           </Button>
           <Button
             type="button"
@@ -278,7 +282,7 @@ function PositionDetail({
               setEntryModal(true);
             }}
           >
-            <IconPlus size="sm" /> Aporte
+            <IconPlus size="sm" /> {t("investments.pages.positions.depositButton")}
           </Button>
         </div>
       </div>
@@ -287,25 +291,26 @@ function PositionDetail({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">Saldo atual</p>
+            <p className="text-xs text-zinc-500">{t("investments.pages.positions.balanceLabel")}</p>
             <Money value={position.currentBalance} currency={currency} size="lg" />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">Total aportado</p>
+            <p className="text-xs text-zinc-500">{t("investments.pages.positions.totalInvested")}</p>
             <Money value={position.totalDeposited} currency={currency} size="lg" />
             {position.totalWithdrawn > 0 ? (
               <p className="text-xs text-zinc-400">
                 −{" "}
-                {formatMoney(position.totalWithdrawn, { currency })} retirado
+                {formatMoney(position.totalWithdrawn, { currency })}{" "}
+                {t("investments.pages.positions.withdrawnSuffix")}
               </p>
             ) : null}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">Resultado</p>
+            <p className="text-xs text-zinc-500">{t("investments.pages.positions.profit")}</p>
             {hasProfit ? (
               <p
                 className={`text-xl font-bold ${profitPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
@@ -316,14 +321,14 @@ function PositionDetail({
             ) : (
               <>
                 <p className="text-xl font-bold text-zinc-400">—</p>
-                <p className="text-[10px] text-zinc-400">Registre aportes para calcular</p>
+                <p className="text-[10px] text-zinc-400">{t("investments.pages.positions.profitCalcHint")}</p>
               </>
             )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">Rendimento</p>
+            <p className="text-xs text-zinc-500">{t("investments.pages.positions.profitPercentLabel")}</p>
             {position.profitPercent !== null ? (
               <p
                 className={`text-xl font-bold ${profitPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
@@ -342,7 +347,7 @@ function PositionDetail({
       {chartData.length >= 2 ? (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Evolução do saldo</CardTitle>
+            <CardTitle className="text-base">{t("investments.pages.positions.chartTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             <LineChart
@@ -358,12 +363,12 @@ function PositionDetail({
       {/* Entry history */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Histórico de lançamentos</CardTitle>
+          <CardTitle className="text-base">{t("investments.pages.positions.entriesTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {position.entries.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm text-zinc-500">
-              Nenhum lançamento ainda. Adicione aportes e atualizações de saldo.
+              {t("investments.pages.positions.entriesEmptyHint")}
             </div>
           ) : (
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -383,10 +388,10 @@ function PositionDetail({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                          {INVESTMENT_ENTRY_KIND_LABELS[entry.kind]}
+                          {translateInvestmentEntryKind(entry.kind, t)}
                         </span>
                         <span className="text-[10px] text-zinc-400">
-                          {formatDateShort(entry.date)}
+                          {formatDateShort(entry.date, locale)}
                         </span>
                       </div>
                       {entry.notes ? (
@@ -416,7 +421,7 @@ function PositionDetail({
                       onClick={() => void deleteEntry(entry)}
                     >
                       <IconTrash size="xs" />
-                      Excluir
+                      {t("investments.pages.positions.delete")}
                     </Button>
                   </div>
                 ))}
@@ -429,7 +434,7 @@ function PositionDetail({
       <Modal
         open={entryModal}
         onClose={() => setEntryModal(false)}
-        title="Novo lançamento"
+        title={t("investments.pages.positions.newEntryTitle")}
         size="md"
         footer={
           <>
@@ -439,10 +444,10 @@ function PositionDetail({
               onClick={() => setEntryModal(false)}
               disabled={saving}
             >
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button type="button" onClick={() => void submitEntry()} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -454,9 +459,9 @@ function PositionDetail({
         ) : null}
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Tipo</Label>
+            <Label>{t("investments.pages.positions.entryKindLabel")}</Label>
             <Select
-              options={ENTRY_KIND_OPTIONS}
+              options={entryKindOptions}
               value={form.kind}
               onChange={(v) => setForm((prev) => ({ ...prev, kind: v as InvestmentEntryKind }))}
             />
@@ -464,7 +469,11 @@ function PositionDetail({
           <div className="grid gap-3 sm:grid-cols-2">
             {form.kind !== "BALANCE_UPDATE" ? (
               <div className="space-y-1">
-                <Label>{form.kind === "DEPOSIT" ? "Valor do aporte" : "Valor da retirada"}</Label>
+                <Label>
+                  {form.kind === "DEPOSIT"
+                    ? t("investments.pages.positions.depositAmountLabel")
+                    : t("investments.pages.positions.withdrawalAmountLabel")}
+                </Label>
                 <NumberInput
                   value={form.amount}
                   onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
@@ -474,7 +483,9 @@ function PositionDetail({
             ) : null}
             <div className="space-y-1">
               <Label>
-                {form.kind === "BALANCE_UPDATE" ? "Saldo atual" : "Saldo após (opcional)"}
+                {form.kind === "BALANCE_UPDATE"
+                  ? t("investments.pages.positions.balanceLabel")
+                  : t("investments.pages.positions.balanceAfterOptional")}
               </Label>
               <NumberInput
                 value={form.balance}
@@ -484,7 +495,7 @@ function PositionDetail({
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Data</Label>
+            <Label>{t("investments.pages.positions.entryDateLabel")}</Label>
             <DatePicker
               value={form.date}
               onChange={(v) => setForm((prev) => ({ ...prev, date: v }))}
@@ -492,16 +503,16 @@ function PositionDetail({
             />
           </div>
           <div className="space-y-1">
-            <Label>Observação (opcional)</Label>
+            <Label>{t("investments.pages.positions.entryNotesLabel")}</Label>
             <Input
               value={form.notes}
               onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="Ex.: aporte mensal, dividendos…"
+              placeholder={t("investments.pages.positions.entryNotesPlaceholder")}
             />
           </div>
           {form.kind === "BALANCE_UPDATE" ? (
             <p className="text-xs text-zinc-500">
-              A atualização de saldo registra o valor atual da posição e atualiza o saldo exibido.
+              {t("investments.pages.positions.balanceUpdateHint")}
             </p>
           ) : null}
         </div>
@@ -521,6 +532,8 @@ export function PositionsPanel({
   positionId?: string | null;
   onDetailPositionChange?: (position: SerializedInvestmentPosition | null) => void;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const router = useRouter();
   const [positions, setPositions] = useState<SerializedInvestmentPosition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -532,6 +545,16 @@ export function PositionsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm, dialog } = useConfirm();
+
+  const categoryOptions = useMemo(() => investmentCategoryOptions(t), [t]);
+  const currencyOptions = useMemo(
+    () => [
+      { value: "BRL", label: t("investments.pages.positions.currencyBrl") },
+      { value: "USD", label: t("investments.pages.positions.currencyUsd") },
+      { value: "EUR", label: t("investments.pages.positions.currencyEur") },
+    ],
+    [t],
+  );
 
   const selected = useMemo(() => {
     if (!positionId) return null;
@@ -637,11 +660,11 @@ export function PositionsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar.");
+      if (!response.ok) throw new Error(data?.error ?? t("investments.pages.positions.saveError"));
       setPositionModal(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro.");
+      setError(err instanceof Error ? err.message : t("investments.pages.positions.genericError"));
     } finally {
       setSaving(false);
     }
@@ -649,10 +672,13 @@ export function PositionsPanel({
 
   async function deletePosition() {
     if (!editingId) return;
+    const editingPosition = positions.find((p) => p.id === editingId);
     const ok = await confirm({
-      title: "Excluir posição",
-      message: "Excluir esta posição e todo seu histórico?",
-      confirmLabel: "Excluir",
+      title: t("investments.pages.positions.deleteTitle"),
+      message: t("investments.pages.positions.deleteMessage", {
+        name: editingPosition?.name ?? "",
+      }),
+      confirmLabel: t("common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -682,11 +708,11 @@ export function PositionsPanel({
     return Object.entries(byCategory)
       .filter(([, v]) => v > 0)
       .map(([cat, value]) => ({
-        label: INVESTMENT_CATEGORY_LABELS[cat] ?? cat,
+        label: translateInvestmentCategory(cat, t),
         value,
         color: INVESTMENT_CATEGORY_COLOR_HEX[cat] ?? "#a1a1aa",
       }));
-  }, [positions]);
+  }, [positions, t]);
 
   const totalDeposited = positions.reduce((sum, p) => sum + p.totalDeposited, 0);
   const totalProfit = positions.reduce((sum, p) => sum + (p.profit ?? 0), 0);
@@ -718,10 +744,12 @@ export function PositionsPanel({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-500">
-          {positions.length} posição{positions.length !== 1 ? "ões" : ""}
+          {positions.length === 1
+            ? t("investments.pages.positions.positionCountOne", { count: positions.length })
+            : t("investments.pages.positions.positionCountMany", { count: positions.length })}
         </p>
         <Button type="button" size="sm" onClick={startCreate}>
-          <IconPlus size="sm" /> Nova posição
+          <IconPlus size="sm" /> {t("investments.pages.positions.addPosition")}
         </Button>
       </div>
 
@@ -730,11 +758,11 @@ export function PositionsPanel({
       ) : positions.length === 0 ? (
         <EmptyState
           icon={<IconCoins className="h-6 w-6" />}
-          title="Nenhuma posição cadastrada"
-          description="Adicione seus investimentos reais: CDB, ações, ETFs, cripto, e acompanhe o crescimento."
+          title={t("investments.pages.positions.emptyTitle")}
+          description={t("investments.pages.positions.emptyDescription")}
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Nova posição
+              <IconPlus size="sm" /> {t("investments.pages.positions.addPosition")}
             </Button>
           }
         />
@@ -745,7 +773,7 @@ export function PositionsPanel({
             {/* Donut chart */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Composição do portfólio</CardTitle>
+                <CardTitle className="text-base">{t("investments.pages.positions.allocation")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <DonutChart
@@ -761,19 +789,19 @@ export function PositionsPanel({
             <div className="grid grid-cols-2 gap-3 content-start">
               <Card>
                 <CardContent className="pt-4">
-                  <p className="text-xs text-zinc-500">Patrimônio total</p>
+                  <p className="text-xs text-zinc-500">{t("investments.pages.positions.totalWealth")}</p>
                   <Money value={totalBalance} currency="BRL" size="lg" />
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="pt-4">
-                  <p className="text-xs text-zinc-500">Total aportado</p>
+                  <p className="text-xs text-zinc-500">{t("investments.pages.positions.totalInvested")}</p>
                   <Money value={totalDeposited} currency="BRL" size="lg" />
                 </CardContent>
               </Card>
               <Card className="col-span-2">
                 <CardContent className="pt-4">
-                  <p className="text-xs text-zinc-500">Resultado total</p>
+                  <p className="text-xs text-zinc-500">{t("investments.pages.positions.totalResult")}</p>
                   <div className="flex items-end gap-3">
                     <p
                       className={`text-2xl font-bold ${totalProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
@@ -798,7 +826,7 @@ export function PositionsPanel({
           {/* Position cards */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              Posições ({positions.length})
+              {t("investments.pages.positions.positionsSectionTitle", { count: positions.length })}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {positions.map((pos) => {
@@ -822,7 +850,7 @@ export function PositionsPanel({
                           </div>
                           <div className="mt-0.5 flex items-center gap-1.5 pl-4">
                             <span className="text-[10px] text-zinc-400">
-                              {INVESTMENT_CATEGORY_LABELS[pos.category] ?? pos.category}
+                              {translateInvestmentCategory(pos.category, t)}
                             </span>
                             {pos.institution ? (
                               <span className="text-[10px] text-zinc-400">· {pos.institution}</span>
@@ -834,18 +862,18 @@ export function PositionsPanel({
                     </CardHeader>
                     <CardContent className="space-y-1.5 px-3 pb-2 pt-0">
                       <div>
-                        <p className="text-xs text-zinc-500">Saldo atual</p>
+                        <p className="text-xs text-zinc-500">{t("investments.pages.positions.balanceLabel")}</p>
                         <Money value={pos.currentBalance} currency={pos.currencyCode} size="md" />
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] text-zinc-500">Aportado</p>
+                          <p className="text-[10px] text-zinc-500">{t("investments.pages.positions.depositedLabel")}</p>
                           <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                             {formatMoney(pos.totalDeposited, { currency: pos.currencyCode })}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-zinc-500">Resultado</p>
+                          <p className="text-[10px] text-zinc-500">{t("investments.pages.positions.resultLabel")}</p>
                           {pos.profit !== null ? (
                             <div className="flex items-center justify-end gap-1">
                               <p
@@ -863,8 +891,14 @@ export function PositionsPanel({
                       </div>
                       <p className="text-[11px] text-zinc-400">
                         {pos.entries.length > 0
-                          ? `${pos.entries.length} lançamento${pos.entries.length !== 1 ? "s" : ""}`
-                          : "Sem lançamentos ainda"}
+                          ? pos.entries.length === 1
+                            ? t("investments.pages.positions.entryCountOne", {
+                                count: pos.entries.length,
+                              })
+                            : t("investments.pages.positions.entryCountMany", {
+                                count: pos.entries.length,
+                              })
+                          : t("investments.pages.positions.noEntriesShort")}
                       </p>
                     </CardContent>
                     <div className="flex gap-1.5 border-t border-zinc-100 p-2 dark:border-zinc-800">
@@ -876,7 +910,7 @@ export function PositionsPanel({
                         onClick={() => router.push(investmentPositionPath(pos.id))}
                       >
                         <IconChevronRight size="xs" />
-                        Ver detalhes
+                        {t("investments.pages.positions.viewDetails")}
                       </Button>
                       <Button
                         type="button"
@@ -886,7 +920,7 @@ export function PositionsPanel({
                         onClick={() => startEdit(pos)}
                       >
                         <IconPencil size="xs" />
-                        Editar
+                        {t("investments.pages.positions.edit")}
                       </Button>
                     </div>
                   </Card>
@@ -908,7 +942,7 @@ export function PositionsPanel({
       <Modal
         open={positionModal}
         onClose={() => setPositionModal(false)}
-        title={editingId ? "Editar posição" : "Nova posição de investimento"}
+        title={editingId ? t("investments.pages.positions.editTitle") : t("investments.pages.positions.createTitle")}
         size="md"
         footer={
           <>
@@ -918,7 +952,7 @@ export function PositionsPanel({
               onClick={() => setPositionModal(false)}
               disabled={saving}
             >
-              Cancelar
+              {t("common.cancel")}
             </Button>
             {editingId ? (
               <Button
@@ -928,11 +962,11 @@ export function PositionsPanel({
                 disabled={saving}
               >
                 <IconTrash size="sm" />
-                Excluir
+                {t("investments.pages.positions.delete")}
               </Button>
             ) : null}
             <Button type="button" onClick={() => void savePosition()} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -944,26 +978,26 @@ export function PositionsPanel({
         ) : null}
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Nome</Label>
+            <Label>{t("investments.pages.positions.nameLabel")}</Label>
             <Input
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Ex.: IVVB11, CDB Nubank, Bitcoin…"
+              placeholder={t("investments.pages.positions.namePlaceholder")}
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Categoria</Label>
+              <Label>{t("investments.pages.positions.categoryLabel")}</Label>
               <Select
-                options={INVESTMENT_CATEGORY_OPTIONS}
+                options={categoryOptions}
                 value={form.category}
                 onChange={(v) => setForm((prev) => ({ ...prev, category: v }))}
               />
             </div>
             <div className="space-y-1">
-              <Label>Moeda</Label>
+              <Label>{t("investments.pages.positions.currencyLabel")}</Label>
               <Select
-                options={CURRENCY_OPTIONS}
+                options={currencyOptions}
                 value={form.currencyCode}
                 onChange={(v) => setForm((prev) => ({ ...prev, currencyCode: v }))}
               />
@@ -971,26 +1005,26 @@ export function PositionsPanel({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Símbolo (opcional)</Label>
+              <Label>{t("investments.pages.positions.symbolLabel")}</Label>
               <Input
                 value={form.assetSymbol}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, assetSymbol: e.target.value.toUpperCase() }))
                 }
-                placeholder="IVVB11, BTC…"
+                placeholder={t("investments.pages.positions.symbolPlaceholder")}
               />
             </div>
             <div className="space-y-1">
-              <Label>Instituição (opcional)</Label>
+              <Label>{t("investments.pages.positions.institutionLabel")}</Label>
               <Input
                 value={form.institution}
                 onChange={(e) => setForm((prev) => ({ ...prev, institution: e.target.value }))}
-                placeholder="Nubank, XP, Binance…"
+                placeholder={t("investments.pages.positions.institutionPlaceholder")}
               />
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Saldo atual</Label>
+            <Label>{t("investments.pages.positions.balanceLabel")}</Label>
             <NumberInput
               value={form.currentBalance}
               onChange={(e) =>
@@ -999,13 +1033,13 @@ export function PositionsPanel({
               placeholder="0,00"
             />
             <p className="text-[11px] text-zinc-400">
-              Valor atual da posição. Você pode atualizar depois via lançamentos.
+              {t("investments.pages.positions.balanceHint")}
             </p>
           </div>
           {!editingId ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>Total aportado até hoje (opcional)</Label>
+                <Label>{t("investments.pages.positions.initialDepositLabel")}</Label>
                 <NumberInput
                   value={form.initialDeposit}
                   onChange={(e) =>
@@ -1014,11 +1048,11 @@ export function PositionsPanel({
                   placeholder="0,00"
                 />
                 <p className="text-[11px] text-zinc-400">
-                  Quanto você já colocou nesse investimento — usado para calcular o rendimento.
+                  {t("investments.pages.positions.initialDepositHint")}
                 </p>
               </div>
               <div className="space-y-1">
-                <Label>Data do primeiro aporte</Label>
+                <Label>{t("investments.pages.positions.initialDateLabel")}</Label>
                 <DatePicker
                   value={form.initialDepositDate}
                   onChange={(v) => setForm((prev) => ({ ...prev, initialDepositDate: v }))}

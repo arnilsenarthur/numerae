@@ -21,8 +21,10 @@ export const createAccountSchema = z.object({
     .default("BR"),
   institutionId: z.string().trim().optional().nullable(),
   initialBalance: z.number().finite().default(0),
+  creditLimit: z.number().positive().optional().nullable(),
   color: z.string().trim().max(16).optional().nullable(),
   icon: z.string().trim().max(32).optional().nullable(),
+  isDefault: z.boolean().optional(),
 });
 
 export const updateAccountSchema = createAccountSchema.partial().extend({

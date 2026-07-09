@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/loader";
 import { IconSearch } from "@/components/ui/icons";
 import type { SavedCnpj } from "@/types/user-cnpj";
+import { useT } from "@/i18n/locale-provider";
 
 type CnpjInlineCreateProps = {
   onSaved: (cnpj: SavedCnpj) => void;
@@ -16,6 +17,7 @@ type CnpjInlineCreateProps = {
 };
 
 export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateProps) {
+  const t = useT();
   const [cnpjInput, setCnpjInput] = useState("");
   const [taxRate, setTaxRate] = useState("6");
   const [lookup, setLookup] = useState<CnpjLookupResult | null>(null);
@@ -47,7 +49,7 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
 
       if (!response.ok) {
         setLookup(null);
-        setLookupError(data.error ?? "Não foi possível consultar o CNPJ.");
+        setLookupError(data.error ?? t("ui.pickers.cnpj.lookupError"));
         lastLookupRef.current = "";
         return;
       }
@@ -65,20 +67,20 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
 
     const digits = stripCnpj(cnpjInput);
     if (!isValidCnpj(digits)) {
-      setError("Informe um CNPJ válido.");
+      setError(t("ui.pickers.cnpj.invalidCnpj"));
       return;
     }
 
     const rate = Number(taxRate.replace(",", "."));
     if (Number.isNaN(rate) || rate < 0 || rate > 100) {
-      setError("Alíquota deve estar entre 0 e 100.");
+      setError(t("ui.pickers.cnpj.taxRateRange"));
       return;
     }
 
     const label =
       lookup?.tradeName?.trim() ||
       lookup?.legalName?.trim() ||
-      "Empresa";
+      t("ui.pickers.company.label");
 
     setSaving(true);
     const response = await fetch("/api/cnpjs", {
@@ -98,7 +100,7 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
     setSaving(false);
 
     if (!response.ok) {
-      setError(data.error ?? "Erro ao salvar CNPJ.");
+      setError(data.error ?? t("ui.pickers.cnpj.saveError"));
       return;
     }
 
@@ -112,14 +114,14 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
   return (
     <div className="space-y-3">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-        Cadastrar CNPJ
+        {t("ui.pickers.cnpj.title")}
       </p>
 
       <div className="relative">
         <Input
           value={cnpjInput}
           onChange={(event) => setCnpjInput(formatCnpj(event.target.value))}
-          placeholder="00.000.000/0000-00"
+          placeholder={t("ui.pickers.cnpj.placeholder")}
           className="pr-9"
         />
         <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400">
@@ -150,7 +152,7 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
           </p>
           <div className="mt-3 flex items-center gap-2">
             <label htmlFor="inline-tax-rate" className="shrink-0 text-zinc-500">
-              Alíquota %
+              {t("ui.pickers.cnpj.taxRateLabel")}
             </label>
             <Input
               id="inline-tax-rate"
@@ -173,7 +175,7 @@ export function CnpjInlineCreate({ onSaved, isFirst = false }: CnpjInlineCreateP
         disabled={!isValidCnpj(cnpjInput)}
         onClick={handleSave}
       >
-        Salvar e selecionar
+        {t("ui.pickers.cnpj.saveAndSelect")}
       </Button>
     </div>
   );

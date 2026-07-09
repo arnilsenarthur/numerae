@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     // Envia o e-mail antes de persistir — evita conta criada sem código entregue.
-    const emailResult = await sendVerificationCode(email, code);
+    const emailResult = await sendVerificationCode(email, code, request);
 
     if (!emailResult.sent) {
       return NextResponse.json({ error: emailResult.error }, { status: 503 });

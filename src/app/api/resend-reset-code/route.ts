@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    const emailResult = await sendPasswordResetCode(email, code);
+    const emailResult = await sendPasswordResetCode(email, code, request);
 
     if (!emailResult.sent) {
       return NextResponse.json({ error: emailResult.error }, { status: 503 });

@@ -21,14 +21,16 @@ import { validateFormFields } from "@/lib/form-validation";
 import { AppIcon, categoryDefaultIcon, type IconName } from "@/lib/icon-utils";
 import { useIconSuggestion } from "@/hooks/use-icon-suggestion";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useFinanceLabels } from "@/hooks/use-finance-labels";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import {
-  TRANSACTION_KIND_LABELS,
-  categoriesForKind,
-  categoryLabel,
+  resolveDefaultAccountId,
   type SerializedAccount,
   type SerializedTransaction,
   type TransactionKind,
 } from "@/types/finance";
+
+const TRANSACTION_KINDS: TransactionKind[] = ["INCOME", "EXPENSE", "TRANSFER"];
 
 type TransactionForm = {
   accountId: string;
@@ -56,10 +58,6 @@ const emptyForm = (accountId = ""): TransactionForm => ({
   counterAmount: "",
 });
 
-const KIND_OPTIONS = (Object.keys(TRANSACTION_KIND_LABELS) as TransactionKind[]).map(
-  (kind) => ({ value: kind, label: TRANSACTION_KIND_LABELS[kind] }),
-);
-
 function parseAmount(value: string): number {
   const trimmed = value.trim();
   if (!trimmed) return 0;
@@ -79,6 +77,9 @@ export function FinanceTransactions({
   onChanged: () => void;
   openCreateTrigger?: { seq: number; kind: "INCOME" | "EXPENSE" | "TRANSFER" } | null;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const labels = useFinanceLabels();
   const [modalOpen, setModalOpen] = useState(false);
   const modalFormRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -95,7 +96,7 @@ export function FinanceTransactions({
 
   const amountField = useValidatedField(
     [
-      validationRules.required("Informe o valor."),
+      validationRules.required(t("finance.pages.transactions.amountRequired")),
       validationRules.currency(),
       validationRules.positiveAmount(),
     ],
@@ -104,11 +105,13 @@ export function FinanceTransactions({
 
   const descriptionField = useValidatedField(
     [
-      validationRules.required("Descrição é obrigatória."),
-      validationRules.maxLength(120, "Máximo de 120 caracteres."),
+      validationRules.required(t("finance.pages.transactions.descriptionRequired")),
+      validationRules.maxLength(120, t("finance.pages.transactions.descriptionMaxLength")),
     ],
     { required: true, validateMode: "change", showSuccess: false },
   );
+
+  const defaultAccountId = useMemo(() => resolveDefaultAccountId(accounts), [accounts]);
 
   const accountOptions = useMemo(
     () =>
@@ -119,17 +122,22 @@ export function FinanceTransactions({
     [accounts],
   );
 
+  const kindOptions = useMemo(
+    () => TRANSACTION_KINDS.map((kind) => ({ value: kind, label: labels.transactionKindLabel(kind) })),
+    [labels],
+  );
+
   const categoryOptions = useMemo(() => {
-    const list = categoriesForKind(form.kind);
+    const list = labels.categoriesForKind(form.kind);
     return list.map((item) => ({ value: item.value, label: item.label }));
-  }, [form.kind]);
+  }, [form.kind, labels]);
 
   function startCreate(kind: TransactionKind) {
     setEditingId(null);
     iconSuggestion.resetIconSuggestion();
     const category = kind === "INCOME" ? "salary" : "other";
     setForm({
-      ...emptyForm(accounts[0]?.id ?? ""),
+      ...emptyForm(defaultAccountId),
       kind,
       category,
     });
@@ -196,11 +204,11 @@ export function FinanceTransactions({
           body: JSON.stringify(payload),
         },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar lançamento.");
+      if (!response.ok) throw new Error(data?.error ?? t("finance.pages.transactions.saveError"));
       setModalOpen(false);
       onChanged();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Erro ao salvar lançamento.");
+      setFormError(err instanceof Error ? err.message : t("finance.pages.transactions.saveError"));
     } finally {
       setSaving(false);
     }
@@ -208,9 +216,9 @@ export function FinanceTransactions({
 
   async function remove(id: string) {
     const ok = await confirm({
-      title: "Excluir lançamento",
-      message: "Excluir este lançamento?",
-      confirmLabel: "Excluir",
+      title: t("finance.pages.transactions.deleteTitle"),
+      message: t("finance.pages.transactions.deleteMessage"),
+      confirmLabel: t("common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -219,7 +227,7 @@ export function FinanceTransactions({
       { method: "DELETE" },
     );
     if (!response.ok) {
-      setPageError(data?.error ?? "Erro ao excluir lançamento.");
+      setPageError(data?.error ?? t("finance.pages.transactions.deleteError"));
       return;
     }
     onChanged();
@@ -229,14 +237,14 @@ export function FinanceTransactions({
     () => [
       {
         id: "date",
-        header: "Data",
+        header: t("finance.pages.transactions.dateColumn"),
         sortable: true,
         sortValue: (row) => row.date,
-        cell: (row) => new Date(row.date).toLocaleDateString("pt-BR"),
+        cell: (row) => new Date(row.date).toLocaleDateString(locale),
       },
       {
         id: "kind",
-        header: "Tipo",
+        header: t("finance.pages.transactions.kindColumn"),
         cell: (row) => (
           <Badge
             variant={
@@ -248,13 +256,13 @@ export function FinanceTransactions({
             }
             className="text-[10px]"
           >
-            {TRANSACTION_KIND_LABELS[row.kind]}
+            {labels.transactionKindLabel(row.kind)}
           </Badge>
         ),
       },
       {
         id: "description",
-        header: "Descrição",
+        header: t("finance.pages.transactions.descriptionColumn"),
         sortable: true,
         sortValue: (row) => row.description,
         cell: (row) => (
@@ -273,13 +281,15 @@ export function FinanceTransactions({
       },
       {
         id: "category",
-        header: "Categoria",
+        header: t("finance.pages.transactions.categoryColumn"),
         cell: (row) =>
-          row.kind === "TRANSFER" ? "Transferência" : categoryLabel(row.category),
+          row.kind === "TRANSFER"
+            ? labels.transactionKindLabel("TRANSFER")
+            : labels.categoryLabel(row.category),
       },
       {
         id: "amount",
-        header: "Valor",
+        header: t("finance.pages.transactions.amountColumn"),
         align: "right",
         sortable: true,
         sortValue: (row) => row.amount,
@@ -307,7 +317,7 @@ export function FinanceTransactions({
           <div className="flex justify-end gap-1">
             <Button type="button" variant="secondary" size="sm" onClick={() => startEdit(row)}>
               <IconPencil size="xs" />
-              Editar
+              {t("finance.pages.transactions.edit")}
             </Button>
             <Button
               type="button"
@@ -316,14 +326,13 @@ export function FinanceTransactions({
               onClick={() => void remove(row.id)}
             >
               <IconTrash size="xs" />
-              Excluir
+              {t("finance.pages.transactions.delete")}
             </Button>
           </div>
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [labels, locale, t],
   );
 
   return (
@@ -335,16 +344,20 @@ export function FinanceTransactions({
         columns={columns}
         getRowKey={(row) => row.id}
         pageSize={10}
-        searchPlaceholder="Buscar lançamento…"
-        emptyMessage="Nenhum lançamento encontrado."
+        searchPlaceholder={t("finance.pages.transactions.searchPlaceholder")}
+        emptyMessage={t("finance.pages.transactions.emptyMessage")}
         emptyState={
           <EmptyState
             icon={<IconReceipt className="h-6 w-6" />}
-            title={accounts.length === 0 ? "Crie uma conta primeiro" : "Nenhum lançamento no período"}
+            title={
+              accounts.length === 0
+                ? t("finance.pages.transactions.emptyNoAccountsTitle")
+                : t("finance.pages.transactions.emptyMessage")
+            }
             description={
               accounts.length === 0
-                ? "Você precisa de ao menos uma conta para registrar lançamentos."
-                : "Tente outro período ou registre seu primeiro lançamento."
+                ? t("finance.pages.transactions.emptyNoAccountsDesc")
+                : t("finance.pages.transactions.emptyNoDataDesc")
             }
           />
         }
@@ -355,8 +368,10 @@ export function FinanceTransactions({
         onClose={() => setModalOpen(false)}
         title={
           editingId
-            ? "Editar lançamento"
-            : `Novo — ${TRANSACTION_KIND_LABELS[form.kind]}`
+            ? t("finance.pages.transactions.editTitle")
+            : t("finance.pages.transactions.createTitle", {
+                kind: labels.transactionKindLabel(form.kind),
+              })
         }
         size="lg"
         className="max-w-md"
@@ -368,10 +383,10 @@ export function FinanceTransactions({
               onClick={() => setModalOpen(false)}
               disabled={saving}
             >
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button type="button" onClick={() => void save()} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -380,9 +395,9 @@ export function FinanceTransactions({
         <div ref={modalFormRef} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Tipo</Label>
+              <Label>{t("finance.pages.transactions.kindLabel")}</Label>
               <Select
-                options={KIND_OPTIONS}
+                options={kindOptions}
                 value={form.kind}
                 onChange={(value) =>
                   setForm((prev) => ({
@@ -394,12 +409,16 @@ export function FinanceTransactions({
               />
             </div>
             <div className="space-y-1">
-              <Label>{form.kind === "TRANSFER" ? "Conta de origem" : "Conta"}</Label>
+              <Label>
+                {form.kind === "TRANSFER"
+                  ? t("finance.pages.transactions.sourceAccountLabel")
+                  : t("finance.pages.transactions.accountLabel")}
+              </Label>
               <Select
                 options={accountOptions}
                 value={form.accountId}
                 onChange={(value) => setForm((prev) => ({ ...prev, accountId: value }))}
-                placeholder="Selecione a conta…"
+                placeholder={t("finance.pages.transactions.selectAccount")}
               />
             </div>
           </div>
@@ -407,30 +426,30 @@ export function FinanceTransactions({
           {form.kind === "TRANSFER" ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>Conta de destino</Label>
+                <Label>{t("finance.pages.transactions.destAccountLabel")}</Label>
                 <Select
                   options={accountOptions.filter((o) => o.value !== form.accountId)}
                   value={form.counterAccountId}
                   onChange={(value) =>
                     setForm((prev) => ({ ...prev, counterAccountId: value }))
                   }
-                  placeholder="Selecione…"
+                  placeholder={t("finance.pages.transactions.select")}
                 />
               </div>
               <div className="space-y-1">
-                <Label>Valor recebido (opcional)</Label>
+                <Label>{t("finance.pages.transactions.counterAmountLabel")}</Label>
                 <NumberInput
                   value={form.counterAmount}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, counterAmount: e.target.value }))
                   }
-                  placeholder="Se difere por câmbio/tarifa"
+                  placeholder={t("finance.pages.transactions.counterAmountPlaceholder")}
                 />
               </div>
             </div>
           ) : (
             <div className="space-y-1">
-              <Label>Categoria</Label>
+              <Label>{t("finance.pages.transactions.categoryLabel")}</Label>
               <Select
                 options={categoryOptions}
                 value={form.category}
@@ -445,7 +464,7 @@ export function FinanceTransactions({
           )}
 
           <Field
-            label="Descrição"
+            label={t("finance.pages.transactions.descriptionLabel")}
             message={descriptionField.validation.message}
             state={descriptionField.validation.state}
             required
@@ -459,14 +478,14 @@ export function FinanceTransactions({
                 setForm((prev) => ({ ...prev, description }));
               }}
               onBlur={descriptionField.bind.onBlur}
-              placeholder="Ex.: Mercado, Salário de julho…"
+              placeholder={t("finance.pages.transactions.descriptionPlaceholder")}
               {...fieldControlProps(descriptionField.validation.state)}
             />
           </Field>
 
           {form.kind !== "TRANSFER" ? (
             <IconPicker
-              label="Ícone"
+              label={t("finance.pages.transactions.iconLabel")}
               value={iconSuggestion.icon}
               onChange={iconSuggestion.pickIcon}
             />
@@ -474,7 +493,7 @@ export function FinanceTransactions({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
-              label="Valor"
+              label={t("finance.pages.transactions.amountLabel")}
               message={amountField.validation.message}
               state={amountField.validation.state}
               required
@@ -491,7 +510,7 @@ export function FinanceTransactions({
               />
             </Field>
             <div className="space-y-1">
-              <Label>Data</Label>
+              <Label>{t("finance.pages.transactions.dateLabel")}</Label>
               <DatePicker
                 value={form.date}
                 onChange={(v) => setForm((prev) => ({ ...prev, date: v }))}

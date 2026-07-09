@@ -11,24 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/ui/money";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
+import { useT } from "@/i18n/locale-provider";
+import type { TranslateFn } from "@/i18n/translate";
 import { useCompanies } from "@/modules/calculator/hooks/use-companies";
 
-const SOURCE_CURRENCIES = [
-  { value: "USD", label: "USD — Dólar" },
-  { value: "EUR", label: "EUR — Euro" },
-  { value: "GBP", label: "GBP — Libra" },
-  { value: "CAD", label: "CAD — Dólar canadense" },
-];
-
-const TAX_REGIME_OPTIONS = [
-  { value: "mei", label: "MEI (até R$81k/ano)" },
-  { value: "simples_iii", label: "Simples — Anexo III (Fator R ≥ 28%)" },
-  { value: "simples_v", label: "Simples — Anexo V (Fator R < 28%)" },
-  { value: "lucro_presumido", label: "Lucro Presumido" },
-  { value: "manual", label: "Alíquota manual (%)" },
-];
-
-// IOF on international currency exchange remittance: 0.38% base + 1.1% = ~1.38%
 const IOF_RATE = 0.0138;
 
 const SIMPLES_III_TABLE = [
@@ -93,16 +79,36 @@ function calcTax(brlGross: number, regime: string, manualRatePercent = 0): numbe
   return 0;
 }
 
-function taxLabel(regime: string): string {
-  if (regime === "mei") return "MEI (DAS fixo)";
-  if (regime === "simples_iii") return "Simples Anexo III";
-  if (regime === "simples_v") return "Simples Anexo V";
-  if (regime === "lucro_presumido") return "Lucro Presumido";
-  if (regime === "manual") return "Alíquota manual";
+function taxLabel(regime: string, t: TranslateFn): string {
+  if (regime === "mei") return t("calculator.pages.salary.taxLabelMei");
+  if (regime === "simples_iii") return t("calculator.pages.salary.taxLabelSimplesIII");
+  if (regime === "simples_v") return t("calculator.pages.salary.taxLabelSimplesV");
+  if (regime === "lucro_presumido") return t("calculator.pages.salary.taxLabelLucroPresumido");
+  if (regime === "manual") return t("calculator.pages.salary.taxLabelManual");
   return regime;
 }
 
 export function SalaryOptimizer() {
+  const t = useT();
+  const sourceCurrencies = useMemo(
+    () => [
+      { value: "USD", label: t("calculator.pages.salary.currencyUsd") },
+      { value: "EUR", label: t("calculator.pages.salary.currencyEur") },
+      { value: "GBP", label: t("calculator.pages.salary.currencyGbp") },
+      { value: "CAD", label: t("calculator.pages.salary.currencyCad") },
+    ],
+    [t],
+  );
+  const taxRegimeOptions = useMemo(
+    () => [
+      { value: "mei", label: t("calculator.pages.salary.regimeMei") },
+      { value: "simples_iii", label: t("calculator.pages.salary.regimeSimplesIII") },
+      { value: "simples_v", label: t("calculator.pages.salary.regimeSimplesV") },
+      { value: "lucro_presumido", label: t("calculator.pages.salary.regimeLucroPresumido") },
+      { value: "manual", label: t("calculator.pages.salary.regimeManual") },
+    ],
+    [t],
+  );
   const { companies, loading: loadingCompanies } = useCompanies();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(MANUAL_COMPANY_ID);
   const [amount, setAmount] = useState("5000");
@@ -205,7 +211,7 @@ export function SalaryOptimizer() {
           <div className="flex flex-wrap items-end gap-4">
             <div className="w-80">
               <CompanyPicker
-                label="Empresa PJ"
+                label={t("calculator.pages.taxes.companyLabel")}
                 companies={companies}
                 loading={loadingCompanies}
                 valueId={selectedCompanyId}
@@ -217,7 +223,7 @@ export function SalaryOptimizer() {
             {selectedCompany && (
               <div className="pb-1">
                 <Badge variant="default">
-                  {selectedCompany.taxRegime === "simples" ? "Simples Nacional" : selectedCompany.taxRegime === "presumido" ? "Lucro Presumido" : "Alíquota manual"}
+                  {selectedCompany.taxRegime === "simples" ? t("calculator.pages.taxes.regimeSimples") : selectedCompany.taxRegime === "presumido" ? t("calculator.pages.taxes.regimePresumido") : t("calculator.pages.taxes.regimeManual")}
                 </Badge>
                 {selectedCompany.activityDescription && (
                   <p className="mt-0.5 text-xs text-zinc-500">{selectedCompany.activityDescription}</p>
@@ -228,10 +234,10 @@ export function SalaryOptimizer() {
 
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
-              <Label>Salário / receita no exterior</Label>
+              <Label>{t("calculator.pages.salary.title")}</Label>
               <div className="flex items-center gap-2">
                 <div className="w-28">
-                  <Select options={SOURCE_CURRENCIES} value={currency} onChange={setCurrency} size="sm" />
+                  <Select options={sourceCurrencies} value={currency} onChange={setCurrency} size="sm" />
                 </div>
                 <div className="w-36">
                   <NumberInput
@@ -243,10 +249,10 @@ export function SalaryOptimizer() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Regime tributário PJ</Label>
+              <Label>{t("companies.ui.form.taxRegimeLabel")}</Label>
               <div className="w-64">
                 <Select
-                  options={TAX_REGIME_OPTIONS}
+                  options={taxRegimeOptions}
                   value={isManualCompany ? "manual" : taxRegime}
                   onChange={setTaxRegime}
                   disabled={isManualCompany}
@@ -255,12 +261,12 @@ export function SalaryOptimizer() {
             </div>
             {(taxRegime === "manual" || isManualCompany) && (
               <div className="space-y-1">
-                <Label>Alíquota manual (%)</Label>
+                <Label>{t("calculator.pages.taxes.manualRateLabel")}</Label>
                 <div className="w-28">
                   <NumberInput
                     value={manualRate}
                     onChange={(e) => setManualRate(e.target.value)}
-                    placeholder="Ex.: 15"
+                    placeholder={t("calculator.pages.taxes.manualRatePlaceholder")}
                   />
                 </div>
               </div>
@@ -269,7 +275,12 @@ export function SalaryOptimizer() {
               <Skeleton className="mb-1 h-3 w-56" />
             ) : marketRate ? (
               <p className="mb-1 text-xs text-zinc-500">
-                Cotação mercado: 1 {currency} = {marketRate.toFixed(4)} BRL
+                {t("calculator.pages.salary.marketRate")}{" "}
+                {t("calculator.pages.exchange.rateLabel", {
+                  from: currency,
+                  rate: marketRate.toFixed(4),
+                  to: "BRL",
+                })}
                 {rateDate ? ` · ${rateDate}` : ""}
               </p>
             ) : null}
@@ -278,12 +289,15 @@ export function SalaryOptimizer() {
           {/* Fator R hint when Simples selected */}
           {(taxRegime === "simples_iii" || taxRegime === "simples_v") && marketRate && numAmount > 0 && (
             <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2 text-xs dark:border-sky-800 dark:bg-sky-950/30">
-              <span className="font-medium text-sky-700 dark:text-sky-300">Fator R — Simples Anexo III vs V:</span>
+              <span className="font-medium text-sky-700 dark:text-sky-300">
+                {t("calculator.pages.salary.fatorRTitle")}
+              </span>
               <span className="ml-1 text-zinc-600 dark:text-zinc-400">
-                Alíquota III: <strong>{(simplesIIIRate * 100).toFixed(1)}%</strong> · Alíquota V: <strong>{(simplesVRate * 100).toFixed(1)}%</strong>.
-                Para garantir Anexo III você precisa pagar pró-labore ≥{" "}
-                <strong>{formatMoney(minProlaboreIII, { currency: "BRL" })}/mês</strong>{" "}
-                (28% da receita bruta estimada em BRL).
+                {t("calculator.pages.salary.fatorRHint", {
+                  rateIII: (simplesIIIRate * 100).toFixed(1),
+                  rateV: (simplesVRate * 100).toFixed(1),
+                  minProlabore: formatMoney(minProlaboreIII, { currency: "BRL" }),
+                })}
               </span>
             </div>
           )}
@@ -296,8 +310,9 @@ export function SalaryOptimizer() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
-                Comparativo de instituições — regime:{" "}
-                {taxLabel(usesManualRate ? "manual" : taxRegime)}
+                {t("calculator.pages.salary.compareTitle", {
+                  regime: taxLabel(usesManualRate ? "manual" : taxRegime, t),
+                })}
                 {usesManualRate && manualRateValue > 0 ? ` (${manualRateValue.toFixed(1)}%)` : ""}
               </CardTitle>
             </CardHeader>
@@ -317,11 +332,17 @@ export function SalaryOptimizer() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium">{row.name}</p>
-                          {isBest && <Badge variant="success" className="text-[10px]">Melhor</Badge>}
+                          {isBest && <Badge variant="success" className="text-[10px]">{t("calculator.pages.exchange.bestOption")}</Badge>}
                         </div>
                         <p className="text-xs text-zinc-500">
-                          {row.notes} · spread {row.spread}%
-                          {row.fixedFee > 0 ? ` + ${row.fixedFee} BRL fixo` : ""}
+                          {t("calculator.pages.salary.spreadLine", {
+                            notes: row.notes,
+                            spread: row.spread,
+                            fee:
+                              row.fixedFee > 0
+                                ? t("calculator.pages.salary.fixedFeeSuffix", { fee: row.fixedFee })
+                                : "",
+                          })}
                         </p>
                       </div>
                       <div className="text-right">
@@ -329,11 +350,16 @@ export function SalaryOptimizer() {
                           {formatMoney(row.netBrl, { currency: "BRL" })}
                         </p>
                         <p className="text-xs text-zinc-400">
-                          bruto {formatMoney(row.brlAfterIof, { currency: "BRL" })}
-                          {" · "}tax {formatMoney(row.tax, { currency: "BRL" })}
+                          {t("calculator.pages.salary.grossLine", {
+                            gross: formatMoney(row.brlAfterIof, { currency: "BRL" }),
+                            tax: formatMoney(row.tax, { currency: "BRL" }),
+                          })}
                         </p>
                         <p className="text-xs text-zinc-400">
-                          {row.netRate.toFixed(4)} BRL/{currency}
+                          {t("calculator.pages.salary.netRateLine", {
+                            rate: row.netRate.toFixed(4),
+                            currency,
+                          })}
                         </p>
                       </div>
                     </div>
@@ -343,11 +369,12 @@ export function SalaryOptimizer() {
 
               {rows.length >= 2 && (
                 <div className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-900">
-                  Diferença entre melhor e pior:{" "}
-                  <strong className="text-zinc-700 dark:text-zinc-200">
-                    {formatMoney((rows[0]?.netBrl ?? 0) - (rows.at(-1)?.netBrl ?? 0), { currency: "BRL" })}
-                  </strong>{" "}
-                  a mais usando {rows[0]?.name}.
+                  {t("calculator.pages.salary.bestVsWorst", {
+                    amount: formatMoney((rows[0]?.netBrl ?? 0) - (rows.at(-1)?.netBrl ?? 0), {
+                      currency: "BRL",
+                    }),
+                    name: rows[0]?.name ?? "",
+                  })}
                 </div>
               )}
             </CardContent>
@@ -357,13 +384,18 @@ export function SalaryOptimizer() {
             <Card className="bg-emerald-50/50 dark:bg-emerald-950/20">
               <CardContent className="py-3">
                 <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                  Usando <strong>{best.name}</strong> com <strong>{taxLabel(taxRegime)}</strong> você recebe{" "}
-                  <strong className="text-emerald-700 dark:text-emerald-400">
-                    {formatMoney(best.netBrl, { currency: "BRL" })}
-                  </strong>{" "}
-                  líquidos por mês (taxa efetiva: {best.netRate.toFixed(4)} BRL/{currency}).
-                  {" "}IOF + câmbio custam <strong>{formatMoney(best.iofCost + (numAmount * marketRate! - numAmount * best.effectiveRate), { currency: "BRL" })}</strong>,
-                  imposto PJ <strong>{formatMoney(best.tax, { currency: "BRL" })}</strong>.
+                  {t("calculator.pages.salary.bestSummary", {
+                    institution: best.name,
+                    regime: taxLabel(taxRegime, t),
+                    net: formatMoney(best.netBrl, { currency: "BRL" }),
+                    rate: best.netRate.toFixed(4),
+                    currency,
+                    fxCost: formatMoney(
+                      best.iofCost + (numAmount * marketRate! - numAmount * best.effectiveRate),
+                      { currency: "BRL" },
+                    ),
+                    tax: formatMoney(best.tax, { currency: "BRL" }),
+                  })}
                 </p>
               </CardContent>
             </Card>
@@ -371,13 +403,11 @@ export function SalaryOptimizer() {
         </div>
       ) : (
         <p className="py-6 text-center text-sm text-zinc-500">
-          Informe o valor e aguarde a cotação para comparar.
+          {t("calculator.pages.salary.emptyHint")}
         </p>
       )}
 
-      <p className="text-xs text-zinc-400">
-        Cálculo estimado: spread institucional + IOF + imposto PJ conforme regime selecionado.
-      </p>
+      <p className="text-xs text-zinc-400">{t("calculator.pages.salary.disclaimer")}</p>
     </div>
   );
 }

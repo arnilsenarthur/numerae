@@ -14,19 +14,22 @@ import {
   IconBank,
   IconBuilding,
   IconChart,
+  IconBarChart,
   IconCoins,
   IconComponents,
   IconExchange,
   IconInfo,
+  IconInvest,
   IconLayoutDashboard,
   IconPercent,
+  IconPiggyBank,
   IconReceipt,
   IconSettings,
+  IconWrench,
   IconTarget,
   IconWallet,
 } from "@/components/ui/icons";
 import {
-  CALCULATOR_TAB_LABELS,
   CALCULATOR_TABS,
   FINANCE_LEDGER_TABS,
   FINANCE_TABS,
@@ -37,141 +40,191 @@ import {
   marketKindPath,
 } from "@/lib/app-routes";
 import { isAdminRole } from "@/lib/user-roles";
+import { useT } from "@/i18n/locale-provider";
+import type { TranslateFn } from "@/i18n/translate";
 
-const sidebarSections: SidebarSection[] = [
-  {
-    items: [
-      {
-        href: "/dashboard",
-        label: "Visão geral",
-        icon: <IconLayoutDashboard size="sm" />,
-      },
-    ],
-  },
-  {
-    label: "Cadastros",
-    items: [
-      {
-        href: `/finance/${FINANCE_TABS.accounts}`,
-        label: "Contas",
-        icon: <IconWallet size="sm" />,
-      },
-      {
-        href: "/companies",
-        label: "Empresas",
-        icon: <IconBuilding size="sm" />,
-      },
-    ],
-  },
-  {
-    label: "Finanças",
-    items: [
-      {
-        href: `/finance/${FINANCE_TABS.overview}`,
-        label: "Resumo",
-        icon: <IconChart size="sm" />,
-      },
-      {
-        href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
-        label: "Lançamentos",
-        icon: <IconReceipt size="sm" />,
-        subItems: [
-          {
-            href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
-            label: "Histórico",
-          },
-          {
-            href: financeLedgerTabPath(FINANCE_LEDGER_TABS.recurring),
-            label: "Recorrentes",
-          },
-        ],
-      },
-      {
-        href: `/finance/${FINANCE_TABS.goals}`,
-        label: "Metas",
-        icon: <IconTarget size="sm" />,
-      },
-      {
-        href: "/investments",
-        label: "Investimentos",
-        icon: <IconChart size="sm" />,
-        subItems: [
-          { href: `/investments/${INVESTMENT_TABS.allocation}`, label: "Alocação sugerida" },
-          { href: `/investments/${INVESTMENT_TABS.projection}`, label: "Projeção" },
-        ],
-      },
-      {
-        href: marketKindPath(MARKET_DEFAULT_KIND_SLUG),
-        label: "Mercado",
-        icon: <IconCoins size="sm" />,
-        subItems: MARKET_KIND_NAV.map((item) => ({
-          href: marketKindPath(item.slug),
-          label: item.label,
-        })),
-      },
-      {
-        href: "/calculator",
-        label: "Calculadoras",
-        icon: <IconPercent size="sm" />,
-        subItems: [
-          { href: `/calculator/${CALCULATOR_TABS.exchange}`, label: CALCULATOR_TAB_LABELS.exchange },
-          { href: `/calculator/${CALCULATOR_TABS.taxes}`, label: CALCULATOR_TAB_LABELS.taxes },
-          { href: `/calculator/${CALCULATOR_TABS.salary}`, label: CALCULATOR_TAB_LABELS.salary },
-          { href: `/calculator/${CALCULATOR_TABS.loan}`, label: CALCULATOR_TAB_LABELS.loan },
-          { href: `/calculator/${CALCULATOR_TABS.fire}`, label: CALCULATOR_TAB_LABELS.fire },
-        ],
-      },
-      {
-        href: "/dicas",
-        label: "Dicas",
-        icon: <IconInfo size="sm" />,
-      },
-    ],
-  },
-];
+function buildSidebarSections(t: TranslateFn): SidebarSection[] {
+  return [
+    {
+      items: [
+        {
+          href: "/dashboard",
+          label: t("nav.dashboard"),
+          icon: <IconLayoutDashboard size="sm" />,
+        },
+      ],
+    },
+    {
+      label: t("nav.group.registrations"),
+      items: [
+        {
+          href: `/finance/${FINANCE_TABS.accounts}`,
+          label: t("nav.accounts"),
+          icon: <IconWallet size="sm" />,
+        },
+        {
+          href: "/companies",
+          label: t("nav.companies"),
+          icon: <IconBuilding size="sm" />,
+        },
+      ],
+    },
+    {
+      label: t("nav.group.finance"),
+      items: [
+        {
+          href: `/finance/${FINANCE_TABS.overview}`,
+          label: t("nav.finance.overview"),
+          icon: <IconChart size="sm" />,
+        },
+        {
+          href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
+          label: t("nav.finance.transactions"),
+          icon: <IconReceipt size="sm" />,
+          subItems: [
+            {
+              href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
+              label: t("nav.finance.transactionsHistory"),
+            },
+            {
+              href: financeLedgerTabPath(FINANCE_LEDGER_TABS.recurring),
+              label: t("nav.finance.recurring"),
+            },
+            {
+              href: `/finance/${FINANCE_TABS.subscriptions}`,
+              label: t("nav.finance.subscriptions"),
+            },
+          ],
+        },
+        {
+          href: `/finance/${FINANCE_TABS.goals}`,
+          label: t("nav.finance.goals"),
+          icon: <IconTarget size="sm" />,
+        },
+        {
+          href: `/finance/${FINANCE_TABS.budgets}`,
+          label: t("nav.finance.budgets"),
+          icon: <IconPiggyBank size="sm" />,
+        },
+        {
+          href: `/finance/${FINANCE_TABS.reports}`,
+          label: t("nav.finance.reports"),
+          icon: <IconBarChart size="sm" />,
+        },
+        {
+          href: "/investments",
+          label: t("nav.finance.investments"),
+          icon: <IconInvest size="sm" />,
+          subItems: [
+            {
+              href: `/investments/${INVESTMENT_TABS.allocation}`,
+              label: t("nav.investments.allocation"),
+            },
+            {
+              href: `/investments/${INVESTMENT_TABS.projection}`,
+              label: t("nav.investments.projection"),
+            },
+          ],
+        },
+        {
+          href: marketKindPath(MARKET_DEFAULT_KIND_SLUG),
+          label: t("nav.finance.market"),
+          icon: <IconCoins size="sm" />,
+          subItems: MARKET_KIND_NAV.map((item) => ({
+            href: marketKindPath(item.slug),
+            label: t(`section.market.kind.${item.slug}`),
+          })),
+        },
+        {
+          href: "/calculator",
+          label: t("nav.finance.calculators"),
+          icon: <IconPercent size="sm" />,
+          subItems: [
+            {
+              href: `/calculator/${CALCULATOR_TABS.exchange}`,
+              label: t("nav.calculator.exchange"),
+            },
+            {
+              href: `/calculator/${CALCULATOR_TABS.taxes}`,
+              label: t("nav.calculator.taxes"),
+            },
+            {
+              href: `/calculator/${CALCULATOR_TABS.salary}`,
+              label: t("nav.calculator.salary"),
+            },
+            {
+              href: `/calculator/${CALCULATOR_TABS.loan}`,
+              label: t("nav.calculator.loan"),
+            },
+            {
+              href: `/calculator/${CALCULATOR_TABS.fire}`,
+              label: t("nav.calculator.fire"),
+            },
+          ],
+        },
+        {
+          href: "/dicas",
+          label: t("nav.finance.tips"),
+          icon: <IconInfo size="sm" />,
+        },
+      ],
+    },
+    {
+      items: [
+        {
+          href: "/settings",
+          label: t("nav.finance.settings"),
+          icon: <IconWrench size="sm" />,
+        },
+      ],
+    },
+  ];
+}
 
-const adminItems = [
-  {
-    href: "/admin/institutions",
-    label: "Instituições",
-    icon: <IconBank size="sm" />,
-  },
-  {
-    href: "/admin/countries",
-    label: "Países",
-    icon: <IconExchange size="sm" />,
-  },
-  {
-    href: "/admin/currencies",
-    label: "Moedas",
-    icon: <IconCoins size="sm" />,
-  },
-  {
-    href: "/admin/market-assets",
-    label: "Ativos",
-    icon: <IconChart size="sm" />,
-  },
-  {
-    href: "/admin/tips",
-    label: "Dicas",
-    icon: <IconInfo size="sm" />,
-  },
-  {
-    href: "/admin/workers",
-    label: "Workers",
-    icon: <IconSettings size="sm" />,
-  },
-  {
-    href: "/admin/audit",
-    label: "Log",
-    icon: <IconReceipt size="sm" />,
-  },
-  {
-    href: "/design-system",
-    label: "Design System",
-    icon: <IconComponents size="sm" />,
-  },
-];
+function buildAdminItems(t: TranslateFn) {
+  return [
+    {
+      href: "/admin/institutions",
+      label: t("nav.admin.institutions"),
+      icon: <IconBank size="sm" />,
+    },
+    {
+      href: "/admin/countries",
+      label: t("nav.admin.countries"),
+      icon: <IconExchange size="sm" />,
+    },
+    {
+      href: "/admin/currencies",
+      label: t("nav.admin.currencies"),
+      icon: <IconCoins size="sm" />,
+    },
+    {
+      href: "/admin/market-assets",
+      label: t("nav.admin.marketAssets"),
+      icon: <IconChart size="sm" />,
+    },
+    {
+      href: "/admin/tips",
+      label: t("nav.admin.tips"),
+      icon: <IconInfo size="sm" />,
+    },
+    {
+      href: "/admin/workers",
+      label: t("nav.admin.workers"),
+      icon: <IconSettings size="sm" />,
+    },
+    {
+      href: "/admin/audit",
+      label: t("nav.admin.audit"),
+      icon: <IconReceipt size="sm" />,
+    },
+    {
+      href: "/design-system",
+      label: t("nav.admin.designSystem"),
+      icon: <IconComponents size="sm" />,
+    },
+  ];
+}
 
 type AppShellProps = {
   children: ReactNode;
@@ -180,18 +233,17 @@ type AppShellProps = {
   actions?: ReactNode;
 };
 
-export function AppShell({
-  children,
-  title,
-  subtitle,
-  actions,
-}: AppShellProps) {
+function AppShellInner({ children, title, subtitle, actions }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
+  const t = useT();
+
+  const sidebarSections = useMemo(() => buildSidebarSections(t), [t]);
+  const adminItems = useMemo(() => buildAdminItems(t), [t]);
 
   const visibleAdminItems = useMemo(
     () => (isAdminRole(session?.user?.role) ? adminItems : undefined),
-    [session?.user?.role],
+    [adminItems, session?.user?.role],
   );
 
   useEffect(() => {
@@ -263,4 +315,8 @@ export function AppShell({
       </div>
     </div>
   );
+}
+
+export function AppShell(props: AppShellProps) {
+  return <AppShellInner {...props} />;
 }

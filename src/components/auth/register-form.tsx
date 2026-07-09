@@ -12,14 +12,16 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { storePendingAuth } from "@/lib/auth-pending";
 import { validateFormFields } from "@/lib/form-validation";
+import { useT } from "@/i18n/locale-provider";
 
 export function RegisterForm() {
+  const t = useT();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const nameField = useValidatedField(
-    [validationRules.minLength(2, "Nome deve ter pelo menos 2 caracteres.")],
+    [validationRules.minLength(2, t("auth.validation.nameMinLength"))],
     { required: true, showSuccess: false },
   );
   const emailField = useValidatedField([validationRules.email()], {
@@ -28,9 +30,9 @@ export function RegisterForm() {
   });
   const passwordField = useValidatedField(
     [
-      validationRules.minLength(8, "Senha deve ter pelo menos 8 caracteres."),
-      validationRules.pattern(/[A-Za-z]/, "Senha deve conter letras."),
-      validationRules.pattern(/[0-9]/, "Senha deve conter números."),
+      validationRules.minLength(8, t("auth.validation.passwordMinLength")),
+      validationRules.pattern(/[A-Za-z]/, t("auth.validation.passwordLetters")),
+      validationRules.pattern(/[0-9]/, t("auth.validation.passwordNumbers")),
     ],
     { required: true, showSuccess: false },
   );
@@ -61,7 +63,7 @@ export function RegisterForm() {
     setLoading(false);
 
     if (!response.ok) {
-      setError(data.error ?? "Erro ao criar conta.");
+      setError(data.error ?? t("auth.register.errorCreate"));
       return;
     }
 
@@ -71,18 +73,18 @@ export function RegisterForm() {
 
   return (
     <AuthCard
-      title="Criar conta"
-      subtitle="Comece a organizar suas finanças com segurança."
+      title={t("auth.register.title")}
+      subtitle={t("auth.register.subtitle")}
       step={{
         current: 1,
         total: 2,
-        labels: ["Dados da conta", "Verificação de e-mail"],
+        labels: [t("auth.register.stepAccount"), t("auth.register.stepVerify")],
       }}
       footer={
         <>
-          Já tem conta?{" "}
+          {t("auth.register.hasAccount")}{" "}
           <Link href="/login" className={authLinkClass}>
-            Entrar
+            {t("auth.register.login")}
           </Link>
         </>
       }
@@ -92,7 +94,7 @@ export function RegisterForm() {
 
         <FormField delay={80}>
           <Field
-            label="Nome"
+            label={t("common.name")}
             htmlFor="name"
             required
             state={nameField.validation.state}
@@ -111,7 +113,7 @@ export function RegisterForm() {
 
         <FormField delay={130}>
           <Field
-            label="E-mail"
+            label={t("common.email")}
             htmlFor="email"
             required
             state={emailField.validation.state}
@@ -131,10 +133,10 @@ export function RegisterForm() {
 
         <FormField delay={180}>
           <Field
-            label="Senha"
+            label={t("common.password")}
             htmlFor="password"
             required
-            hint="Mínimo 8 caracteres, com letras e números."
+            hint={t("auth.validation.passwordHint")}
             state={passwordField.validation.state}
             message={passwordField.validation.message}
           >
@@ -152,7 +154,7 @@ export function RegisterForm() {
 
         <FormField delay={230}>
           <Button type="submit" className="w-full" loading={loading}>
-            Continuar
+            {t("auth.register.continue")}
           </Button>
         </FormField>
       </form>

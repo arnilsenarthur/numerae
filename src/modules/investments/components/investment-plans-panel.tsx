@@ -22,6 +22,7 @@ import {
   IconTrash,
   IconTrendUp,
 } from "@/components/ui/icons";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import { fetchJson } from "@/lib/fetch-json";
 import { useConfirm } from "@/hooks/use-confirm";
 import { formatMoney } from "@/lib/format-money";
@@ -68,6 +69,8 @@ const CURRENCY_OPTIONS = [
 ];
 
 export function InvestmentPlansPanel() {
+  const t = useT();
+  const { locale } = useLocale();
   const [plans, setPlans] = useState<SerializedInvestmentPlan[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,7 +89,7 @@ export function InvestmentPlansPanel() {
     }>("/api/investment-plans");
     setLoading(false);
     if (!response.ok) {
-      setError(data?.error ?? "Erro ao carregar planos.");
+      setError(data?.error ?? t("investments.pages.plans.loadError"));
       return;
     }
     const list = data?.plans ?? [];
@@ -114,7 +117,7 @@ export function InvestmentPlansPanel() {
     const d = new Date();
     d.setDate(1);
     d.setMonth(d.getMonth() + month);
-    return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+    return d.toLocaleDateString(locale, { month: "short", year: "2-digit" });
   }
 
   const chartSeries = useMemo<ChartSeries[]>(() => {
@@ -135,7 +138,7 @@ export function InvestmentPlansPanel() {
     // CDI benchmark line (~10.65% a.a.)
     const cdiBenchmark = {
       id: "cdi",
-      label: "CDI benchmark (~10.65% a.a.)",
+      label: t("investments.pages.plans.cdiBenchmark"),
       data: projectPlan({
         initialAmount: selected.initialAmount,
         monthlyDeposit: selected.monthlyDeposit,
@@ -147,7 +150,7 @@ export function InvestmentPlansPanel() {
       })),
     };
     return [...profileSeries, cdiBenchmark];
-  }, [selected]);
+  }, [selected, locale, t]);
 
   function startCreate() {
     setEditingId(null);
@@ -192,12 +195,12 @@ export function InvestmentPlansPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar plano.");
+      if (!response.ok) throw new Error(data?.error ?? t("investments.pages.plans.saveError"));
       setModalOpen(false);
       if (data?.plan) setSelectedId(data.plan.id);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar plano.");
+      setError(err instanceof Error ? err.message : t("investments.pages.plans.saveError"));
     } finally {
       setSaving(false);
     }
@@ -206,9 +209,9 @@ export function InvestmentPlansPanel() {
   async function remove() {
     if (!editingId) return;
     const ok = await confirm({
-      title: "Excluir plano",
-      message: "Excluir este plano?",
-      confirmLabel: "Excluir",
+      title: t("investments.pages.plans.deleteTitle"),
+      message: t("investments.pages.plans.deleteMessage"),
+      confirmLabel: t("common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -218,12 +221,12 @@ export function InvestmentPlansPanel() {
         `/api/investment-plans/${editingId}`,
         { method: "DELETE" },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao excluir plano.");
+      if (!response.ok) throw new Error(data?.error ?? t("investments.pages.plans.deleteError"));
       setModalOpen(false);
       setSelectedId(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir plano.");
+      setError(err instanceof Error ? err.message : t("investments.pages.plans.deleteError"));
     } finally {
       setSaving(false);
     }
@@ -238,7 +241,7 @@ export function InvestmentPlansPanel() {
           Defina aporte, prazo e meta — compare os perfis e veja qual caminho chega lá.
         </p>
         <Button type="button" size="sm" onClick={startCreate}>
-          <IconPlus size="sm" /> Novo plano
+          <IconPlus size="sm" /> {t("investments.pages.plans.newPlan")}
         </Button>
       </div>
 
@@ -253,11 +256,11 @@ export function InvestmentPlansPanel() {
       ) : plans.length === 0 ? (
         <EmptyState
           icon={<IconTarget className="h-6 w-6" />}
-          title="Nenhum plano de investimento"
-          description="Crie um plano com valor inicial, aporte mensal e prazo para simular os caminhos."
+          title={t("investments.pages.plans.emptyTitle")}
+          description={t("investments.pages.plans.emptyDescription")}
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Novo plano
+              <IconPlus size="sm" /> {t("investments.pages.plans.newPlan")}
             </Button>
           }
         />
@@ -288,7 +291,9 @@ export function InvestmentPlansPanel() {
                   <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
                     <IconCoins size="sm" className="shrink-0 text-zinc-400" />
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Inicial</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                        {t("investments.pages.plans.statInitial")}
+                      </p>
                       <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                         {formatMoney(selected.initialAmount, { currency })}
                       </p>
@@ -297,7 +302,9 @@ export function InvestmentPlansPanel() {
                   <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
                     <IconTrendUp size="sm" className="shrink-0 text-zinc-400" />
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Mensal</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                        {t("investments.pages.plans.statMonthly")}
+                      </p>
                       <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                         {formatMoney(selected.monthlyDeposit, { currency })}
                       </p>
@@ -306,7 +313,9 @@ export function InvestmentPlansPanel() {
                   <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
                     <IconCalendar size="sm" className="shrink-0 text-zinc-400" />
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Prazo</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                        {t("investments.pages.plans.statHorizon")}
+                      </p>
                       <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                         {selected.horizonMonths >= 12
                           ? `${Math.floor(selected.horizonMonths / 12)}a ${selected.horizonMonths % 12}m`
@@ -318,7 +327,9 @@ export function InvestmentPlansPanel() {
                     <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
                       <IconTarget size="sm" className="shrink-0 text-emerald-500" />
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-500">Meta</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-500">
+                          {t("investments.pages.plans.statTarget")}
+                        </p>
                         <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                           {formatMoney(selected.targetAmount, { currency })}
                         </p>
@@ -328,7 +339,9 @@ export function InvestmentPlansPanel() {
                     <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
                       <IconPercent size="sm" className="shrink-0 text-zinc-400" />
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Perfil</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                          {t("investments.pages.plans.statProfile")}
+                        </p>
                         <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                           {riskProfileMeta(selected.riskProfile).label}
                         </p>
@@ -342,14 +355,14 @@ export function InvestmentPlansPanel() {
                   size="sm"
                   onClick={() => startEdit(selected)}
                 >
-                  <IconPencil size="xs" /> Editar plano
+                  <IconPencil size="xs" /> {t("investments.pages.plans.editPlan")}
                 </Button>
               </div>
 
               {/* Growth chart */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Crescimento projetado por perfil</CardTitle>
+                  <CardTitle className="text-base">{t("investments.pages.plans.projectionTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <LineChart
@@ -382,11 +395,13 @@ export function InvestmentPlansPanel() {
                           </span>
                           <div className="flex items-center gap-1.5">
                             <Badge variant="outline" className="text-[10px]">
-                              ~{item.annualRatePercent}% a.a.
+                              {t("investments.pages.plans.annualRateBadge", {
+                                rate: item.annualRatePercent,
+                              })}
                             </Badge>
                             {isCurrent ? (
                               <Badge variant="success" className="text-[10px]">
-                                Atual
+                                {t("investments.pages.plans.currentBadge")}
                               </Badge>
                             ) : null}
                           </div>
@@ -396,30 +411,32 @@ export function InvestmentPlansPanel() {
 
                         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
                           <div>
-                            <p className="text-zinc-400">Aportado</p>
+                            <p className="text-zinc-400">{t("investments.pages.plans.depositedShort")}</p>
                             <p className="font-medium text-zinc-700 dark:text-zinc-300">
                               {formatMoney(item.totalDeposited, { currency })}
                             </p>
                           </div>
                           <div>
-                            <p className="text-zinc-400">Rendimento</p>
+                            <p className="text-zinc-400">{t("investments.pages.plans.returnShort")}</p>
                             <p className="font-medium text-emerald-600 dark:text-emerald-400">
                               +{formatMoney(item.earnings, { currency })}
                             </p>
                           </div>
                           {returnPct !== null ? (
                             <div>
-                              <p className="text-zinc-400">Retorno total</p>
+                              <p className="text-zinc-400">{t("investments.pages.plans.totalReturn")}</p>
                               <p className="font-medium text-zinc-700 dark:text-zinc-300">{returnPct}%</p>
                             </div>
                           ) : null}
                           {selected.targetAmount ? (
                             <div>
-                              <p className="text-zinc-400">Meta</p>
+                              <p className="text-zinc-400">{t("investments.pages.plans.statTarget")}</p>
                               <p className="font-medium text-zinc-700 dark:text-zinc-300">
                                 {item.monthsToTarget !== null
-                                  ? `${item.monthsToTarget}m`
-                                  : "Não atingida"}
+                                  ? t("investments.pages.plans.monthsToTarget", {
+                                      months: item.monthsToTarget,
+                                    })
+                                  : t("investments.pages.plans.targetNotReached")}
                               </p>
                             </div>
                           ) : null}
@@ -437,7 +454,7 @@ export function InvestmentPlansPanel() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingId ? "Editar plano" : "Novo plano de investimento"}
+        title={editingId ? t("investments.pages.plans.editTitle") : t("investments.pages.plans.createTitle")}
         size="lg"
         className="max-w-md"
         footer={
@@ -448,7 +465,7 @@ export function InvestmentPlansPanel() {
               onClick={() => setModalOpen(false)}
               disabled={saving}
             >
-              Cancelar
+              {t("common.cancel")}
             </Button>
             {editingId ? (
               <Button
@@ -458,11 +475,11 @@ export function InvestmentPlansPanel() {
                 disabled={saving}
               >
                 <IconTrash size="sm" />
-                Excluir
+                {t("common.delete")}
               </Button>
             ) : null}
             <Button type="button" onClick={() => void save()} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -474,7 +491,7 @@ export function InvestmentPlansPanel() {
         ) : null}
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Nome</Label>
+            <Label>{t("investments.pages.plans.nameLabel")}</Label>
             <Input
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -483,7 +500,7 @@ export function InvestmentPlansPanel() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Moeda</Label>
+              <Label>{t("investments.pages.plans.currencyLabel")}</Label>
               <Select
                 options={CURRENCY_OPTIONS}
                 value={form.currencyCode}
@@ -491,7 +508,7 @@ export function InvestmentPlansPanel() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Perfil</Label>
+              <Label>{t("investments.pages.plans.riskLabel")}</Label>
               <Select
                 options={PROFILE_OPTIONS}
                 value={form.riskProfile}
@@ -501,7 +518,7 @@ export function InvestmentPlansPanel() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Valor inicial</Label>
+              <Label>{t("investments.pages.plans.initialLabel")}</Label>
               <NumberInput
                 value={form.initialAmount}
                 onChange={(e) =>
@@ -510,7 +527,7 @@ export function InvestmentPlansPanel() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Aporte mensal</Label>
+              <Label>{t("investments.pages.plans.monthlyLabel")}</Label>
               <NumberInput
                 value={form.monthlyDeposit}
                 onChange={(e) =>
@@ -521,7 +538,7 @@ export function InvestmentPlansPanel() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Prazo (meses)</Label>
+              <Label>{t("investments.pages.plans.yearsLabel")}</Label>
               <NumberInput
                 value={form.horizonMonths}
                 onChange={(e) =>

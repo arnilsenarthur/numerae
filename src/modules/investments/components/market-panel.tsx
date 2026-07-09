@@ -19,40 +19,38 @@ import {
 import { fetchJson } from "@/lib/fetch-json";
 import { formatMoney } from "@/lib/format-money";
 import {
-  MARKET_PERIOD_LABEL,
   normalizeMarketPeriod,
+  periodLabelKey,
   type MarketHistoryPeriod,
 } from "@/lib/market-period";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import { formatLastUpdated } from "@/lib/spoilable-field";
-import {
-  MARKET_ASSET_KIND_LABELS,
-  type SerializedMarketAsset,
-  type SerializedMarketQuote,
-} from "@/types/market";
+import { translateMarketAssetKind } from "@/i18n/labels";
+import type { SerializedMarketAsset, SerializedMarketQuote } from "@/types/market";
 
 type HistoryPeriod = MarketHistoryPeriod;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
 const PERIOD_CONFIG: Record<HistoryPeriod, { rangeMs: number; stepMs: number }> = {
-  "1D": { rangeMs: DAY_MS, stepMs: 20 * 60 * 1000 },
-  "1W": { rangeMs: 7 * DAY_MS, stepMs: 2 * HOUR_MS },
-  "1M": { rangeMs: 30 * DAY_MS, stepMs: 12 * HOUR_MS },
+  D: { rangeMs: DAY_MS, stepMs: 20 * 60 * 1000 },
+  W: { rangeMs: 7 * DAY_MS, stepMs: 2 * HOUR_MS },
+  M: { rangeMs: 30 * DAY_MS, stepMs: 12 * HOUR_MS },
   "3M": { rangeMs: 90 * DAY_MS, stepMs: DAY_MS },
-  "1A": { rangeMs: 365 * DAY_MS, stepMs: 7 * DAY_MS },
+  Y: { rangeMs: 365 * DAY_MS, stepMs: 7 * DAY_MS },
 };
 
-function formatQuoteLabel(iso: string, period: HistoryPeriod) {
+function formatQuoteLabel(iso: string, period: HistoryPeriod, locale: string) {
   const date = new Date(iso);
-  if (period === "1D" || period === "1W") {
-    return date.toLocaleString("pt-BR", {
+  if (period === "D" || period === "W") {
+    return date.toLocaleString(locale, {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
   }
-  return date.toLocaleDateString("pt-BR", {
+  return date.toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
     year: "2-digit",
@@ -102,6 +100,9 @@ function AssetDetailPanel({
   quotes: SerializedMarketQuote[];
   period: HistoryPeriod;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const periodLabel = t(periodLabelKey(period));
   const scopedQuotes = useMemo(
     () => resampleByStep(quotesForPeriod(quotes, period), PERIOD_CONFIG[period].stepMs),
     [quotes, period],
@@ -113,10 +114,10 @@ function AssetDetailPanel({
     const step = Math.max(1, Math.floor(sorted.length / 60));
     const sampled = sorted.filter((_, i) => i % step === 0 || i === sorted.length - 1);
     return sampled.map((q) => ({
-      label: formatQuoteLabel(q.quotedAt, period),
+      label: formatQuoteLabel(q.quotedAt, period, locale),
       value: q.price,
     }));
-  }, [period, scopedQuotes]);
+  }, [period, scopedQuotes, locale]);
 
   const first = scopedQuotes.length > 0 ? Math.min(...scopedQuotes.map((q) => q.price)) : null;
   const last = scopedQuotes.length > 0 ? (scopedQuotes.at(-1)?.price ?? null) : null;
@@ -137,7 +138,7 @@ function AssetDetailPanel({
           <div>
             <p className="text-sm text-zinc-500">{asset.name}</p>
             <Badge variant="outline" className="mt-1 text-[10px]">
-              {MARKET_ASSET_KIND_LABELS[asset.kind]}
+              {translateMarketAssetKind(asset.kind, t)}
             </Badge>
           </div>
         </div>
@@ -150,7 +151,7 @@ function AssetDetailPanel({
               className={`text-sm font-medium ${asset.changePercent >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
             >
               {asset.changePercent >= 0 ? "+" : ""}
-              {asset.changePercent.toFixed(2)}% hoje
+              {asset.changePercent.toFixed(2)}%
             </p>
           ) : null}
         </div>
@@ -159,13 +160,13 @@ function AssetDetailPanel({
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">Tipo</p>
-            <Badge variant="outline">{MARKET_ASSET_KIND_LABELS[asset.kind]}</Badge>
+            <p className="text-xs text-zinc-500">{t("investments.pages.marketPanel.typeLabel")}</p>
+            <Badge variant="outline">{translateMarketAssetKind(asset.kind, t)}</Badge>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-zinc-500">Moeda / País</p>
+            <p className="text-xs text-zinc-500">{t("investments.pages.marketPanel.currencyCountryLabel")}</p>
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {asset.currencyCode}
               {asset.countryCode ? ` · ${asset.countryCode}` : ""}
@@ -175,7 +176,7 @@ function AssetDetailPanel({
         {rangeReturn !== null ? (
           <Card>
             <CardContent className="pt-4">
-              <p className="text-xs text-zinc-500">Retorno no período</p>
+              <p className="text-xs text-zinc-500">{t("investments.pages.marketPanel.periodReturnLabel")}</p>
               <p
                 className={`text-sm font-bold ${rangeReturn >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
               >
@@ -191,7 +192,11 @@ function AssetDetailPanel({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
-              Histórico de preço ({MARKET_PERIOD_LABEL[period]}) — {scopedQuotes.length}/{quotes.length} cotações
+              {t("market.priceHistory", {
+                period: periodLabel,
+                count: scopedQuotes.length,
+                total: quotes.length,
+              })}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -207,7 +212,7 @@ function AssetDetailPanel({
       ) : (
         <Card>
           <CardContent className="py-8 text-center text-sm text-zinc-500">
-            Sem histórico suficiente no período selecionado.
+            {t("investments.pages.marketPanel.noHistory")}
           </CardContent>
         </Card>
       )}
@@ -247,6 +252,9 @@ export function MarketPanel({
     () => normalizeMarketPeriod(searchParams.get("period")),
     [searchParams],
   );
+  const t = useT();
+  const { locale } = useLocale();
+  const periodLabel = t(periodLabelKey(period));
   const periodHistory = useMemo(
     () =>
       Object.fromEntries(
@@ -275,7 +283,7 @@ export function MarketPanel({
       if (cancelled) return;
       setLoading(false);
       if (!response.ok) {
-        setError(data?.error ?? "Erro ao carregar mercado.");
+        setError(data?.error ?? t("investments.pages.marketPanel.loadError"));
         return;
       }
       const list = data?.assets ?? [];
@@ -328,7 +336,7 @@ export function MarketPanel({
     () => [
       {
         id: "symbol",
-        header: "Ativo",
+        header: t("investments.pages.marketPanel.assetColumn"),
         sortable: true,
         sortValue: (row) => row.symbol,
         cell: (row) => (
@@ -349,7 +357,7 @@ export function MarketPanel({
       },
       {
         id: "price",
-        header: "Preço",
+        header: t("investments.pages.marketPanel.priceColumn"),
         align: "right",
         sortable: true,
         sortValue: (row) => row.price ?? 0,
@@ -362,7 +370,7 @@ export function MarketPanel({
       },
       {
         id: "change",
-        header: "Variação hoje",
+        header: t("investments.pages.marketPanel.changeColumn"),
         align: "right",
         sortable: true,
         sortValue: (row) => row.changePercent ?? 0,
@@ -384,7 +392,7 @@ export function MarketPanel({
       },
       {
         id: "history_return",
-        header: `Retorno ${MARKET_PERIOD_LABEL[period]}`,
+        header: t("market.returnColumn", { period: periodLabel }),
         align: "right",
         sortable: true,
         sortValue: (row) => {
@@ -416,11 +424,11 @@ export function MarketPanel({
       },
       {
         id: "trend",
-        header: MARKET_PERIOD_LABEL[period],
+        header: periodLabel,
         cell: (row) => {
           const quotes = periodHistory[row.id] ?? [];
           if (quotes.length < 2) {
-            return <span className="text-xs text-zinc-400">Sem histórico</span>;
+            return <span className="text-xs text-zinc-400">{t("investments.pages.marketPanel.noHistory")}</span>;
           }
           const sparkQuotes = resampleByStep(quotes, PERIOD_CONFIG[period].stepMs * 4);
           return (
@@ -430,7 +438,7 @@ export function MarketPanel({
                */}
               <Sparkline
                 points={sparkQuotes.map((quote) => quote.price)}
-                labels={sparkQuotes.map((quote) => formatQuoteLabel(quote.quotedAt, period))}
+                labels={sparkQuotes.map((quote) => formatQuoteLabel(quote.quotedAt, period, locale))}
                 formatValue={(v) => formatMoney(v, { currency: row.currencyCode })}
               />
             </div>
@@ -438,7 +446,7 @@ export function MarketPanel({
         },
       },
     ],
-    [period, periodHistory],
+    [period, periodHistory, periodLabel, t, locale],
   );
 
   function openAsset(asset: SerializedMarketAsset) {
@@ -476,8 +484,8 @@ export function MarketPanel({
           ) : assets.length === 0 ? (
             <EmptyState
               icon={<IconChart className="h-6 w-6" />}
-              title="Nenhum ativo nesta categoria"
-              description="Os ativos disponíveis são cadastrados pelo administrador e atualizados automaticamente."
+              title={t("investments.pages.marketPanel.emptyCategoryTitle")}
+              description={t("investments.pages.marketPanel.emptyCategoryDesc")}
             />
           ) : (
             <>
@@ -486,11 +494,11 @@ export function MarketPanel({
                 columns={columns}
                 getRowKey={(row) => row.id}
                 pageSize={10}
-                searchPlaceholder="Buscar ativo…"
-                emptyMessage="Nenhum ativo encontrado."
+                searchPlaceholder={t("investments.pages.marketPanel.searchPlaceholder")}
+                emptyMessage={t("investments.pages.marketPanel.emptySearch")}
                 onRowClick={(row) => openAsset(row)}
               />
-              <p className="text-xs text-zinc-400">Clique em um ativo para ver o gráfico completo.</p>
+              <p className="text-xs text-zinc-400">{t("investments.pages.marketPanel.clickHint")}</p>
             </>
           )}
         </>

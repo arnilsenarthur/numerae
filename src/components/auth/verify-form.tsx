@@ -13,32 +13,34 @@ import { OtpInput } from "@/components/ui/otp-input";
 import { useResendCooldown } from "@/hooks/use-resend-cooldown";
 import { consumePendingAuth } from "@/lib/auth-pending";
 import { maskEmail } from "@/lib/mask-email";
+import { useT } from "@/i18n/locale-provider";
 
 function VerifyMissingEmail() {
+  const t = useT();
+
   return (
     <AuthCard
-      title="Verificar e-mail"
-      subtitle="Precisamos do seu e-mail para enviar o código de verificação."
+      title={t("auth.verify.title")}
+      subtitle={t("auth.verify.missingSubtitle")}
       footer={
         <>
           <Link href="/register" className={authLinkClass}>
-            Criar conta
+            {t("auth.createAccount")}
           </Link>
           {" · "}
           <Link href="/login" className={authLinkClass}>
-            Entrar
+            {t("auth.login.submit")}
           </Link>
         </>
       }
     >
-      <Alert variant="warning">
-        Volte ao cadastro ou faça login para continuar a verificação.
-      </Alert>
+      <Alert variant="warning">{t("auth.verify.missingWarning")}</Alert>
     </AuthCard>
   );
 }
 
 export function VerifyForm() {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email")?.trim().toLowerCase() ?? "";
@@ -90,11 +92,11 @@ export function VerifyForm() {
             return;
           }
 
-          setError(data.error ?? "Erro ao verificar código.");
+          setError(data.error ?? t("auth.verify.errorVerify"));
           return;
         }
 
-        setMessage("Conta verificada. Entrando…");
+        setMessage(t("auth.verify.verifiedSigningIn"));
 
         const pendingPassword = consumePendingAuth(email);
         if (pendingPassword) {
@@ -118,7 +120,7 @@ export function VerifyForm() {
         submitLock.current = false;
       }
     },
-    [email, router],
+    [email, router, t],
   );
 
   useEffect(() => {
@@ -131,7 +133,7 @@ export function VerifyForm() {
     event.preventDefault();
 
     if (code.length !== 6) {
-      setCodeError("Digite os 6 dígitos do código.");
+      setCodeError(t("auth.validation.codeSixDigits"));
       return;
     }
 
@@ -155,7 +157,7 @@ export function VerifyForm() {
     setResending(false);
 
     if (!response.ok) {
-      setError(data.error ?? "Erro ao reenviar código.");
+      setError(data.error ?? t("auth.verify.errorResend"));
       if (response.status === 429) startCooldown();
       return;
     }
@@ -173,23 +175,23 @@ export function VerifyForm() {
 
   return (
     <AuthCard
-      title="Verificar e-mail"
-      subtitle={`Enviamos um código de 6 dígitos para ${maskEmail(email)}.`}
+      title={t("auth.verify.title")}
+      subtitle={t("auth.verify.subtitleSent", { email: maskEmail(email) })}
       step={{
         current: 2,
         total: 2,
-        labels: ["Dados da conta", "Verificação de e-mail"],
+        labels: [t("auth.verify.stepAccount"), t("auth.verify.stepVerify")],
       }}
       footer={
         <Link href="/login" className={authLinkClass}>
-          Voltar para login
+          {t("auth.verify.backToLogin")}
         </Link>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <FormField delay={80}>
           <Field
-            label="Código de verificação"
+            label={t("auth.verify.codeLabel")}
             state={codeError ? "error" : "default"}
             message={codeError ?? undefined}
           >
@@ -206,9 +208,7 @@ export function VerifyForm() {
           </Field>
         </FormField>
 
-        <p className="text-center text-xs text-zinc-500">
-          O código expira em 15 minutos. Confira também a pasta de spam.
-        </p>
+        <p className="text-center text-xs text-zinc-500">{t("auth.verify.codeExpiry")}</p>
 
         {error ? <Alert variant="error">{error}</Alert> : null}
         {message ? <Alert variant="success">{message}</Alert> : null}
@@ -220,7 +220,7 @@ export function VerifyForm() {
             loading={loading}
             disabled={code.length !== 6}
           >
-            Verificar
+            {t("auth.verify.submit")}
           </Button>
         </FormField>
 
@@ -233,7 +233,9 @@ export function VerifyForm() {
             disabled={!canResend || resending}
             onClick={handleResend}
           >
-            {canResend ? "Reenviar código" : `Reenviar em ${cooldown}s`}
+            {canResend
+              ? t("auth.verify.resend")
+              : t("auth.verify.resendIn", { seconds: cooldown })}
           </Button>
         </FormField>
       </form>

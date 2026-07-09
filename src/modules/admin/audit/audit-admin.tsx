@@ -2,19 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ADMIN_AUDIT_ACTION_LABEL,
-  ADMIN_ENTITY_LABEL,
-  type SerializedAdminAuditLog,
-} from "@/lib/admin-audit.shared";
+import { useLocale, useT } from "@/i18n/locale-provider";
+import { translateAuditAction, translateAuditEntity } from "@/i18n/labels";
+import type { SerializedAdminAuditLog } from "@/lib/admin-audit.shared";
 import { fetchJson } from "@/lib/fetch-json";
-
-function formatWhen(iso: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso));
-}
 
 function SnapshotBlock({ label, data }: { label: string; data: unknown }) {
   if (data === null || data === undefined) return null;
@@ -30,14 +21,20 @@ function SnapshotBlock({ label, data }: { label: string; data: unknown }) {
 }
 
 function AuditEntry({ log }: { log: SerializedAdminAuditLog }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [open, setOpen] = useState(false);
-  const entityLabel = ADMIN_ENTITY_LABEL[log.entityType] ?? log.entityType;
-  const actionLabel = ADMIN_AUDIT_ACTION_LABEL[log.action];
+  const entityLabel = translateAuditEntity(log.entityType, t);
+  const actionLabel = translateAuditAction(log.action, t);
   const who = log.user.name?.trim() || log.user.email;
   const context =
     log.parentType && log.parentId
       ? `${log.parentType} · ${log.parentId}`
       : null;
+  const when = new Intl.DateTimeFormat(locale, {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(log.createdAt));
 
   return (
     <article className="rounded-xl border border-zinc-200 dark:border-zinc-800">
@@ -52,7 +49,7 @@ function AuditEntry({ log }: { log: SerializedAdminAuditLog }) {
           </p>
           <p className="text-xs text-zinc-500">
             {entityLabel}
-            {context ? ` · ${context}` : ""} · {who} · {formatWhen(log.createdAt)}
+            {context ? ` · ${context}` : ""} · {who} · {when}
           </p>
         </div>
         <span className="shrink-0 text-xs text-zinc-400">{open ? "▲" : "▼"}</span>
@@ -60,10 +57,10 @@ function AuditEntry({ log }: { log: SerializedAdminAuditLog }) {
 
       {open ? (
         <div className="space-y-3 border-t border-zinc-100 px-4 py-3 dark:border-zinc-900">
-          <SnapshotBlock label="Antes" data={log.before} />
-          <SnapshotBlock label="Depois" data={log.after} />
+          <SnapshotBlock label={t("admin.audit.before")} data={log.before} />
+          <SnapshotBlock label={t("admin.audit.after")} data={log.after} />
           {!log.before && !log.after ? (
-            <p className="text-xs text-zinc-500">Sem detalhes salvos.</p>
+            <p className="text-xs text-zinc-500">{t("admin.audit.noDetails")}</p>
           ) : null}
         </div>
       ) : null}
@@ -72,6 +69,7 @@ function AuditEntry({ log }: { log: SerializedAdminAuditLog }) {
 }
 
 export function AuditAdmin() {
+  const t = useT();
   const [logs, setLogs] = useState<SerializedAdminAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,16 +85,16 @@ export function AuditAdmin() {
       }>("/api/admin/audit?limit=100");
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Erro ao carregar log.");
+        throw new Error(data?.error ?? t("admin.audit.errorLoad"));
       }
 
       setLogs(data?.logs ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar log.");
+      setError(err instanceof Error ? err.message : t("admin.audit.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadLogs();
@@ -105,16 +103,16 @@ export function AuditAdmin() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div>
-        <p className="text-sm text-emerald-600">Admin</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Log de auditoria</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Registro de criações, alterações e remoções feitas por administradores.
-        </p>
+        <p className="text-sm text-emerald-600">{t("admin.common.kicker")}</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+          {t("admin.audit.title")}
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">{t("admin.audit.subtitle")}</p>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Atividade recente</CardTitle>
+          <CardTitle className="text-base">{t("admin.audit.recentActivity")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
           {error ? (
@@ -124,9 +122,9 @@ export function AuditAdmin() {
           ) : null}
 
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando log...</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.audit.loading")}</p>
           ) : logs.length === 0 ? (
-            <p className="py-6 text-sm text-zinc-500">Nenhuma ação registrada ainda.</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.audit.empty")}</p>
           ) : (
             logs.map((log) => <AuditEntry key={log.id} log={log} />)
           )}

@@ -7,6 +7,7 @@ export function serializeTip(record: Tip): SerializedTip {
     quote: record.quote,
     author: record.author,
     category: record.category as TipCategory,
+    locale: record.locale,
     sourceUrl: record.sourceUrl,
     sourceLabel: record.sourceLabel,
     active: record.active,

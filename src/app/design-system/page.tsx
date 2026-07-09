@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useT } from "@/i18n/locale-provider";
 import { AppLogo } from "@/components/brand/app-logo";
 import { cn } from "@/lib/utils";
 import {
@@ -37,6 +38,7 @@ import {
   EmptyState,
   Field,
   icons,
+  getIconCategoryLabel,
   iconCategories,
   Input,
   LineChart,
@@ -530,6 +532,7 @@ const transactionColumns: DataTableColumn<(typeof sampleTransactions)[number]>[]
 ];
 
 export default function DesignSystemPage() {
+  const t = useT();
   const { toast } = useToast();
   const [selectValue, setSelectValue] = useState("food");
   const [multiSelectValue, setMultiSelectValue] = useState<string[]>(["inst_wise", "inst_avenue"]);
@@ -822,9 +825,9 @@ export default function DesignSystemPage() {
             <Card>
               <CardContent className="space-y-8 pt-6">
                 {iconCategories.map((category) => (
-                  <div key={category.label}>
+                  <div key={category.categoryKey}>
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                      {category.label}
+                      {getIconCategoryLabel(category.categoryKey, t)}
                     </p>
                     <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
                       {category.keys.map((name) => {
@@ -920,6 +923,7 @@ export default function DesignSystemPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <DataTable
+                  syncQuery={false}
                   data={sampleTransactions}
                   columns={transactionColumns}
                   getRowKey={(row) => row.id}

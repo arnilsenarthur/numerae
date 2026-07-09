@@ -1,5 +1,8 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
+import { createTranslator } from "@/i18n/translate";
+import { resolveLocaleFromRequest } from "@/i18n/request-locale";
+import { resolveAppLocale, type AppLocale } from "@/i18n/locales";
 import { SITE_NAME } from "@/lib/site";
 
 type SendResult =
@@ -12,6 +15,7 @@ type EmailTemplateOptions = {
   code: string;
   codeLabel: string;
   footer: string;
+  footerReason: string;
 };
 
 const smtpUser = process.env.SMTP_USER?.trim();
@@ -65,7 +69,6 @@ const smtpTransport = useSmtp
       port: smtpPort,
       secure: smtpPort === 465,
       auth: { user: smtpUser!, pass: smtpPass! },
-      // Outlook/Hotmail exige STARTTLS na porta 587.
       requireTLS: smtpPort === 587,
     })
   : null;
@@ -79,6 +82,7 @@ if (!useSmtp && !resend) {
 function mapResendError(
   error: { message?: string | null; name?: string; statusCode?: number | null },
   options: { testMode: boolean },
+  t: ReturnType<typeof createTranslator>,
 ): SendResult {
   const message = error.message ?? "";
 
@@ -90,22 +94,20 @@ function mapResendError(
       return {
         sent: false,
         code: "domain_not_verified",
-        error:
-          "Modo teste do Resend ativo. Configure SMTP (Outlook/Gmail) ou verifique um domínio no Resend.",
+        error: t("errors.email.testMode"),
       };
     }
 
     return {
       sent: false,
       code: "domain_not_verified",
-      error:
-        "Envio bloqueado no Resend. Verifique um domínio ou use SMTP (Outlook/Gmail).",
+      error: t("errors.email.domainNotVerified"),
     };
   }
 
   return {
     sent: false,
-    error: "Não foi possível enviar o e-mail. Tente novamente em instantes.",
+    error: t("errors.email.sendFailed"),
   };
 }
 
@@ -115,6 +117,7 @@ function buildEmailHtml({
   code,
   codeLabel,
   footer,
+  footerReason,
 }: EmailTemplateOptions) {
   const body = paragraphs
     .map(
@@ -142,19 +145,26 @@ function buildEmailHtml({
         </div>
       </div>
       <p style="max-width: 520px; margin: 16px auto 0; text-align: center; font-size: 12px; color: #a1a1aa;">
-        Você recebeu este e-mail porque há uma ação pendente na sua conta ${SITE_NAME}.
+        ${footerReason}
       </p>
     </div>
   `;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<SendResult> {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  locale: AppLocale,
+): Promise<SendResult> {
+  const t = createTranslator(locale);
+
   if (useSmtp) {
     if (!smtpFromAddress) {
       return {
         sent: false,
         code: "not_configured",
-        error: "Defina EMAIL_FROM ou SMTP_USER para envio por SMTP.",
+        error: t("errors.email.smtpFromMissing"),
       };
     }
 
@@ -170,8 +180,8 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Sen
       console.error("[Numerae] Erro ao enviar e-mail via SMTP:", error);
       const message =
         error instanceof Error && /auth|credentials|535|534/i.test(error.message)
-          ? "Falha na autenticação SMTP. Use uma senha de app do Gmail (não a senha normal da conta)."
-          : "Não foi possível enviar o e-mail. Verifique as credenciais SMTP.";
+          ? t("errors.email.smtpAuth")
+          : t("errors.email.smtpFailed");
       return { sent: false, error: message };
     }
   }
@@ -180,7 +190,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Sen
     return {
       sent: false,
       code: "not_configured",
-      error: "Serviço de e-mail não configurado.",
+      error: t("errors.email.notConfigured"),
     };
   }
 
@@ -188,8 +198,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Sen
     return {
       sent: false,
       code: "not_configured",
-      error:
-        "E-mail Resend em produção não configurado. Defina EMAIL_FROM com domínio verificado ou use SMTP.",
+      error: t("errors.email.resendFromMissing"),
     };
   }
 
@@ -202,7 +211,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Sen
 
   if (error) {
     console.error("[Numerae] Erro ao enviar e-mail:", error);
-    return mapResendError(error, { testMode: isResendTestMode });
+    return mapResendError(error, { testMode: isResendTestMode }, t);
   }
 
   return { sent: true };
@@ -211,41 +220,51 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Sen
 export async function sendVerificationCode(
   email: string,
   code: string,
+  localeInput?: AppLocale | Request,
 ): Promise<SendResult> {
+  const locale =
+    localeInput instanceof Request
+      ? resolveLocaleFromRequest(localeInput)
+      : resolveAppLocale(localeInput);
+  const t = createTranslator(locale);
+
   return sendEmail(
     email,
-    `Confirme seu e-mail — ${SITE_NAME}`,
+    t("email.verification.subject", { siteName: SITE_NAME }),
     buildEmailHtml({
-      heading: "Bem-vindo ao Numerae",
-      paragraphs: [
-        "Obrigado por criar sua conta. Antes de acessar o painel, precisamos confirmar que este endereço de e-mail é seu.",
-        "Digite o código abaixo na tela de verificação. Depois disso você poderá entrar, cadastrar contas, registrar lançamentos e acompanhar suas metas.",
-      ],
-      codeLabel: "Código de verificação",
+      heading: t("email.verification.heading"),
+      paragraphs: [t("email.verification.p1"), t("email.verification.p2")],
+      codeLabel: t("email.verification.codeLabel"),
       code,
-      footer:
-        "Este código expira em 15 minutos. Se você não solicitou o cadastro, pode ignorar este e-mail com segurança.",
+      footer: t("email.verification.footer"),
+      footerReason: t("email.footerReason", { siteName: SITE_NAME }),
     }),
+    locale,
   );
 }
 
 export async function sendPasswordResetCode(
   email: string,
   code: string,
+  localeInput?: AppLocale | Request,
 ): Promise<SendResult> {
+  const locale =
+    localeInput instanceof Request
+      ? resolveLocaleFromRequest(localeInput)
+      : resolveAppLocale(localeInput);
+  const t = createTranslator(locale);
+
   return sendEmail(
     email,
-    `Redefinir senha — ${SITE_NAME}`,
+    t("email.reset.subject", { siteName: SITE_NAME }),
     buildEmailHtml({
-      heading: "Redefinição de senha",
-      paragraphs: [
-        "Recebemos um pedido para alterar a senha da sua conta no Numerae.",
-        "Use o código abaixo na página de redefinição. Ao concluir, faça login com a nova senha para voltar ao painel.",
-      ],
-      codeLabel: "Código de redefinição",
+      heading: t("email.reset.heading"),
+      paragraphs: [t("email.reset.p1"), t("email.reset.p2")],
+      codeLabel: t("email.reset.codeLabel"),
       code,
-      footer:
-        "Este código expira em 15 minutos. Se você não pediu para redefinir a senha, ignore este e-mail — sua conta permanece protegida.",
+      footer: t("email.reset.footer"),
+      footerReason: t("email.footerReason", { siteName: SITE_NAME }),
     }),
+    locale,
   );
 }

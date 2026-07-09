@@ -13,6 +13,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  queryParamKey,
+  useUrlQueryPage,
+  useUrlQueryPatch,
+  useUrlQueryString,
+} from "@/hooks/use-url-query-state";
+import { useSearchParams } from "next/navigation";
+import { useLocale, useT } from "@/i18n/locale-provider";
 
 export type SortDirection = "asc" | "desc";
 
@@ -43,16 +51,24 @@ export type DataTableProps<T> = {
   className?: string;
   toolbar?: ReactNode;
   onRowClick?: (row: T) => void;
+  /** Persist page, search and sort in the URL query string. */
+  syncQuery?: boolean;
+  /** Prefix when multiple tables share a page (e.g. `tx` → `tx_page`). */
+  queryPrefix?: string;
 };
 
-function compareValues(a: string | number | Date, b: string | number | Date) {
+function compareValues(
+  a: string | number | Date,
+  b: string | number | Date,
+  locale: string,
+) {
   if (a instanceof Date && b instanceof Date) {
     return a.getTime() - b.getTime();
   }
   if (typeof a === "number" && typeof b === "number") {
     return a - b;
   }
-  return String(a).localeCompare(String(b), "pt-BR", { sensitivity: "base" });
+  return String(a).localeCompare(String(b), locale, { sensitivity: "base" });
 }
 
 export function DataTable<T>({
@@ -62,18 +78,65 @@ export function DataTable<T>({
   pageSize = 5,
   layout = "table",
   searchable = true,
-  searchPlaceholder = "Filtrar…",
+  searchPlaceholder,
   searchFilter,
-  emptyMessage = "Nenhum registro encontrado.",
+  emptyMessage,
   emptyState,
   className,
   toolbar,
   onRowClick,
+  syncQuery = true,
+  queryPrefix,
 }: DataTableProps<T>) {
-  const [query, setQuery] = useState("");
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [page, setPage] = useState(0);
+  const t = useT();
+  const { locale } = useLocale();
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t("ui.dataTable.filter");
+  const resolvedEmptyMessage = emptyMessage ?? t("ui.dataTable.empty");
+
+  const pageKey = queryParamKey(queryPrefix, "page");
+  const queryKey = queryParamKey(queryPrefix, "q");
+  const sortKey = queryParamKey(queryPrefix, "sort");
+  const dirKey = queryParamKey(queryPrefix, "dir");
+
+  const searchParams = useSearchParams();
+  const patchQuery = useUrlQueryPatch();
+  const [urlPage, setUrlPage] = useUrlQueryPage({ key: pageKey });
+  const [urlQuery, setUrlQuery] = useUrlQueryString({ key: queryKey });
+
+  const [localQuery, setLocalQuery] = useState("");
+  const [localSortColumn, setLocalSortColumn] = useState<string | null>(null);
+  const [localSortDirection, setLocalSortDirection] = useState<SortDirection>("asc");
+  const [localPage, setLocalPage] = useState(0);
+
+  const query = syncQuery ? urlQuery : localQuery;
+  const setQuery = syncQuery ? setUrlQuery : setLocalQuery;
+  const page = syncQuery ? urlPage : localPage;
+  const setPage = syncQuery ? setUrlPage : setLocalPage;
+
+  const sortColumn = useMemo(() => {
+    if (!syncQuery) return localSortColumn;
+    const raw = searchParams.get(sortKey);
+    if (raw && columns.some((c) => c.id === raw)) return raw;
+    return null;
+  }, [syncQuery, localSortColumn, searchParams, sortKey, columns]);
+
+  const sortDirection = useMemo((): SortDirection => {
+    if (!syncQuery) return localSortDirection;
+    return searchParams.get(dirKey) === "desc" ? "desc" : "asc";
+  }, [syncQuery, localSortDirection, searchParams, dirKey]);
+
+  const applySort = (columnId: string | null, direction: SortDirection) => {
+    if (!syncQuery) {
+      setLocalSortColumn(columnId);
+      setLocalSortDirection(direction);
+      return;
+    }
+    patchQuery({
+      [sortKey]: columnId,
+      [dirKey]: columnId && direction === "desc" ? "desc" : null,
+      [pageKey]: null,
+    });
+  };
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -100,17 +163,21 @@ export function DataTable<T>({
     const direction = sortDirection === "asc" ? 1 : -1;
 
     return [...filtered].sort(
-      (a, b) => compareValues(column.sortValue!(a), column.sortValue!(b)) * direction,
+      (a, b) =>
+        compareValues(column.sortValue!(a), column.sortValue!(b), locale) * direction,
     );
-  }, [columns, filtered, sortColumn, sortDirection]);
+  }, [columns, filtered, sortColumn, sortDirection, locale]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages - 1);
   const pageRows = sorted.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
 
   useEffect(() => {
-    setPage((current) => Math.min(current, totalPages - 1));
-  }, [totalPages]);
+    const maxPage = totalPages - 1;
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [page, setPage, totalPages]);
 
   const toggleSort = (columnId: string) => {
     const column = columns.find((item) => item.id === columnId);
@@ -119,12 +186,11 @@ export function DataTable<T>({
     setPage(0);
 
     if (sortColumn === columnId) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      applySort(columnId, sortDirection === "asc" ? "desc" : "asc");
       return;
     }
 
-    setSortColumn(columnId);
-    setSortDirection("asc");
+    applySort(columnId, "asc");
   };
 
   if (data.length === 0 && !query && emptyState) {
@@ -146,8 +212,11 @@ export function DataTable<T>({
                 onChange={(event) => {
                   setQuery(event.target.value);
                   setPage(0);
+                  if (syncQuery) {
+                    patchQuery({ [pageKey]: null });
+                  }
                 }}
-                placeholder={searchPlaceholder}
+                placeholder={resolvedSearchPlaceholder}
                 className="pl-8"
               />
             </div>
@@ -159,7 +228,7 @@ export function DataTable<T>({
       {layout === "stack" ? (
         <div className="space-y-3">
           {pageRows.length === 0 ? (
-            <p className="py-8 text-center text-sm text-zinc-500">{emptyMessage}</p>
+            <p className="py-8 text-center text-sm text-zinc-500">{resolvedEmptyMessage}</p>
           ) : (
             pageRows.map((row) => (
               <div
@@ -195,7 +264,7 @@ export function DataTable<T>({
                     <button
                       type="button"
                       onClick={() => toggleSort(column.id)}
-                      title={active ? "Inverter ordenação" : "Ordenar coluna"}
+                      title={active ? t("ui.dataTable.sortDesc") : t("ui.dataTable.sortAsc")}
                       className={cn(
                         "group -mx-1 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors",
                         "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
@@ -235,7 +304,7 @@ export function DataTable<T>({
           {pageRows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={columns.length} className="py-8 text-center text-zinc-500">
-                {emptyMessage}
+                {resolvedEmptyMessage}
               </TableCell>
             </TableRow>
           ) : (

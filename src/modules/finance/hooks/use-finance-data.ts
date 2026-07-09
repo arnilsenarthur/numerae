@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "@/i18n/locale-provider";
 import { fetchJson } from "@/lib/fetch-json";
 import type { SerializedAccount, SerializedTransaction } from "@/types/finance";
 
@@ -17,6 +18,7 @@ export type FinanceSummary = {
 export type FinancePeriod = { from: string | null; to: string | null };
 
 export function useFinanceData(period: FinancePeriod) {
+  const t = useT();
   const [accounts, setAccounts] = useState<SerializedAccount[]>([]);
   const [transactions, setTransactions] = useState<SerializedTransaction[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -44,7 +46,7 @@ export function useFinanceData(period: FinancePeriod) {
     setLoading(false);
 
     if (!accountsRes.response.ok) {
-      setError(accountsRes.data?.error ?? "Erro ao carregar contas.");
+      setError(accountsRes.data?.error ?? t("finance.pages.accounts.loadError"));
       return;
     }
 
@@ -57,7 +59,7 @@ export function useFinanceData(period: FinancePeriod) {
       setTransactions([]);
       setSummary(null);
     }
-  }, [period.from, period.to]);
+  }, [period.from, period.to, t]);
 
   useEffect(() => {
     void reload();

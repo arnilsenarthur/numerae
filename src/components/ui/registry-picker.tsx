@@ -14,6 +14,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { registerDropdownEscapeLock } from "@/hooks/use-dropdown-escape-lock";
+import { useT } from "@/i18n/locale-provider";
 
 export type RegistryPickerItem = {
   id: string;
@@ -120,7 +121,7 @@ function getMenuPosition(trigger: HTMLButtonElement): MenuPosition {
 
 export function RegistryPicker({
   label,
-  placeholder = "Selecione...",
+  placeholder,
   items,
   valueId,
   onSelect,
@@ -128,12 +129,16 @@ export function RegistryPicker({
   loading,
   disabled,
   searchable = true,
-  searchPlaceholder = "Buscar...",
-  emptyMessage = "Nenhum item cadastrado.",
+  searchPlaceholder,
+  emptyMessage,
   className,
   menuZIndex = ui.dropdownZIndex,
   inlineCreate,
 }: RegistryPickerProps) {
+  const t = useT();
+  const resolvedPlaceholder = placeholder ?? t("ui.select.placeholder");
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t("ui.pickers.registry.search");
+  const resolvedEmptyMessage = emptyMessage ?? t("ui.pickers.registry.empty");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -267,7 +272,7 @@ export function RegistryPicker({
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder={searchPlaceholder}
+                  placeholder={resolvedSearchPlaceholder}
                   className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-zinc-400"
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
@@ -277,7 +282,7 @@ export function RegistryPicker({
 
             <div className="max-h-56 overflow-y-auto overscroll-contain">
               {filteredItems.length === 0 ? (
-                <p className="px-3 py-4 text-center text-xs text-zinc-500">{emptyMessage}</p>
+                <p className="px-3 py-4 text-center text-xs text-zinc-500">{resolvedEmptyMessage}</p>
               ) : (
                 filteredItems.map((item) => {
                   const isSelected = item.id === valueId;
@@ -429,7 +434,7 @@ export function RegistryPicker({
                 selected ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400",
               )}
             >
-              {loading ? "Carregando..." : (selected?.label ?? placeholder)}
+              {loading ? t("ui.loader.loading") : (selected?.label ?? resolvedPlaceholder)}
             </span>
             {selected?.description ? (
               <span className="block truncate text-xs text-zinc-500">

@@ -10,50 +10,42 @@ import {
   IconLoan,
   IconTarget,
 } from "@/components/ui/icons";
-import { CALCULATOR_TAB_LABELS, CALCULATOR_TABS, calculatorTabPath } from "@/lib/app-routes";
+import { CALCULATOR_TABS, calculatorTabPath } from "@/lib/app-routes";
 import { calculatorHomePageHeader } from "@/lib/page-meta";
+import { useT } from "@/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+
+const CALCULATOR_DESC_KEYS: Record<
+  (typeof CALCULATOR_TABS)[keyof typeof CALCULATOR_TABS],
+  "exchangeDesc" | "taxesDesc" | "salaryDesc" | "loanDesc" | "fireDesc"
+> = {
+  exchange: "exchangeDesc",
+  taxes: "taxesDesc",
+  salary: "salaryDesc",
+  loan: "loanDesc",
+  fire: "fireDesc",
+};
 
 const CALCULATOR_CARDS: {
   tab: (typeof CALCULATOR_TABS)[keyof typeof CALCULATOR_TABS];
   icon: ReactNode;
-  description: string;
 }[] = [
-  {
-    tab: "exchange",
-    icon: <IconExchange size="md" />,
-    description: "Converta moedas e compare taxas entre instituições.",
-  },
-  {
-    tab: "taxes",
-    icon: <IconPercent size="md" />,
-    description: "Compare MEI, Simples e Presumido com Fator R.",
-  },
-  {
-    tab: "salary",
-    icon: <IconSalary size="md" />,
-    description: "Otimize recebimento PJ do exterior com câmbio e impostos.",
-  },
-  {
-    tab: "loan",
-    icon: <IconLoan size="md" />,
-    description: "Simule SAC e Price com parcelas, juros e saldo.",
-  },
-  {
-    tab: "fire",
-    icon: <IconTarget size="md" />,
-    description: "Estime independência financeira pela regra dos 25x.",
-  },
+  { tab: "exchange", icon: <IconExchange size="md" /> },
+  { tab: "taxes", icon: <IconPercent size="md" /> },
+  { tab: "salary", icon: <IconSalary size="md" /> },
+  { tab: "loan", icon: <IconLoan size="md" /> },
+  { tab: "fire", icon: <IconTarget size="md" /> },
 ];
 
 export function CalculatorHome() {
+  const t = useT();
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
-      <PageHeader meta={calculatorHomePageHeader} />
+      <PageHeader meta={calculatorHomePageHeader(t)} />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {CALCULATOR_CARDS.map(({ tab, icon, description }) => (
+        {CALCULATOR_CARDS.map(({ tab, icon }) => (
           <Link key={tab} href={calculatorTabPath(tab)} className="block">
             <Card className={cn("h-full transition-shadow", cardClickable)}>
               <CardContent className="flex flex-col gap-2.5 p-4">
@@ -62,9 +54,11 @@ export function CalculatorHome() {
                 </div>
                 <div className="flex flex-col gap-1">
                   <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {CALCULATOR_TAB_LABELS[tab]}
+                    {t(`section.calculator.${tab}.title`)}
                   </p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {t(`calculator.pages.home.${CALCULATOR_DESC_KEYS[tab]}`)}
+                  </p>
                 </div>
               </CardContent>
             </Card>

@@ -1,10 +1,6 @@
 import {
-  CALCULATOR_TAB_LABELS,
   CALCULATOR_TABS,
-  FINANCE_LEDGER_TAB_LABELS,
   FINANCE_LEDGER_TABS,
-  FINANCE_TAB_LABELS,
-  INVESTMENT_TAB_LABELS,
   INVESTMENT_TABS,
   MARKET_DEFAULT_KIND_SLUG,
   MARKET_KIND_NAV,
@@ -20,21 +16,7 @@ import {
   type MarketKindSlug,
 } from "@/lib/app-routes";
 import type { BreadcrumbItem } from "@/components/ui/breadcrumbs";
-
-export const SECTION_LABELS = {
-  cadastros: "Cadastros",
-  financas: "Finanças",
-} as const;
-
-const financesCrumb: BreadcrumbItem = {
-  label: SECTION_LABELS.financas,
-  href: financeTabPath("overview"),
-};
-
-const cadastrosCrumb: BreadcrumbItem = {
-  label: SECTION_LABELS.cadastros,
-  href: "/companies",
-};
+import type { TranslateFn } from "@/i18n/translate";
 
 export type PageHeaderMeta = {
   kicker: string;
@@ -43,43 +25,55 @@ export type PageHeaderMeta = {
   breadcrumbs?: BreadcrumbItem[];
 };
 
-const financeSubtitles: Record<FinanceTabSlug, string> = {
-  overview:
-    "Saldos consolidados, gastos por categoria e evolução das suas contas no período.",
-  transactions: "Registre entradas e saídas e consulte o histórico completo.",
-  recurring: "Configure salários, assinaturas e outras movimentações automáticas.",
-  accounts:
-    "Bancos, carteiras e instituições em qualquer moeda — base para saldos e lançamentos.",
-  goals: "Defina objetivos financeiros e acompanhe o progresso até cada meta.",
-};
+function financesCrumb(t: TranslateFn): BreadcrumbItem {
+  return {
+    label: t("section.group.finance"),
+    href: financeTabPath("overview"),
+  };
+}
 
-const ledgerSubtitles: Record<FinanceLedgerTabSlug, string> = {
-  transactions: financeSubtitles.transactions,
-  recurring: financeSubtitles.recurring,
-};
+function cadastrosCrumb(t: TranslateFn): BreadcrumbItem {
+  return {
+    label: t("section.group.registrations"),
+    href: "/companies",
+  };
+}
 
-export function financePageHeader(tab: FinanceTabSlug): PageHeaderMeta {
-  const isLedger = tab === "transactions" || tab === "recurring";
+export function financePageHeader(tab: FinanceTabSlug, t: TranslateFn): PageHeaderMeta {
+  const isLedger =
+    tab === "transactions" || tab === "recurring" || tab === "subscriptions";
+
+  if (tab === "budgets" || tab === "reports") {
+    return {
+      kicker: t("section.group.finance"),
+      title: t(`section.finance.${tab}.title`),
+      subtitle: t(`section.finance.${tab}.subtitle`),
+      breadcrumbs: [
+        financesCrumb(t),
+        { label: t(`section.finance.${tab}.title`), href: financeTabPath(tab) },
+      ],
+    };
+  }
 
   if (tab === "accounts") {
     return {
-      kicker: SECTION_LABELS.cadastros,
-      title: FINANCE_TAB_LABELS.accounts,
-      subtitle: financeSubtitles.accounts,
-      breadcrumbs: [cadastrosCrumb, { label: FINANCE_TAB_LABELS.accounts }],
+      kicker: t("section.group.registrations"),
+      title: t("section.finance.accounts.title"),
+      subtitle: t("section.finance.accounts.subtitle"),
+      breadcrumbs: [cadastrosCrumb(t), { label: t("section.finance.accounts.title") }],
     };
   }
 
   if (isLedger) {
-    const title = FINANCE_LEDGER_TAB_LABELS[tab];
+    const title = t(`section.finance.${tab}.title`);
     return {
-      kicker: SECTION_LABELS.financas,
+      kicker: t("section.group.finance"),
       title,
-      subtitle: ledgerSubtitles[tab],
+      subtitle: t(`section.finance.${tab}.subtitle`),
       breadcrumbs: [
-        financesCrumb,
+        financesCrumb(t),
         {
-          label: FINANCE_TAB_LABELS.transactions,
+          label: t("section.finance.transactions.title"),
           href: financeLedgerTabPath(FINANCE_LEDGER_TABS.history),
         },
         { label: title },
@@ -88,132 +82,105 @@ export function financePageHeader(tab: FinanceTabSlug): PageHeaderMeta {
   }
 
   return {
-    kicker: SECTION_LABELS.financas,
-    title: FINANCE_TAB_LABELS[tab],
-    subtitle: financeSubtitles[tab],
+    kicker: t("section.group.finance"),
+    title: t(`section.finance.${tab}.title`),
+    subtitle: t(`section.finance.${tab}.subtitle`),
     breadcrumbs: [
-      financesCrumb,
-      { label: FINANCE_TAB_LABELS[tab], href: financeTabPath(tab) },
+      financesCrumb(t),
+      { label: t(`section.finance.${tab}.title`), href: financeTabPath(tab) },
     ],
   };
 }
 
-const investmentSubtitles: Record<InvestmentTabSlug, string> = {
-  positions:
-    "Registre posições reais, acompanhe aportes e veja o rendimento de cada investimento.",
-  allocation:
-    "Distribuição sugerida por perfil de risco, com metas mensais e indicação de ativos.",
-  projection:
-    "Simule o crescimento da carteira com aportes recorrentes e retorno esperado.",
-};
-
-export function investmentPageHeader(tab: InvestmentTabSlug): PageHeaderMeta {
-  const title =
-    tab === "positions" ? "Investimentos" : INVESTMENT_TAB_LABELS[tab];
+export function investmentPageHeader(tab: InvestmentTabSlug, t: TranslateFn): PageHeaderMeta {
+  const title = t(`section.investments.${tab}.title`);
 
   return {
-    kicker: SECTION_LABELS.financas,
+    kicker: t("section.group.finance"),
     title,
-    subtitle: investmentSubtitles[tab],
-    breadcrumbs: [
-      financesCrumb,
-      { label: title, href: investmentTabPath(tab) },
-    ],
+    subtitle: t(`section.investments.${tab}.subtitle`),
+    breadcrumbs: [financesCrumb(t), { label: title, href: investmentTabPath(tab) }],
   };
 }
 
-export function investmentPositionPageHeader(positionName: string): PageHeaderMeta {
+export function investmentPositionPageHeader(positionName: string, t: TranslateFn): PageHeaderMeta {
   return {
-    kicker: SECTION_LABELS.financas,
+    kicker: t("section.group.finance"),
     title: positionName,
-    subtitle:
-      "Aportes, retiradas, rendimento e histórico desta posição no seu portfólio.",
+    subtitle: t("section.investments.positionDetail.subtitle"),
     breadcrumbs: [
-      financesCrumb,
-      { label: "Investimentos", href: investmentTabPath(INVESTMENT_TABS.positions) },
+      financesCrumb(t),
+      {
+        label: t("section.investments.positions.title"),
+        href: investmentTabPath(INVESTMENT_TABS.positions),
+      },
       { label: positionName },
     ],
   };
 }
 
-const calculatorSubtitles: Record<CalculatorTabSlug, string> = {
-  exchange:
-    "Converta moedas com taxas atualizadas e compare custos entre instituições.",
-  taxes:
-    "Compare MEI, Simples (Anexo III/V) e Lucro Presumido, com otimização de Fator R.",
-  salary:
-    "Encontre a melhor forma de receber PJ do exterior, com câmbio, IOF e imposto.",
-  loan: "Simule SAC e Price: parcelas, juros totais e saldo devedor ao longo do tempo.",
-  fire: "Calcule quanto acumular para independência financeira pela regra dos 25×.",
-};
+export function calculatorHomePageHeader(t: TranslateFn): PageHeaderMeta {
+  return {
+    kicker: t("section.group.finance"),
+    title: t("section.calculator.home.title"),
+    subtitle: t("section.calculator.home.subtitle"),
+    breadcrumbs: [financesCrumb(t), { label: t("section.calculator.home.title") }],
+  };
+}
 
-export const calculatorHomePageHeader: PageHeaderMeta = {
-  kicker: SECTION_LABELS.financas,
-  title: "Calculadoras",
-  subtitle: "Câmbio, impostos, salário exterior, financiamento e independência financeira.",
-  breadcrumbs: [financesCrumb, { label: "Calculadoras" }],
-};
-
-export function calculatorPageHeader(tab: CalculatorTabSlug): PageHeaderMeta {
-  const title = CALCULATOR_TAB_LABELS[tab];
+export function calculatorPageHeader(tab: CalculatorTabSlug, t: TranslateFn): PageHeaderMeta {
+  const title = t(`section.calculator.${tab}.title`);
 
   return {
-    kicker: SECTION_LABELS.financas,
+    kicker: t("section.group.finance"),
     title,
-    subtitle: calculatorSubtitles[tab],
+    subtitle: t(`section.calculator.${tab}.subtitle`),
     breadcrumbs: [
-      financesCrumb,
-      { label: "Calculadoras", href: "/calculator" },
+      financesCrumb(t),
+      { label: t("section.calculator.home.title"), href: "/calculator" },
       { label: title, href: calculatorTabPath(tab) },
     ],
   };
 }
 
-export const companiesPageHeader: PageHeaderMeta = {
-  kicker: SECTION_LABELS.cadastros,
-  title: "Empresas",
-  subtitle:
-    "Cadastre CNPJ, EIN, VAT e demais dados fiscais para impostos, PJ e simulações.",
-  breadcrumbs: [cadastrosCrumb, { label: "Empresas" }],
-};
-
-const marketKindSubtitles: Record<MarketKindSlug, string> = {
-  share: "Ações listadas em bolsas do mundo — cotações e histórico.",
-  etf: "Fundos negociados em bolsa com diversificação por cesta de ativos.",
-  fii: "Fundos imobiliários listados na B3 e acompanhamento de dividendos.",
-  crypto: "Criptomoedas e tokens com preço em tempo quase real.",
-  indices: "Índices de referência de mercado e benchmarks.",
-  commodity: "Commodities e ativos físicos negociados em bolsa.",
-};
+export function companiesPageHeader(t: TranslateFn): PageHeaderMeta {
+  return {
+    kicker: t("section.group.registrations"),
+    title: t("section.companies.title"),
+    subtitle: t("section.companies.subtitle"),
+    breadcrumbs: [cadastrosCrumb(t), { label: t("section.companies.title") }],
+  };
+}
 
 export function marketPageHeader(
   kindSlug: MarketKindSlug,
+  t: TranslateFn,
   assetSymbol?: string | null,
 ): PageHeaderMeta {
-  const kindLabel =
-    MARKET_KIND_NAV.find((item) => item.slug === kindSlug)?.label ?? "Mercado";
+  const kindLabel = t(`section.market.kind.${kindSlug}`);
 
   if (assetSymbol) {
+    const symbol = assetSymbol.toUpperCase();
     return {
-      kicker: SECTION_LABELS.financas,
-      title: assetSymbol.toUpperCase(),
-      subtitle: `Detalhes, cotação e histórico de ${assetSymbol.toUpperCase()}.`,
+      kicker: t("section.group.finance"),
+      title: symbol,
+      subtitle: t("section.market.assetDetail", { symbol }),
       breadcrumbs: [
-        financesCrumb,
-        { label: "Mercado", href: marketKindPath(MARKET_DEFAULT_KIND_SLUG) },
+        financesCrumb(t),
+        { label: t("section.market.title"), href: marketKindPath(MARKET_DEFAULT_KIND_SLUG) },
         { label: kindLabel, href: marketKindPath(kindSlug) },
-        { label: assetSymbol.toUpperCase() },
+        { label: symbol },
       ],
     };
   }
 
   return {
-    kicker: SECTION_LABELS.financas,
+    kicker: t("section.group.finance"),
     title: kindLabel,
-    subtitle: marketKindSubtitles[kindSlug],
+    subtitle: t(`section.market.kindSubtitle.${kindSlug}`),
     breadcrumbs: [
-      financesCrumb,
-      { label: "Mercado", href: marketKindPath(MARKET_DEFAULT_KIND_SLUG) },
+      financesCrumb(t),
+      { label: t("section.market.title"), href: marketKindPath(MARKET_DEFAULT_KIND_SLUG) },
       { label: kindLabel, href: marketKindPath(kindSlug) },
     ],
   };

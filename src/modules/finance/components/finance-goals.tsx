@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,9 +31,12 @@ import { fetchJson } from "@/lib/fetch-json";
 import { validateFormFields } from "@/lib/form-validation";
 import { formatMoney } from "@/lib/format-money";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useT, useLocale } from "@/i18n/locale-provider";
+import type { AppLocale } from "@/i18n/locales";
+import type { TranslateFn } from "@/i18n/translate";
+import { useUrlQueryPatch } from "@/hooks/use-url-query-state";
+import { goalCategoryOptions, translateGoalCategory } from "@/i18n/labels";
 import {
-  GOAL_CATEGORY_LABELS,
-  GOAL_CATEGORY_OPTIONS,
   type SerializedFinancialGoal,
 } from "@/lib/goal-serializer";
 
@@ -72,12 +76,12 @@ function emptyForm(): GoalForm {
   };
 }
 
-function daysLabel(days: number | null): string {
+function daysLabel(days: number | null, t: TranslateFn): string {
   if (days === null) return "";
-  if (days < 0) return "Vencida";
-  if (days === 0) return "Hoje";
-  if (days === 1) return "Amanhã";
-  return `${days} dias`;
+  if (days < 0) return t("finance.pages.goals.overdue");
+  if (days === 0) return t("finance.pages.goals.today");
+  if (days === 1) return t("finance.pages.goals.tomorrow");
+  return t("finance.pages.goals.daysLeft", { days });
 }
 
 function daysVariant(days: number | null): "default" | "success" | "warning" | "error" {
@@ -89,6 +93,7 @@ function daysVariant(days: number | null): "default" | "success" | "warning" | "
 }
 
 export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) {
+  const t = useT();
   const [goals, setGoals] = useState<SerializedFinancialGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +103,9 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
   const [form, setForm] = useState<GoalForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [showAchieved, setShowAchieved] = useState(false);
+  const searchParams = useSearchParams();
+  const patchQuery = useUrlQueryPatch();
+  const showAchieved = searchParams.get("achieved") === "1";
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const iconSuggestion = useIconSuggestion({
     text: form.title,
@@ -109,17 +116,17 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
 
   const titleField = useValidatedField(
     [
-      validationRules.required("Título é obrigatório."),
-      validationRules.maxLength(80, "Máximo de 80 caracteres."),
+      validationRules.required(t("finance.pages.goals.titleRequired")),
+      validationRules.maxLength(80, t("finance.pages.goals.titleMaxLength")),
     ],
     { required: true, validateMode: "change", showSuccess: false },
   );
 
   const targetField = useValidatedField(
     [
-      validationRules.required("Informe o valor alvo."),
+      validationRules.required(t("finance.pages.goals.targetRequired")),
       validationRules.currency(),
-      validationRules.positiveAmount("O valor alvo deve ser maior que zero."),
+      validationRules.positiveAmount(t("finance.pages.goals.targetPositive")),
     ],
     { required: true, validateMode: ["blur", "submit"], showSuccess: false },
   );
@@ -139,7 +146,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
     }>("/api/goals");
     setLoading(false);
     if (!response.ok) {
-      setError(data?.error ?? "Erro ao carregar metas.");
+      setError(data?.error ?? t("finance.pages.goals.loadError"));
       return;
     }
     setGoals(data?.goals ?? []);
@@ -215,11 +222,11 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
         error?: string;
       }>(url, { method, body: JSON.stringify(payload) });
 
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar meta.");
+      if (!response.ok) throw new Error(data?.error ?? t("finance.pages.goals.saveError"));
       setModalOpen(false);
       await load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Erro ao salvar meta.");
+      setFormError(err instanceof Error ? err.message : t("finance.pages.goals.saveError"));
     } finally {
       setSaving(false);
     }
@@ -237,9 +244,9 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
 
   async function deleteGoalById(goal: SerializedFinancialGoal) {
     const ok = await confirm({
-      title: "Excluir meta",
-      message: `Excluir "${goal.title}"? Esta ação não pode ser desfeita.`,
-      confirmLabel: "Excluir",
+      title: t("finance.pages.goals.deleteTitle"),
+      message: t("finance.pages.goals.deleteMessage", { title: goal.title }),
+      confirmLabel: t("common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -250,11 +257,11 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
         `/api/goals/${goal.id}`,
         { method: "DELETE" },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao excluir meta.");
+      if (!response.ok) throw new Error(data?.error ?? t("finance.pages.goals.deleteError"));
       if (editingId === goal.id) setModalOpen(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir meta.");
+      setError(err instanceof Error ? err.message : t("finance.pages.goals.deleteError"));
     } finally {
       setDeletingId(null);
     }
@@ -276,12 +283,17 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
       {achieved.length > 0 && (
         <button
           type="button"
-          onClick={() => setShowAchieved((v) => !v)}
+          onClick={() => patchQuery({ achieved: showAchieved ? null : "1" })}
           className="text-xs text-emerald-600 hover:underline dark:text-emerald-400"
         >
           {showAchieved
-            ? "Ocultar concluídas"
-            : `Ver ${achieved.length} concluída${achieved.length !== 1 ? "s" : ""}`}
+            ? t("finance.pages.goals.hideAchieved")
+            : t(
+                achieved.length !== 1
+                  ? "finance.pages.goals.showAchievedPlural"
+                  : "finance.pages.goals.showAchieved",
+                { count: achieved.length },
+              )}
         </button>
       )}
 
@@ -292,11 +304,11 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
       ) : shown.length === 0 ? (
         <EmptyState
           icon={<IconTarget className="h-6 w-6" />}
-          title="Nenhuma meta"
-          description="Crie uma meta para acompanhar o progresso rumo a um objetivo financeiro."
+          title={t("finance.pages.goals.emptyTitle")}
+          description={t("finance.pages.goals.emptyDescription")}
           action={
             <Button type="button" size="sm" onClick={startCreate}>
-              <IconPlus size="sm" /> Nova meta
+              <IconPlus size="sm" /> {t("finance.pages.app.newGoal")}
             </Button>
           }
         />
@@ -329,14 +341,14 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                           {goal.title}
                         </CardTitle>
                         <Badge variant="default" className="text-[10px]">
-                          {GOAL_CATEGORY_LABELS[goal.category] ?? goal.category}
+                          {translateGoalCategory(goal.category, t)}
                         </Badge>
                         {goal.achieved ? (
-                          <Badge variant="success" className="text-[10px]">Concluída</Badge>
+                          <Badge variant="success" className="text-[10px]">{t("finance.pages.goals.achieved")}</Badge>
                         ) : null}
                         {goal.daysRemaining !== null && !goal.achieved ? (
                           <Badge variant={daysVariant(goal.daysRemaining)} className="text-[10px]">
-                            {daysLabel(goal.daysRemaining)}
+                            {daysLabel(goal.daysRemaining, t)}
                           </Badge>
                         ) : null}
                       </div>
@@ -350,7 +362,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                     <span className="font-semibold text-zinc-800 dark:text-zinc-200">
                       {formatMoney(goal.currentAmount, { currency: goal.currency })}
                     </span>
-                    <span className="text-xs text-zinc-400">de</span>
+                    <span className="text-xs text-zinc-400">{t("finance.pages.goals.of")}</span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
                       {formatMoney(goal.targetAmount, { currency: goal.currency })}
                     </span>
@@ -381,7 +393,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                     disabled={deletingId === goal.id}
                   >
                     {goal.achieved ? <IconX size="xs" /> : <IconCheck size="xs" />}
-                    {goal.achieved ? "Reabrir" : "Concluir"}
+                    {goal.achieved ? t("finance.pages.goals.reopen") : t("finance.pages.goals.complete")}
                   </Button>
                   <Button
                     type="button"
@@ -392,7 +404,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                     disabled={deletingId === goal.id}
                   >
                     <IconPencil size="xs" />
-                    Editar
+                    {t("finance.pages.goals.edit")}
                   </Button>
                   <Button
                     type="button"
@@ -403,7 +415,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                     onClick={() => void deleteGoalById(goal)}
                   >
                     <IconTrash size="xs" />
-                    Excluir
+                    {t("finance.pages.goals.delete")}
                   </Button>
                 </div>
               </Card>
@@ -415,7 +427,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingId ? "Editar meta" : "Nova meta financeira"}
+        title={editingId ? t("finance.pages.goals.editTitle") : t("finance.pages.goals.createTitle")}
         size="md"
         footer={
           <>
@@ -425,7 +437,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
               onClick={() => setModalOpen(false)}
               disabled={saving}
             >
-              Cancelar
+              {t("common.cancel")}
             </Button>
             {editingId ? (
               <Button
@@ -435,11 +447,11 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                 disabled={saving}
               >
                 <IconTrash size="sm" />
-                Excluir
+                {t("common.delete")}
               </Button>
             ) : null}
             <Button type="button" onClick={() => void save()} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -447,7 +459,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
         {formError ? <Alert variant="error">{formError}</Alert> : null}
         <div ref={modalFormRef} className="space-y-3">
           <Field
-            label="Título"
+            label={t("finance.pages.goals.titleLabel")}
             message={titleField.validation.message}
             state={titleField.validation.state}
             required
@@ -461,26 +473,26 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
                 setForm((p) => ({ ...p, title }));
               }}
               onBlur={titleField.bind.onBlur}
-              placeholder="Ex.: Reserva de emergência, Viagem, Casa própria…"
+              placeholder={t("finance.pages.goals.titlePlaceholder")}
               {...fieldControlProps(titleField.validation.state)}
             />
           </Field>
           <IconPicker
-            label="Ícone"
+            label={t("finance.pages.goals.iconLabel")}
             value={iconSuggestion.icon}
             onChange={iconSuggestion.pickIcon}
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Categoria</Label>
+              <Label>{t("finance.pages.goals.categoryLabel")}</Label>
               <Select
-                options={GOAL_CATEGORY_OPTIONS}
+                options={goalCategoryOptions(t)}
                 value={form.category}
                 onChange={(v) => setForm((p) => ({ ...p, category: v }))}
               />
             </div>
             <div className="space-y-1">
-              <Label>Moeda</Label>
+              <Label>{t("finance.pages.goals.currencyLabel")}</Label>
               <Select
                 options={CURRENCY_OPTIONS}
                 value={form.currency}
@@ -490,7 +502,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
-              label="Valor alvo"
+              label={t("finance.pages.goals.targetLabel")}
               message={targetField.validation.message}
               state={targetField.validation.state}
               required
@@ -508,7 +520,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
               />
             </Field>
             <Field
-              label="Valor atual"
+              label={t("finance.pages.goals.currentLabel")}
               message={currentField.validation.message}
               state={currentField.validation.state}
             >
@@ -526,7 +538,7 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
             </Field>
           </div>
           <div className="space-y-1">
-            <Label>Prazo (opcional)</Label>
+            <Label>{t("finance.pages.goals.deadlineLabel")}</Label>
             <DatePicker
               value={form.deadline}
               onChange={(v) => setForm((p) => ({ ...p, deadline: v }))}
@@ -534,11 +546,11 @@ export function FinanceGoals({ openCreateSeq = 0 }: { openCreateSeq?: number }) 
             />
           </div>
           <div className="space-y-1">
-            <Label>Notas (opcional)</Label>
+            <Label>{t("finance.pages.goals.notesLabel")}</Label>
             <Input
               value={form.notes}
               onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-              placeholder="Observações sobre esta meta…"
+              placeholder={t("finance.pages.goals.notesPlaceholder")}
             />
           </div>
         </div>

@@ -11,7 +11,10 @@ import {
   type IconProps,
 } from "@/components/ui/icons";
 import type { SelectOption } from "@/components/ui/select";
-import { institutionTypeLabel } from "@/modules/admin/institutions/institution-form";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { translateInstitutionType } from "@/i18n/labels";
+import { createTranslator } from "@/i18n/translate";
+import type { TranslateFn } from "@/i18n/translate";
 import type { SerializedInstitution } from "@/lib/institution-serializer";
 
 const INSTITUTION_TYPE_ICONS = {
@@ -132,17 +135,18 @@ export function institutionTypeIconNode(
 
 export function buildInstitutionSelectOptions(
   institutions: SerializedInstitution[],
+  t: TranslateFn = createTranslator(DEFAULT_LOCALE),
 ): SelectOption[] {
   return institutions
     .filter((institution) => institution.active)
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+    .sort((a, b) => a.name.localeCompare(b.name, DEFAULT_LOCALE))
     .map((institution) => ({
       key: institution.id,
       value: institution.id,
       label: institution.name,
       description: institution.exchangeRatesCount
         ? `${institution.exchangeRatesCount} cotação(ões)`
-        : institutionTypeLabel(institution.type),
+        : translateInstitutionType(institution.type, t),
       icon: institutionTypeIconNode(institution.type),
       ...(institution.brandColor ? { color: institution.brandColor } : {}),
     }));

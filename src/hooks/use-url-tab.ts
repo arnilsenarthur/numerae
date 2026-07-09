@@ -27,7 +27,8 @@ export function useUrlTab<T extends string>({
   const setTab = useCallback(
     (next: T) => {
       setTabState(next);
-      window.history.replaceState(null, "", `${basePath}/${next}`);
+      const qs = window.location.search;
+      window.history.replaceState(null, "", `${basePath}/${next}${qs}`);
     },
     [basePath],
   );

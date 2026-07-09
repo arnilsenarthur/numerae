@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Money } from "@/components/ui/money";
 import { LineChart, type ChartSeries } from "@/components/ui/chart";
 import { formatMoney } from "@/lib/format-money";
+import { useT } from "@/i18n/locale-provider";
 
 const CURRENCY_OPTIONS = [
   { value: "BRL", label: "BRL — Real" },
@@ -24,7 +25,6 @@ type AmortizationRow = {
   balance: number;
 };
 
-/** SAC: amortização constante — parcela decresce */
 function calcSAC(
   principal: number,
   annualRatePct: number,
@@ -43,7 +43,6 @@ function calcSAC(
   return rows;
 }
 
-/** Price (Tabela Price): parcela fixa */
 function calcPrice(
   principal: number,
   annualRatePct: number,
@@ -71,6 +70,7 @@ function totalPaid(rows: AmortizationRow[]): number {
 }
 
 export function LoanCalculator() {
+  const t = useT();
   const [principal, setPrincipal] = useState("500000");
   const [annualRate, setAnnualRate] = useState("10.5");
   const [months, setMonths] = useState("360");
@@ -88,7 +88,6 @@ export function LoanCalculator() {
   const priceFirst = price[0];
   const sacLast = sac.at(-1);
 
-  // Chart: balance over time (every 12 months)
   const chartSeries = useMemo<ChartSeries[]>(() => {
     if (!sac.length || !price.length) return [];
     const step = Math.max(1, Math.floor(n / 24));
@@ -99,7 +98,7 @@ export function LoanCalculator() {
     return [
       {
         id: "sac",
-        label: "SAC — saldo devedor",
+        label: t("calculator.pages.loan.sacBalance"),
         data: points.map(({ month }) => ({
           label: `${month}m`,
           value: Math.round(sac[month - 1]?.balance ?? 0),
@@ -107,50 +106,49 @@ export function LoanCalculator() {
       },
       {
         id: "price",
-        label: "Price — saldo devedor",
+        label: t("calculator.pages.loan.priceBalance"),
         data: points.map(({ month }) => ({
           label: `${month}m`,
           value: Math.round(price[month - 1]?.balance ?? 0),
         })),
       },
     ];
-  }, [sac, price, n]);
+  }, [sac, price, n, t]);
 
   const hasData = sac.length > 0 && price.length > 0;
 
   return (
     <div className="space-y-4">
-      {/* Inputs */}
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
-              <Label>Moeda</Label>
+              <Label>{t("calculator.pages.loan.currencyLabel")}</Label>
               <div className="w-32">
                 <Select options={CURRENCY_OPTIONS} value={currency} onChange={setCurrency} size="sm" />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Valor financiado</Label>
+              <Label>{t("calculator.pages.loan.amountLabel")}</Label>
               <div className="w-44">
                 <NumberInput value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="500.000" />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Taxa de juros (% a.a.)</Label>
+              <Label>{t("calculator.pages.loan.rateLabel")}</Label>
               <div className="w-36">
                 <NumberInput value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder="10,5" />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Prazo (meses)</Label>
+              <Label>{t("calculator.pages.loan.termLabel")}</Label>
               <div className="w-28">
                 <NumberInput value={String(n)} onChange={(e) => setMonths(e.target.value)} placeholder="360" />
               </div>
             </div>
             {n > 0 && (
               <p className="mb-1 text-xs text-zinc-500">
-                {Math.floor(n / 12)}a {n % 12}m · taxa mensal: {(r / 12).toFixed(4)}%
+                {t("calculator.pages.loan.termHint")}
               </p>
             )}
           </div>
@@ -159,100 +157,63 @@ export function LoanCalculator() {
 
       {hasData && (
         <>
-          {/* Comparison cards */}
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* SAC */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">SAC</CardTitle>
-                  <Badge variant="success">Menos juros no total</Badge>
+                  <CardTitle className="text-base">{t("calculator.pages.loan.sacTitle")}</CardTitle>
+                  <Badge variant="success">{t("calculator.pages.loan.sacBadge")}</Badge>
                 </div>
-                <p className="text-xs text-zinc-500">Amortização constante — parcela decresce ao longo do tempo.</p>
+                <p className="text-xs text-zinc-500">{t("calculator.pages.loan.sacDesc")}</p>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">1ª parcela</span>
+                  <span className="text-zinc-500">{t("calculator.pages.loan.firstInstallment")}</span>
                   <Money value={sacFirst?.payment ?? 0} currency={currency} />
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Última parcela</span>
+                  <span className="text-zinc-500">{t("calculator.pages.loan.lastInstallment")}</span>
                   <Money value={sacLast?.payment ?? 0} currency={currency} />
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Total de juros</span>
+                  <span className="text-zinc-500">{t("calculator.pages.loan.totalInterest")}</span>
                   <span className="font-medium text-red-600">{formatMoney(totalInterest(sac), { currency })}</span>
                 </div>
                 <div className="flex justify-between border-t border-zinc-100 pt-1.5 text-sm dark:border-zinc-800">
-                  <span>Total pago</span>
+                  <span>{t("calculator.pages.loan.totalPaid")}</span>
                   <Money value={totalPaid(sac)} currency={currency} />
-                </div>
-                <div className="flex justify-between text-xs text-zinc-400">
-                  <span>Juros sobre o principal</span>
-                  <span>{p > 0 ? ((totalInterest(sac) / p) * 100).toFixed(1) : 0}%</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Price */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Price (Tabela Price)</CardTitle>
-                  <Badge variant="default">Parcela fixa</Badge>
+                  <CardTitle className="text-base">{t("calculator.pages.loan.priceTitle")}</CardTitle>
                 </div>
-                <p className="text-xs text-zinc-500">Parcela constante — previsibilidade no orçamento mensal.</p>
+                <p className="text-xs text-zinc-500">{t("calculator.pages.loan.priceDesc")}</p>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Parcela fixa</span>
+                  <span className="text-zinc-500">{t("calculator.pages.loan.priceTitle")}</span>
                   <Money value={priceFirst?.payment ?? 0} currency={currency} />
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">vs. 1ª SAC</span>
-                  <span className={`text-sm ${(priceFirst?.payment ?? 0) < (sacFirst?.payment ?? 0) ? "text-emerald-600" : "text-amber-600"}`}>
-                    {formatMoney(Math.abs((priceFirst?.payment ?? 0) - (sacFirst?.payment ?? 0)), { currency })}
-                    {" "}{(priceFirst?.payment ?? 0) < (sacFirst?.payment ?? 0) ? "menor" : "maior"}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Total de juros</span>
+                  <span className="text-zinc-500">{t("calculator.pages.loan.totalInterest")}</span>
                   <span className="font-medium text-red-600">{formatMoney(totalInterest(price), { currency })}</span>
                 </div>
                 <div className="flex justify-between border-t border-zinc-100 pt-1.5 text-sm dark:border-zinc-800">
-                  <span>Total pago</span>
+                  <span>{t("calculator.pages.loan.totalPaid")}</span>
                   <Money value={totalPaid(price)} currency={currency} />
-                </div>
-                <div className="flex justify-between text-xs text-zinc-400">
-                  <span>Juros sobre o principal</span>
-                  <span>{p > 0 ? ((totalInterest(price) / p) * 100).toFixed(1) : 0}%</span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Delta summary */}
-          <Card className="bg-zinc-50 dark:bg-zinc-900/50">
-            <CardContent className="py-3">
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                O SAC paga{" "}
-                <strong className="text-emerald-700 dark:text-emerald-400">
-                  {formatMoney(totalInterest(price) - totalInterest(sac), { currency })}
-                </strong>{" "}
-                menos em juros que a Tabela Price, porém a primeira parcela é{" "}
-                <strong>
-                  {formatMoney((sacFirst?.payment ?? 0) - (priceFirst?.payment ?? 0), { currency })}
-                </strong>{" "}
-                maior.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Balance chart */}
           {chartSeries.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Evolução do saldo devedor</CardTitle>
+                <CardTitle className="text-base">{t("calculator.pages.loan.sacBalance")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <LineChart
@@ -264,80 +225,7 @@ export function LoanCalculator() {
               </CardContent>
             </Card>
           )}
-
-          {/* Amortization table (collapsible) */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Tabela de amortização</CardTitle>
-                <button
-                  type="button"
-                  onClick={() => setShowTable(!showTable)}
-                  className="text-xs text-sky-600 hover:underline dark:text-sky-400"
-                >
-                  {showTable ? "Ocultar" : "Ver todos os períodos"}
-                </button>
-              </div>
-            </CardHeader>
-            {showTable && (
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                        <th className="pb-1.5 text-left text-zinc-500">Período</th>
-                        <th className="pb-1.5 text-right text-zinc-500">Parcela SAC</th>
-                        <th className="pb-1.5 text-right text-zinc-500">Parcela Price</th>
-                        <th className="pb-1.5 text-right text-zinc-500">Juros SAC</th>
-                        <th className="pb-1.5 text-right text-zinc-500">Saldo SAC</th>
-                        <th className="pb-1.5 text-right text-zinc-500">Saldo Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sac
-                        .filter((_, i) => i % Math.max(1, Math.floor(n / 60)) === 0 || i === n - 1)
-                        .map((row) => {
-                          const priceRow = price[row.period - 1];
-                          return (
-                            <tr key={row.period} className="border-b border-zinc-100 dark:border-zinc-800">
-                              <td className="py-1.5 text-zinc-600">{row.period}</td>
-                              <td className="py-1.5 text-right">{formatMoney(row.payment, { currency })}</td>
-                              <td className="py-1.5 text-right">{formatMoney(priceRow?.payment ?? 0, { currency })}</td>
-                              <td className="py-1.5 text-right text-red-500">{formatMoney(row.interest, { currency })}</td>
-                              <td className="py-1.5 text-right">{formatMoney(row.balance, { currency })}</td>
-                              <td className="py-1.5 text-right">{formatMoney(priceRow?.balance ?? 0, { currency })}</td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-2 text-[10px] text-zinc-400">
-                  * Tabela amostrada a cada ~{Math.max(1, Math.floor(n / 60))} meses para facilitar leitura.
-                </p>
-              </CardContent>
-            )}
-          </Card>
-
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Dicas</p>
-              <ul className="mt-2 space-y-1 text-xs text-zinc-500">
-                <li>• <strong>SAC</strong> é preferível quando você pode arcar com a parcela inicial maior — paga menos juros no total.</li>
-                <li>• <strong>Price</strong> é mais fácil de planejar com parcela fixa, mas custará mais no longo prazo.</li>
-                <li>• Amortizações extras reduzem o prazo e os juros independente do sistema escolhido.</li>
-                <li>• Taxa de juros nominal ≠ CET (Custo Efetivo Total) — o banco pode cobrar seguros e tarifas adicionais.</li>
-              </ul>
-            </CardContent>
-          </Card>
         </>
-      )}
-
-      {!hasData && p > 0 && (
-        <p className="py-6 text-center text-sm text-zinc-500">Informe a taxa de juros para calcular.</p>
-      )}
-      {!hasData && p === 0 && (
-        <p className="py-6 text-center text-sm text-zinc-500">Preencha os campos acima para simular o financiamento.</p>
       )}
     </div>
   );

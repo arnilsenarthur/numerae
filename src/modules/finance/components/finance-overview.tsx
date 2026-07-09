@@ -8,13 +8,16 @@ import { Money } from "@/components/ui/money";
 import { StatCard } from "@/components/ui/stat-card";
 import { IconChart, IconTrendDown, IconTrendUp, IconWallet } from "@/components/ui/icons";
 import { formatMoney } from "@/lib/format-money";
-import { categoryLabel, type SerializedAccount } from "@/types/finance";
+import { useFinanceLabels } from "@/hooks/use-finance-labels";
+import { useLocale, useT } from "@/i18n/locale-provider";
+import type { AppLocale } from "@/i18n/locales";
+import type { SerializedAccount } from "@/types/finance";
 import type { FinanceSummary } from "@/modules/finance/hooks/use-finance-data";
 
-function formatMonthLabel(monthKey: string) {
+function formatMonthLabel(monthKey: string, locale: AppLocale) {
   const [year, month] = monthKey.split("-").map(Number);
   if (!year || !month) return monthKey;
-  return new Date(year, month - 1, 1).toLocaleDateString("pt-BR", { month: "short" });
+  return new Date(year, month - 1, 1).toLocaleDateString(locale, { month: "short" });
 }
 
 export function FinanceOverview({
@@ -26,6 +29,9 @@ export function FinanceOverview({
   accounts: SerializedAccount[];
   currency: string;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const labels = useFinanceLabels();
   const totals = summary?.totals.find((item) => item.currencyCode === currency);
   const otherTotals = summary?.totals.filter((item) => item.currencyCode !== currency) ?? [];
 
@@ -46,10 +52,10 @@ export function FinanceOverview({
       .sort((a, b) => b.total - a.total)
       .slice(0, 6)
       .map((item) => ({
-        label: categoryLabel(item.category ?? "other"),
+        label: labels.categoryLabel(item.category ?? "other"),
         value: item.total,
       }));
-  }, [summary, currency]);
+  }, [summary, currency, labels]);
 
   const monthlyBars = useMemo<ChartPoint[]>(() => {
     if (!summary) return [];
@@ -58,15 +64,15 @@ export function FinanceOverview({
       const income = entry?.income ?? 0;
       const expense = entry?.expense ?? 0;
       return {
-        label: formatMonthLabel(month.month),
+        label: formatMonthLabel(month.month, locale),
         value: income + expense,
         segments: [
-          { label: "Entradas", value: income, color: "bg-emerald-500" },
-          { label: "Saídas", value: expense, color: "bg-red-500" },
+          { label: t("finance.pages.overview.incomeLegend"), value: income, color: "bg-emerald-500" },
+          { label: t("finance.pages.overview.expenseLegend"), value: expense, color: "bg-red-500" },
         ],
       };
     });
-  }, [summary, currency]);
+  }, [summary, currency, locale, t]);
 
   const hasData = (summary?.count ?? 0) > 0;
 
@@ -74,28 +80,28 @@ export function FinanceOverview({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label={`Entradas (${currency})`}
+          label={t("finance.pages.overview.incomeLabel", { currency })}
           value={totals?.income ?? 0}
           currency={currency}
           valueTone="income"
           icon={<IconTrendUp size="sm" />}
         />
         <StatCard
-          label={`Saídas (${currency})`}
+          label={t("finance.pages.overview.expenseLabel", { currency })}
           value={totals?.expense ?? 0}
           currency={currency}
           valueTone="expense"
           icon={<IconTrendDown size="sm" />}
         />
         <StatCard
-          label={`Resultado no período (${currency})`}
+          label={t("finance.pages.overview.netLabel", { currency })}
           value={totals?.net ?? 0}
           currency={currency}
           valueTone="auto"
           icon={<IconChart size="sm" />}
         />
         <StatCard
-          label={`Saldo atual (${currency})`}
+          label={t("finance.pages.overview.balanceLabel", { currency })}
           value={balanceInCurrency}
           currency={currency}
           valueTone="auto"
@@ -105,7 +111,7 @@ export function FinanceOverview({
 
       {otherTotals.length > 0 ? (
         <p className="text-xs text-zinc-500">
-          Outras moedas no período:{" "}
+          {t("finance.pages.overview.otherCurrencies")}{" "}
           {otherTotals
             .map(
               (item) =>
@@ -118,20 +124,20 @@ export function FinanceOverview({
       {!hasData ? (
         <EmptyState
           icon={<IconChart className="h-6 w-6" />}
-          title="Sem lançamentos no período"
-          description="Registre entradas e saídas na aba Lançamentos para ver os relatórios."
+          title={t("finance.pages.overview.emptyTitle")}
+          description={t("finance.pages.overview.emptyDescription")}
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Gastos por categoria</CardTitle>
-              <CardDescription>Saídas do período agrupadas por categoria.</CardDescription>
+              <CardTitle className="text-base">{t("finance.pages.overview.expensesByCategory")}</CardTitle>
+              <CardDescription>{t("finance.pages.overview.expensesByCategoryDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
               {expenseDonut.length === 0 ? (
                 <p className="py-8 text-center text-sm text-zinc-500">
-                  Nenhuma saída no período.
+                  {t("finance.pages.overview.noExpenses")}
                 </p>
               ) : (
                 <DonutChart
@@ -144,15 +150,13 @@ export function FinanceOverview({
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Movimentação mensal</CardTitle>
-              <CardDescription>
-                Barras empilhadas por mês — verde para entradas e vermelho para saídas.
-              </CardDescription>
+              <CardTitle className="text-base">{t("finance.pages.overview.monthlyFlow")}</CardTitle>
+              <CardDescription>{t("finance.pages.overview.monthlyFlowDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {monthlyBars.length === 0 ? (
                 <p className="py-8 text-center text-sm text-zinc-500">
-                  Sem dados mensais no período.
+                  {t("finance.pages.overview.noMonthlyData")}
                 </p>
               ) : (
                 <>
@@ -164,11 +168,11 @@ export function FinanceOverview({
                   <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
                     <span className="inline-flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Entradas
+                      {t("finance.pages.overview.incomeLegend")}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-red-500" />
-                      Saídas
+                      {t("finance.pages.overview.expenseLegend")}
                     </span>
                   </div>
                 </>
@@ -181,7 +185,7 @@ export function FinanceOverview({
       {balanceByCurrency.length > 0 ? (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Saldo total por moeda</CardTitle>
+            <CardTitle className="text-base">{t("finance.pages.overview.balanceByCurrency")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-6">

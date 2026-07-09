@@ -25,15 +25,18 @@ type AccountRecord = {
   currencyCode: string;
   countryCode: string;
   initialBalance: Decimalish;
+  creditLimit: Decimalish;
   color: string | null;
   icon: string | null;
   archived: boolean;
+  isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export function serializeAccount(record: AccountRecord, balance?: number): SerializedAccount {
   const initialBalance = num(record.initialBalance);
+  const creditLimitRaw = record.creditLimit;
   return {
     id: record.id,
     institutionId: record.institutionId,
@@ -47,9 +50,11 @@ export function serializeAccount(record: AccountRecord, balance?: number): Seria
     countryCode: record.countryCode,
     initialBalance,
     balance: balance ?? initialBalance,
+    creditLimit: creditLimitRaw === null ? null : num(creditLimitRaw),
     color: record.color,
     icon: record.icon,
     archived: record.archived,
+    isDefault: record.isDefault,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };

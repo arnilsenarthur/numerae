@@ -10,6 +10,7 @@ import { SmartTable, SmartTableModalFields, type SmartTableColumn } from "@/comp
 import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useT } from "@/i18n/locale-provider";
 import type { SerializedCountry } from "@/lib/catalog-serializer";
 import { getCountryFlagUrl, getCountryFlagSrcSet } from "@/lib/country-flags";
 
@@ -33,6 +34,7 @@ function CountryFlag({ code }: { code: string }) {
 }
 
 export function CountriesAdmin() {
+  const t = useT();
   const [countries, setCountries] = useState<SerializedCountry[]>([]);
   const [form, setForm] = useState<CountryForm>(emptyForm());
   const [editingCode, setEditingCode] = useState<string | null>(null);
@@ -50,15 +52,15 @@ export function CountriesAdmin() {
         "/api/admin/countries",
       );
       if (!response.ok || !data?.countries) {
-        throw new Error(data?.error ?? "Erro ao carregar países.");
+        throw new Error(data?.error ?? t("admin.countries.errorLoad"));
       }
       setCountries(data.countries);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -75,7 +77,7 @@ export function CountriesAdmin() {
           body: JSON.stringify(body),
         },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.save"));
 
       if (data?.country) {
         setCountries((prev) => prev.map((item) => (item.code === code ? data.country! : item)));
@@ -83,7 +85,7 @@ export function CountriesAdmin() {
         await load();
       }
     },
-    [load],
+    [load, t],
   );
 
   function closeModal() {
@@ -119,11 +121,11 @@ export function CountriesAdmin() {
           body: JSON.stringify(form),
         },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.save"));
       closeModal();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.save"));
     } finally {
       setSaving(false);
     }
@@ -132,9 +134,9 @@ export function CountriesAdmin() {
   async function remove() {
     if (!editingCode) return;
     const ok = await confirm({
-      title: "Excluir país",
-      message: "Excluir este país?",
-      confirmLabel: "Excluir",
+      title: t("admin.countries.confirmDeleteTitle"),
+      message: t("admin.countries.confirmDeleteMessage"),
+      confirmLabel: t("admin.common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -144,11 +146,11 @@ export function CountriesAdmin() {
         `/api/admin/countries/${editingCode}`,
         { method: "DELETE" },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao excluir.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.delete"));
       closeModal();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.delete"));
     } finally {
       setSaving(false);
     }
@@ -158,7 +160,7 @@ export function CountriesAdmin() {
     () => [
       {
         id: "code",
-        header: "Código",
+        header: t("admin.common.columns.code"),
         sortValue: (row) => row.code,
         cell: (row) => (
           <span className="inline-flex items-center gap-2 font-medium">
@@ -190,20 +192,20 @@ export function CountriesAdmin() {
       },
       {
         id: "name",
-        header: "Nome",
+        header: t("admin.common.columns.name"),
         sortValue: (row) => row.name,
         field: {
           type: "text",
           scope: "both",
           formKey: "name",
           getValue: (row) => row.name,
-          placeholder: "Nome do país",
+          placeholder: t("admin.countries.countryName"),
           onSave: (row, value) => patchCountry(row.code, { name: String(value ?? "") }),
         },
       },
       {
         id: "currencies",
-        header: "Moedas",
+        header: t("admin.common.columns.currencies"),
         sortValue: (row) => row.currenciesCount ?? 0,
         align: "center",
         field: {
@@ -214,21 +216,21 @@ export function CountriesAdmin() {
       },
       {
         id: "active",
-        header: "Ativo",
+        header: t("admin.common.active"),
         sortValue: (row) => (row.active ? 1 : 0),
         align: "center",
         field: {
           type: "boolean",
           scope: "both",
           formKey: "active",
-          modalLabel: "Ativo",
+          modalLabel: t("admin.common.active"),
           getValue: (row) => row.active,
-          hint: "Ativo",
+          hint: t("admin.common.active"),
           onSave: (row, value) => patchCountry(row.code, { active: Boolean(value) }),
         },
       },
     ],
-    [patchCountry],
+    [patchCountry, t],
   );
 
   const modalOpen = isCreating || !!editingCode;
@@ -238,11 +240,11 @@ export function CountriesAdmin() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-emerald-600">Admin</p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Países</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Edite campos direto na tabela ou use Editar para o formulário completo.
-          </p>
+          <p className="text-sm text-emerald-600">{t("admin.common.kicker")}</p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+            {t("admin.countries.title")}
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">{t("admin.countries.subtitle")}</p>
         </div>
       </div>
 
@@ -254,23 +256,23 @@ export function CountriesAdmin() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Cadastrados</CardTitle>
+          <CardTitle className="text-base">{t("admin.common.registered")}</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando...</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.common.loading")}</p>
           ) : (
             <SmartTable
               data={countries}
               columns={columns}
               getRowKey={(row) => row.code}
               pageSize={10}
-              searchPlaceholder="Buscar países…"
+              searchPlaceholder={t("admin.countries.search")}
               searchFilter={(row, query) =>
                 [row.name, row.code].some((field) => field.toLowerCase().includes(query))
               }
               onCreate={startCreate}
-              createLabel="Novo país"
+              createLabel={t("admin.countries.new")}
               onEdit={startEdit}
             />
           )}
@@ -280,22 +282,30 @@ export function CountriesAdmin() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={isCreating ? "Novo país" : `Editar — ${form.name}`}
+        title={
+          isCreating
+            ? t("admin.countries.new")
+            : t("admin.common.editTitle", { name: form.name })
+        }
         size="lg"
         className="max-w-md"
         footer={
           <>
             <Button type="button" variant="secondary" onClick={closeModal} disabled={saving}>
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             {!isCreating && canDelete ? (
               <Button type="button" variant="danger" onClick={() => void remove()} disabled={saving}>
                 <IconTrash size="sm" />
-                Excluir
+                {t("admin.common.delete")}
               </Button>
             ) : null}
             <Button type="button" onClick={() => void save()} disabled={saving}>
-              {saving ? "Salvando..." : isCreating ? "Criar" : "Salvar"}
+              {saving
+                ? t("admin.common.saving")
+                : isCreating
+                  ? t("admin.common.create")
+                  : t("admin.common.save")}
             </Button>
           </>
         }

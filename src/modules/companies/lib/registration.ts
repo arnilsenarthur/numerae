@@ -1,5 +1,6 @@
 import type { CompanyRegistrationKind, TaxRegime } from "@/types/user-company";
 import type { SelectOption } from "@/components/ui/select";
+import type { TranslateFn } from "@/i18n/translate";
 
 export type RegistrationFieldMeta = {
   kind: CompanyRegistrationKind;
@@ -8,77 +9,68 @@ export type RegistrationFieldMeta = {
   hint?: string;
 };
 
-const REGISTRATION_BY_COUNTRY: Record<string, RegistrationFieldMeta> = {
-  BR: {
-    kind: "CNPJ",
-    label: "CNPJ",
-    placeholder: "00.000.000/0000-00",
-    hint: "Consulta automática de CNAE e razão social.",
-  },
-  US: {
-    kind: "EIN",
-    label: "EIN",
-    placeholder: "XX-XXXXXXX",
-    hint: "Employer Identification Number.",
-  },
-  GB: {
-    kind: "VAT_ID",
-    label: "Company number / VAT",
-    placeholder: "12345678",
-  },
-  DE: {
-    kind: "VAT_ID",
-    label: "USt-IdNr / Handelsregister",
-    placeholder: "DE123456789",
-  },
-  PT: {
-    kind: "VAT_ID",
-    label: "NIF / NIPC",
-    placeholder: "123456789",
-  },
-  EU: {
-    kind: "VAT_ID",
-    label: "VAT ID",
-    placeholder: "EU123456789",
-  },
-};
+const REGISTRATION_COUNTRY_KEYS = ["BR", "US", "GB", "DE", "PT", "EU"] as const;
 
-export function registrationMetaForCountry(countryCode: string): RegistrationFieldMeta {
-  return (
-    REGISTRATION_BY_COUNTRY[countryCode] ?? {
-      kind: "OTHER",
-      label: "ID fiscal / registro",
-      placeholder: "Número de registro da empresa",
-      hint: "Use o identificador oficial do país.",
-    }
-  );
+export function registrationMetaForCountry(
+  countryCode: string,
+  t: TranslateFn,
+): RegistrationFieldMeta {
+  const key = REGISTRATION_COUNTRY_KEYS.includes(
+    countryCode as (typeof REGISTRATION_COUNTRY_KEYS)[number],
+  )
+    ? countryCode
+    : null;
+
+  if (key) {
+    const hintKey = `companies.ui.form.registration.${key}.hint`;
+    const hint =
+      key === "BR" || key === "US"
+        ? t(hintKey)
+        : undefined;
+    return {
+      kind:
+        key === "BR"
+          ? "CNPJ"
+          : key === "US"
+            ? "EIN"
+            : "VAT_ID",
+      label: t(`companies.ui.form.registration.${key}.label`),
+      placeholder: t(`companies.ui.form.registration.${key}.placeholder`),
+      hint,
+    };
+  }
+
+  return {
+    kind: "OTHER",
+    label: t("companies.ui.form.registration.fallback.label"),
+    placeholder: t("companies.ui.form.registration.fallback.placeholder"),
+    hint: t("companies.ui.form.registration.fallback.hint"),
+  };
 }
 
-export const TAX_REGIME_OPTIONS: SelectOption[] = [
-  { value: "simples", label: "Simples Nacional" },
-  { value: "presumido", label: "Lucro Presumido" },
-  { value: "manual", label: "Manual / outro" },
-];
-
-export const GLOBAL_TAX_REGIME_OPTIONS: SelectOption[] = [
-  { value: "manual", label: "Alíquota manual" },
-  { value: "simples", label: "Regime simplificado" },
-  { value: "presumido", label: "Regime presumido" },
-];
-
-export function taxRegimeOptionsForCountry(countryCode: string): SelectOption[] {
-  return countryCode === "BR" ? TAX_REGIME_OPTIONS : GLOBAL_TAX_REGIME_OPTIONS;
+export function taxRegimeOptionsForCountry(countryCode: string, t: TranslateFn): SelectOption[] {
+  if (countryCode === "BR") {
+    return [
+      { value: "simples", label: t("companies.ui.form.taxRegime.simples") },
+      { value: "presumido", label: t("companies.ui.form.taxRegime.presumido") },
+      { value: "manual", label: t("companies.ui.form.taxRegime.manual") },
+    ];
+  }
+  return [
+    { value: "manual", label: t("companies.ui.form.taxRegime.globalManual") },
+    { value: "simples", label: t("companies.ui.form.taxRegime.globalSimples") },
+    { value: "presumido", label: t("companies.ui.form.taxRegime.globalPresumido") },
+  ];
 }
 
-export function taxRegimeLabel(regime: TaxRegime, countryCode: string): string {
-  const options = taxRegimeOptionsForCountry(countryCode);
+export function taxRegimeLabel(regime: TaxRegime, countryCode: string, t: TranslateFn): string {
+  const options = taxRegimeOptionsForCountry(countryCode, t);
   return options.find((option) => option.value === regime)?.label ?? regime;
 }
 
-export const REGISTRATION_KIND_OPTIONS: SelectOption[] = [
-  { value: "CNPJ", label: "CNPJ (Brasil)" },
-  { value: "EIN", label: "EIN (EUA)" },
-  { value: "VAT_ID", label: "VAT / NIF" },
-  { value: "COMPANY_NUMBER", label: "Company number" },
-  { value: "OTHER", label: "Outro" },
-];
+export function registrationKindOptions(t: TranslateFn): SelectOption[] {
+  return ["CNPJ", "EIN", "VAT_ID", "COMPANY_NUMBER", "OTHER"].map((value) => ({
+    value,
+    label: t(`companies.ui.form.registrationKind.${value}`),
+  }));
+}

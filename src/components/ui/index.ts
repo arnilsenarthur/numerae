@@ -137,6 +137,8 @@ export {
   IconX,
   icons,
   iconCategories,
+  getIconCategoryLabel,
+  type IconCategoryKey,
   type IconProps,
 } from "./icons";
 export { Label } from "./label";

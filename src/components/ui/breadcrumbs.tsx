@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { IconChevronRight } from "@/components/ui/icons";
+import { useT } from "@/i18n/locale-provider";
 
 export type BreadcrumbItem = {
   label: string;
@@ -14,10 +17,12 @@ export function Breadcrumbs({
   items: BreadcrumbItem[];
   className?: string;
 }) {
+  const t = useT();
+
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Navegação" className={cn("flex flex-wrap items-center gap-1", className)}>
+    <nav aria-label={t("ui.breadcrumbs.ariaLabel")} className={cn("flex flex-wrap items-center gap-1", className)}>
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
         return (

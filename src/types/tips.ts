@@ -1,9 +1,12 @@
+import type { TranslateFn } from "@/i18n/translate";
+import { translateTipCategory } from "@/i18n/labels";
+
 export const TIP_CATEGORIES = {
-  saving: "Economia",
-  taxes: "Impostos",
-  investing: "Investimentos",
-  timing: "Momento",
-  general: "Geral",
+  saving: "saving",
+  taxes: "taxes",
+  investing: "investing",
+  timing: "timing",
+  general: "general",
 } as const;
 
 export type TipCategory = keyof typeof TIP_CATEGORIES;
@@ -13,6 +16,7 @@ export type SerializedTip = {
   quote: string;
   author: string;
   category: TipCategory;
+  locale: string;
   sourceUrl: string | null;
   sourceLabel: string | null;
   active: boolean;
@@ -20,11 +24,15 @@ export type SerializedTip = {
   updatedAt: string;
 };
 
-export const TIP_CATEGORY_OPTIONS = Object.entries(TIP_CATEGORIES).map(([value, label]) => ({
-  value,
-  label,
-}));
+export const TIP_CATEGORY_VALUES = Object.keys(TIP_CATEGORIES) as TipCategory[];
 
-export function tipCategoryLabel(category: string): string {
-  return TIP_CATEGORIES[category as TipCategory] ?? category;
+export function tipCategoryLabel(category: string, t: TranslateFn): string {
+  return translateTipCategory(category, t);
+}
+
+export function tipCategoryOptions(t: TranslateFn) {
+  return TIP_CATEGORY_VALUES.map((value) => ({
+    value,
+    label: tipCategoryLabel(value, t),
+  }));
 }

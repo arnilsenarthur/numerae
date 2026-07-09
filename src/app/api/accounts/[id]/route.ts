@@ -39,6 +39,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Conta não encontrada." }, { status: 404 });
     }
 
+    if (parsed.data.isDefault) {
+      await prisma.financialAccount.updateMany({
+        where: { userId: session.user.id, id: { not: id } },
+        data: { isDefault: false },
+      });
+    }
+
     const record = await prisma.financialAccount.update({
       where: { id },
       data: {
@@ -59,6 +66,10 @@ export async function PATCH(request: Request, context: RouteContext) {
         ...(parsed.data.color !== undefined ? { color: parsed.data.color ?? null } : {}),
         ...(parsed.data.icon !== undefined ? { icon: parsed.data.icon ?? null } : {}),
         ...(parsed.data.archived !== undefined ? { archived: parsed.data.archived } : {}),
+        ...(parsed.data.creditLimit !== undefined
+          ? { creditLimit: parsed.data.creditLimit ?? null }
+          : {}),
+        ...(parsed.data.isDefault !== undefined ? { isDefault: parsed.data.isDefault } : {}),
       },
       include: { institution: { select: INSTITUTION_ACCOUNT_SELECT } },
     });
@@ -87,6 +98,21 @@ export async function DELETE(_request: Request, context: RouteContext) {
     }
 
     await prisma.financialAccount.delete({ where: { id } });
+
+    if (existing.isDefault) {
+      const next = await prisma.financialAccount.findFirst({
+        where: { userId: session.user.id, archived: false },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (next) {
+        await prisma.financialAccount.update({
+          where: { id: next.id },
+          data: { isDefault: true },
+        });
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[DELETE /api/accounts/[id]]", error);

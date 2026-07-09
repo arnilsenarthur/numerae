@@ -1,4 +1,4 @@
-import { INSTITUTION_TYPES, slugifyInstitution } from "@/lib/institutions";
+import { slugifyInstitution } from "@/lib/institutions";
 import type { SerializedInstitution } from "@/lib/institution-serializer";
 
 export type InstitutionForm = {
@@ -22,15 +22,6 @@ export const emptyInstitutionForm = (): InstitutionForm => ({
   description: "",
   active: true,
 });
-
-export const institutionTypeOptions = INSTITUTION_TYPES.map((t) => ({
-  value: t.value,
-  label: t.label,
-}));
-
-export function institutionTypeLabel(type: string) {
-  return INSTITUTION_TYPES.find((t) => t.value === type)?.label ?? type;
-}
 
 export function institutionToForm(record: SerializedInstitution): InstitutionForm {
   return {

@@ -13,12 +13,15 @@ import {
   type MarketKindSlug,
 } from "@/lib/app-routes";
 import {
-  MARKET_PERIOD_OPTIONS,
+  MARKET_DEFAULT_PERIOD,
+  MARKET_PERIOD_CODES,
   normalizeMarketPeriod,
+  periodLabelKey,
   type MarketHistoryPeriod,
 } from "@/lib/market-period";
 import { marketPageHeader } from "@/lib/page-meta";
 import { formatLastUpdated } from "@/lib/spoilable-field";
+import { useT } from "@/i18n/locale-provider";
 import { MarketPanel } from "@/modules/investments/components/market-panel";
 
 export function MarketApp({
@@ -30,11 +33,12 @@ export function MarketApp({
   assetSymbol?: string | null;
   legacySymbol?: string | null;
 }) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const page = marketPageHeader(kindSlug, assetSymbol);
+  const page = marketPageHeader(kindSlug, t, assetSymbol);
 
   const period = useMemo(
     () => normalizeMarketPeriod(searchParams.get("period")),
@@ -44,9 +48,9 @@ export function MarketApp({
   useEffect(() => {
     if (searchParams.get("period")) return;
     const next = new URLSearchParams(searchParams.toString());
-    next.set("period", period);
+    next.set("period", MARKET_DEFAULT_PERIOD);
     router.replace(`${pathname}?${next.toString()}`);
-  }, [pathname, period, router, searchParams]);
+  }, [pathname, router, searchParams]);
 
   function setPeriod(nextPeriod: MarketHistoryPeriod) {
     const next = new URLSearchParams(searchParams.toString());
@@ -78,7 +82,7 @@ export function MarketApp({
         <TabsList>
           {MARKET_KIND_NAV.map((item) => (
             <TabsTrigger key={item.slug} value={item.slug}>
-              {item.label}
+              {t(`section.market.kind.${item.slug}`)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -86,20 +90,20 @@ export function MarketApp({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ButtonGroup>
-          {MARKET_PERIOD_OPTIONS.map((item) => (
+          {MARKET_PERIOD_CODES.map((code) => (
             <ButtonGroupItem
-              key={item.value}
-              active={period === item.value}
-              onClick={() => setPeriod(item.value)}
+              key={code}
+              active={period === code}
+              onClick={() => setPeriod(code)}
             >
-              {item.label}
+              {t(periodLabelKey(code))}
             </ButtonGroupItem>
           ))}
         </ButtonGroup>
         <div className="flex items-center gap-2">
           {assetSymbol ? (
             <Button type="button" variant="ghost" size="sm" onClick={goToList}>
-              Voltar para lista
+              {t("market.backToList")}
             </Button>
           ) : null}
           {lastUpdate ? (

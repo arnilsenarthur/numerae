@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AdminLoadingFallback } from "@/components/admin/admin-loading-fallback";
 import { InstitutionDetail } from "@/modules/admin/institutions/institution-detail";
 
 type PageProps = {
@@ -9,7 +10,7 @@ export default async function AdminInstitutionDetailPage({ params }: PageProps) 
   const { id } = await params;
 
   return (
-    <Suspense fallback={<p className="py-12 text-center text-sm text-zinc-500">Carregando...</p>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <InstitutionDetail institutionId={id} />
     </Suspense>
   );

@@ -1,9 +1,11 @@
 import type { SelectOption } from "@/components/ui/select";
 import type { SmartTableColumn } from "@/components/ui/smart-table";
+import type { TranslateFn } from "@/i18n/translate";
+import { institutionTypeOptions, translateInstitutionType } from "@/i18n/labels";
 import type { SerializedInstitution } from "@/lib/institution-serializer";
-import { institutionTypeLabel, institutionTypeOptions } from "./institution-form";
 
 export function buildInstitutionColumns(options: {
+  t: TranslateFn;
   patchInstitution: (
     id: string,
     body: Record<string, unknown>,
@@ -11,12 +13,12 @@ export function buildInstitutionColumns(options: {
   countryFormOptions: SelectOption[];
   resolveCountryName: (code: string) => string;
 }): SmartTableColumn<SerializedInstitution>[] {
-  const { patchInstitution, countryFormOptions, resolveCountryName } = options;
+  const { t, patchInstitution, countryFormOptions, resolveCountryName } = options;
 
   return [
     {
       id: "name",
-      header: "Nome",
+      header: t("admin.common.columns.name"),
       sortValue: (row) => row.name,
       field: {
         type: "text",
@@ -24,13 +26,13 @@ export function buildInstitutionColumns(options: {
         formKey: "name",
         modalOrder: 1,
         getValue: (row) => row.name,
-        placeholder: "Wise, Nubank...",
+        placeholder: t("admin.institutions.placeholders.name"),
         onSave: (row, value) => patchInstitution(row.id, { name: String(value ?? "") }),
       },
     },
     {
       id: "slug",
-      header: "Slug",
+      header: t("admin.common.columns.slug"),
       sortValue: (row) => row.slug,
       field: {
         type: "text",
@@ -38,14 +40,14 @@ export function buildInstitutionColumns(options: {
         formKey: "slug",
         modalOrder: 2,
         getValue: (row) => row.slug,
-        placeholder: "wise",
+        placeholder: t("admin.institutions.placeholders.slug"),
         onSave: (row, value) =>
           patchInstitution(row.id, { slug: String(value ?? "").trim().toLowerCase() }),
       },
     },
     {
       id: "brandColor",
-      header: "Cor",
+      header: t("admin.common.columns.color"),
       sortValue: (row) => row.brandColor ?? "",
       align: "center",
       field: {
@@ -60,28 +62,28 @@ export function buildInstitutionColumns(options: {
     },
     {
       id: "type",
-      header: "Tipo",
-      sortValue: (row) => institutionTypeLabel(row.type),
+      header: t("admin.common.columns.kind"),
+      sortValue: (row) => translateInstitutionType(row.type, t),
       field: {
         type: "select",
         scope: "both",
         formKey: "type",
         modalOrder: 3,
         getValue: (row) => row.type,
-        options: institutionTypeOptions,
+        options: institutionTypeOptions(t),
         onSave: (row, value) => patchInstitution(row.id, { type: String(value) }),
       },
     },
     {
       id: "country",
-      header: "País",
+      header: t("admin.common.columns.country"),
       sortValue: (row) => resolveCountryName(row.countryCode),
       field: {
         type: "select",
         scope: "both",
         formKey: "countryCode",
         modalOrder: 4,
-        modalLabel: "País",
+        modalLabel: t("admin.common.columns.country"),
         getValue: (row) => row.countryCode,
         options: countryFormOptions,
         onSave: (row, value) => patchInstitution(row.id, { countryCode: String(value) }),
@@ -89,7 +91,7 @@ export function buildInstitutionColumns(options: {
     },
     {
       id: "website",
-      header: "Site",
+      header: t("admin.common.columns.website"),
       hidden: true,
       field: {
         type: "text",
@@ -97,12 +99,12 @@ export function buildInstitutionColumns(options: {
         formKey: "website",
         modalOrder: 5,
         getValue: (row) => row.website ?? "",
-        placeholder: "https://...",
+        placeholder: t("admin.institutions.placeholders.website"),
       },
     },
     {
       id: "description",
-      header: "Descrição",
+      header: t("admin.common.columns.description"),
       hidden: true,
       field: {
         type: "textarea",
@@ -110,12 +112,12 @@ export function buildInstitutionColumns(options: {
         formKey: "description",
         modalOrder: 7,
         getValue: (row) => row.description ?? "",
-        placeholder: "Notas internas sobre a instituição...",
+        placeholder: t("admin.institutions.placeholders.description"),
       },
     },
     {
       id: "active",
-      header: "Ativa",
+      header: t("admin.common.activeFeminine"),
       sortValue: (row) => (row.active ? 1 : 0),
       align: "center",
       field: {
@@ -123,13 +125,11 @@ export function buildInstitutionColumns(options: {
         scope: "both",
         formKey: "active",
         modalOrder: 8,
-        modalLabel: "Ativa",
-        hint: "Ativa",
+        modalLabel: t("admin.common.activeFeminine"),
+        hint: t("admin.common.activeFeminine"),
         getValue: (row) => row.active,
         onSave: (row, value) => patchInstitution(row.id, { active: Boolean(value) }),
       },
     },
   ];
 }
-
-export { institutionTypeLabel };

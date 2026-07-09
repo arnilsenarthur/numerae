@@ -11,8 +11,10 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { validationRules } from "@/components/ui/field-validation";
 import { validateFormFields } from "@/lib/form-validation";
+import { useT } from "@/i18n/locale-provider";
 
 export function ForgotPasswordForm() {
+  const t = useT();
   const router = useRouter();
   const emailField = useValidatedField([validationRules.email()], {
     required: true,
@@ -38,7 +40,7 @@ export function ForgotPasswordForm() {
     setLoading(false);
 
     if (!response.ok) {
-      setError(data.error ?? "Erro ao solicitar redefinição.");
+      setError(data.error ?? t("auth.forgot.error"));
       return;
     }
 
@@ -49,11 +51,11 @@ export function ForgotPasswordForm() {
 
   return (
     <AuthCard
-      title="Esqueci minha senha"
-      subtitle="Enviaremos um código de 6 dígitos para redefinir sua senha."
+      title={t("auth.forgot.title")}
+      subtitle={t("auth.forgot.subtitle")}
       footer={
         <Link href="/login" className={authLinkClass}>
-          Voltar para login
+          {t("auth.forgot.backToLogin")}
         </Link>
       }
     >
@@ -62,7 +64,7 @@ export function ForgotPasswordForm() {
 
         <FormField delay={80}>
           <Field
-            label="E-mail"
+            label={t("common.email")}
             htmlFor="email"
             required
             state={emailField.validation.state}
@@ -82,7 +84,7 @@ export function ForgotPasswordForm() {
 
         <FormField delay={160}>
           <Button type="submit" className="w-full" loading={loading}>
-            Enviar código
+            {t("auth.forgot.submit")}
           </Button>
         </FormField>
       </form>

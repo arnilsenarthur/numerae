@@ -17,26 +17,28 @@ import {
   scrollToFieldById,
   validateFormFields,
 } from "@/lib/form-validation";
+import { useT } from "@/i18n/locale-provider";
 
 function ResetMissingEmail() {
+  const t = useT();
+
   return (
     <AuthCard
-      title="Redefinir senha"
-      subtitle="Precisamos do seu e-mail para validar o código."
+      title={t("auth.reset.title")}
+      subtitle={t("auth.reset.missingSubtitle")}
       footer={
         <Link href="/forgot-password" className={authLinkClass}>
-          Solicitar código
+          {t("auth.reset.requestCode")}
         </Link>
       }
     >
-      <Alert variant="warning">
-        Volte e informe o e-mail da sua conta para continuar.
-      </Alert>
+      <Alert variant="warning">{t("auth.reset.missingWarning")}</Alert>
     </AuthCard>
   );
 }
 
 export function ResetPasswordForm() {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email")?.trim().toLowerCase() ?? "";
@@ -52,15 +54,15 @@ export function ResetPasswordForm() {
 
   const passwordField = useValidatedField(
     [
-      validationRules.minLength(8, "Senha deve ter pelo menos 8 caracteres."),
-      validationRules.pattern(/[A-Za-z]/, "Senha deve conter letras."),
-      validationRules.pattern(/[0-9]/, "Senha deve conter números."),
+      validationRules.minLength(8, t("auth.validation.passwordMinLength")),
+      validationRules.pattern(/[A-Za-z]/, t("auth.validation.passwordLetters")),
+      validationRules.pattern(/[0-9]/, t("auth.validation.passwordNumbers")),
     ],
     { required: true, showSuccess: false },
   );
   const confirmField = useValidatedField([], {
     required: true,
-    requiredMessage: "Confirme a nova senha.",
+    requiredMessage: t("auth.validation.confirmPasswordRequired"),
     showSuccess: false,
   });
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export function ResetPasswordForm() {
     if (!validateFormFields([passwordField, confirmField], form)) return;
 
     if (passwordField.value !== confirmField.value) {
-      setConfirmError("As senhas não coincidem.");
+      setConfirmError(t("auth.validation.passwordsMismatch"));
       requestAnimationFrame(() => {
         requestAnimationFrame(() => scrollToFieldById("confirmPassword", form));
       });
@@ -98,24 +100,24 @@ export function ResetPasswordForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error ?? "Erro ao redefinir senha.");
+        setError(data.error ?? t("auth.reset.error"));
         return;
       }
 
-      setMessage("Senha redefinida. Redirecionando para login…");
+      setMessage(t("auth.reset.successRedirect"));
       router.push(`/login?email=${encodeURIComponent(email)}&reset=1`);
       router.refresh();
     } finally {
       setLoading(false);
       submitLock.current = false;
     }
-  }, [code, confirmField, email, passwordField, router]);
+  }, [code, confirmField, email, passwordField, router, t]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (code.length !== 6) {
-      setCodeError("Digite os 6 dígitos do código.");
+      setCodeError(t("auth.validation.codeSixDigits"));
       requestAnimationFrame(() => {
         requestAnimationFrame(() => scrollToFieldById("verification-code", event.currentTarget));
       });
@@ -142,7 +144,7 @@ export function ResetPasswordForm() {
     setResending(false);
 
     if (!response.ok) {
-      setError(data.error ?? "Erro ao reenviar código.");
+      setError(data.error ?? t("auth.reset.errorResend"));
       if (response.status === 429) startCooldown();
       return;
     }
@@ -159,11 +161,11 @@ export function ResetPasswordForm() {
 
   return (
     <AuthCard
-      title="Redefinir senha"
-      subtitle={`Digite o código enviado para ${maskEmail(email)} e escolha uma nova senha.`}
+      title={t("auth.reset.title")}
+      subtitle={t("auth.reset.subtitleWithEmail", { email: maskEmail(email) })}
       footer={
         <Link href="/login" className={authLinkClass}>
-          Voltar para login
+          {t("auth.reset.backToLogin")}
         </Link>
       }
     >
@@ -173,7 +175,7 @@ export function ResetPasswordForm() {
 
         <FormField delay={80}>
           <Field
-            label="Código de verificação"
+            label={t("auth.reset.codeLabel")}
             state={codeError ? "error" : "default"}
             message={codeError ?? undefined}
           >
@@ -192,7 +194,7 @@ export function ResetPasswordForm() {
 
         <FormField delay={120}>
           <Field
-            label="Nova senha"
+            label={t("auth.reset.newPassword")}
             htmlFor="password"
             required
             state={passwordField.validation.state}
@@ -212,7 +214,7 @@ export function ResetPasswordForm() {
 
         <FormField delay={160}>
           <Field
-            label="Confirmar senha"
+            label={t("auth.reset.confirmPassword")}
             htmlFor="confirmPassword"
             required
             state={confirmError ? "error" : confirmField.validation.state}
@@ -240,7 +242,7 @@ export function ResetPasswordForm() {
             loading={loading}
             disabled={code.length !== 6}
           >
-            Redefinir senha
+            {t("auth.reset.submit")}
           </Button>
         </FormField>
 
@@ -253,7 +255,9 @@ export function ResetPasswordForm() {
             disabled={!canResend || resending}
             onClick={handleResend}
           >
-            {canResend ? "Reenviar código" : `Reenviar em ${cooldown}s`}
+            {canResend
+              ? t("auth.verify.resend")
+              : t("auth.reset.resendIn", { seconds: cooldown })}
           </Button>
         </FormField>
       </form>

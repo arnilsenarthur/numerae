@@ -10,6 +10,7 @@ import { CompanyPicker, MANUAL_COMPANY_ID } from "@/components/ui/company-picker
 import { Money } from "@/components/ui/money";
 import { formatMoney } from "@/lib/format-money";
 import { useCompanies } from "@/modules/calculator/hooks/use-companies";
+import { useT } from "@/i18n/locale-provider";
 import type { SavedCompany } from "@/types/user-company";
 
 // ---- Simples Nacional Anexo III ---- (Fator R >= 28%)
@@ -113,6 +114,7 @@ function companyRegimeDefault(company: SavedCompany): { regimeHint: string; rate
 }
 
 export function TaxCalculator() {
+  const t = useT();
   const { companies, loading: loadingCompanies } = useCompanies();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(MANUAL_COMPANY_ID);
   const [monthlyRevenue, setMonthlyRevenue] = useState("10000");
@@ -166,7 +168,7 @@ export function TaxCalculator() {
       list.push({
         id: "mei",
         name: "MEI",
-        badge: "Simples",
+        badge: t("calculator.pages.taxes.meiBadge"),
         badgeVariant: "success",
         annualTax: MEI_DAS * 12,
         monthlyTax: MEI_DAS,
@@ -182,7 +184,7 @@ export function TaxCalculator() {
       list.push({
         id: "mei",
         name: "MEI",
-        badge: "Fora do limite",
+        badge: t("calculator.pages.taxes.meiOverLimit"),
         badgeVariant: "error",
         annualTax: 0,
         monthlyTax: 0,
@@ -203,23 +205,41 @@ export function TaxCalculator() {
 
     list.push({
       id: "simples_iii",
-      name: "Simples — Anexo III",
-      badge: fatorR >= 0.28 ? "Fator R ≥ 28% ✓" : prolaboreValue > 0 ? "Fator R < 28% ✗" : "Fator R não calculado",
+      name: t("calculator.pages.taxes.simplesIII"),
+      badge: fatorR >= 0.28 ? t("calculator.pages.taxes.fatorROk") : prolaboreValue > 0 ? t("calculator.pages.taxes.fatorRLow") : t("calculator.pages.taxes.fatorRUnknown"),
       badgeVariant: fatorR >= 0.28 ? "success" : prolaboreValue > 0 ? "error" : "default",
       annualTax: simplesIIITax + (prolaboreValue > 0 ? inss * 12 : 0),
       monthlyTax: simplesIIITax / 12 + (prolaboreValue > 0 ? inss : 0),
       netMonthly: monthly - simplesIIITax / 12 - (prolaboreValue > 0 ? inss : 0),
       effectiveRate: (simplesIIITax + (prolaboreValue > 0 ? inss * 12 : 0)) / annual,
       notes: [
-        `Alíquota Simples: ${pct(rateIII)} efetiva sobre a receita`,
+        t("calculator.pages.taxes.noteSimplesEffective", { rate: pct(rateIII) }),
         prolaboreValue > 0
-          ? `Pró-labore ${formatMoney(prolaboreValue, { currency: "BRL" })} → INSS ${formatMoney(inss, { currency: "BRL" })}/mês`
-          : `Defina o pró-labore para calcular INSS`,
+          ? t("calculator.pages.taxes.noteProlaboreInss", {
+              prolabore: formatMoney(prolaboreValue, { currency: "BRL" }),
+              inss: formatMoney(inss, { currency: "BRL" }),
+            })
+          : t("calculator.pages.taxes.noteProlaboreDefineInss"),
         prolaboreValue > 0
-          ? `Fator R = ${(fatorR * 100).toFixed(1)}% (precisa ≥ 28%${fatorR < 0.28 ? ` — mínimo: ${formatMoney(minProlaboreIII, { currency: "BRL" })}/mês` : ""})`
-          : `Mínimo pró-labore para Fator R 28%: ${formatMoney(minProlaboreIII, { currency: "BRL" })}/mês`,
+          ? t("calculator.pages.taxes.noteFatorR", {
+              rate: (fatorR * 100).toFixed(1),
+              extra:
+                fatorR < 0.28
+                  ? t("calculator.pages.taxes.noteFatorRMinSuffix", {
+                      amount: formatMoney(minProlaboreIII, { currency: "BRL" }),
+                    })
+                  : "",
+            })
+          : t("calculator.pages.taxes.noteMinProlaboreFatorR", {
+              amount: formatMoney(minProlaboreIII, { currency: "BRL" }),
+            }),
       ],
-      highlight: useIII && prolaboreValue > 0 ? `Pró-labore líquido: ${formatMoney(netProlabore, { currency: "BRL" })}/mês (após INSS + IRRF)` : undefined,
+      highlight:
+        useIII && prolaboreValue > 0
+          ? t("calculator.pages.taxes.highlightProlaboreNet", {
+              amount: formatMoney(netProlabore, { currency: "BRL" }),
+            })
+          : undefined,
     });
 
     // --- Simples Anexo V (Fator R < 28%) ---
@@ -227,21 +247,27 @@ export function TaxCalculator() {
     const rateV = effectiveRate(annual, SIMPLES_V);
     list.push({
       id: "simples_v",
-      name: "Simples — Anexo V",
-      badge: "Fator R < 28%",
+      name: t("calculator.pages.taxes.simplesV"),
+      badge: t("calculator.pages.taxes.fatorRLow"),
       badgeVariant: "warning",
       annualTax: simplesVTax,
       monthlyTax: simplesVTax / 12,
       netMonthly: monthly - simplesVTax / 12,
       effectiveRate: rateV,
       notes: [
-        `Alíquota ${pct(rateV)} efetiva — muito mais alto que Anexo III`,
-        `Diferença mensal vs. Anexo III: ${formatMoney(Math.abs(simplesVTax - simplesIIITax) / 12, { currency: "BRL" })} a mais`,
-        `Acontece quando pró-labore < ${formatMoney(minProlaboreIII, { currency: "BRL" })}/mês`,
+        t("calculator.pages.taxes.noteSimplesVEffective", { rate: pct(rateV) }),
+        t("calculator.pages.taxes.noteSimplesVDiff", {
+          amount: formatMoney(Math.abs(simplesVTax - simplesIIITax) / 12, { currency: "BRL" }),
+        }),
+        t("calculator.pages.taxes.noteSimplesVProlabore", {
+          amount: formatMoney(minProlaboreIII, { currency: "BRL" }),
+        }),
       ],
       warning:
         prolaboreValue > 0 && fatorR < 0.28
-          ? `Seu pró-labore atual leva ao Anexo V. Aumente para ${formatMoney(minProlaboreIII, { currency: "BRL" })}/mês para usar o Anexo III.`
+          ? t("calculator.pages.taxes.warningSimplesV", {
+              amount: formatMoney(minProlaboreIII, { currency: "BRL" }),
+            })
           : undefined,
     });
 
@@ -250,20 +276,24 @@ export function TaxCalculator() {
     const lpRate = lpTax / annual;
     list.push({
       id: "lp",
-      name: "Lucro Presumido",
-      badge: "Regime Real",
+      name: t("calculator.pages.taxes.lucroPresumido"),
+      badge: t("calculator.pages.taxes.realRegime"),
       badgeVariant: "warning",
       annualTax: lpTax,
       monthlyTax: lpTax / 12,
       netMonthly: monthly - lpTax / 12,
       effectiveRate: lpRate,
       notes: [
-        "IRPJ 15% s/ 32% + CSLL 9% s/ 32% + PIS 0,65% + COFINS 3% + ISS 5%",
-        "Distribuição de lucros isenta de IR (grande vantagem)",
+        t("calculator.pages.taxes.noteLpTaxes"),
+        t("calculator.pages.taxes.noteLpDistribution"),
         prolaboreValue > 0
-          ? `Pró-labore ${formatMoney(prolaboreValue, { currency: "BRL" })} → INSS ${formatMoney(inss, { currency: "BRL" })} + IRRF ${formatMoney(irrf, { currency: "BRL" })}`
-          : "Recomenda-se pagar pró-labore mínimo (previdência)",
-        "Vantajoso acima de ~R$ 30k/mês vs. Simples V",
+          ? t("calculator.pages.taxes.noteLpProlaboreFull", {
+              prolabore: formatMoney(prolaboreValue, { currency: "BRL" }),
+              inss: formatMoney(inss, { currency: "BRL" }),
+              irrf: formatMoney(irrf, { currency: "BRL" }),
+            })
+          : t("calculator.pages.taxes.noteLpProlaboreRecommend"),
+        t("calculator.pages.taxes.noteLpAdvantage"),
       ],
     });
 
@@ -273,19 +303,23 @@ export function TaxCalculator() {
       const manualTaxMonthly = monthly * manualRateValue;
       list.push({
         id: "manual",
-        name: selectedCompany?.label ? `${selectedCompany.label} (manual)` : "Alíquota manual",
-        badge: `${(manualRateValue * 100).toFixed(1)}% configurado`,
+        name: selectedCompany?.label ? `${selectedCompany.label} (${t("calculator.pages.taxes.manualName")})` : t("calculator.pages.taxes.manualName"),
+        badge: t("calculator.pages.taxes.badgeManualConfigured", {
+          rate: (manualRateValue * 100).toFixed(1),
+        }),
         badgeVariant: "default",
         annualTax: manualTaxMonthly * 12,
         monthlyTax: manualTaxMonthly,
         netMonthly: monthly - manualTaxMonthly,
         effectiveRate: manualRateValue,
         notes: [
-          "Alíquota configurada manualmente na empresa.",
-          "Use para regimes não cobertos ou taxas negociadas.",
+          t("calculator.pages.taxes.noteManualConfigured"),
+          t("calculator.pages.taxes.noteManualCustom"),
         ],
         highlight: selectedCompany?.activityDescription
-          ? `Atividade: ${selectedCompany.activityDescription}`
+          ? t("calculator.pages.taxes.highlightActivity", {
+              description: selectedCompany.activityDescription,
+            })
           : undefined,
       });
     }
@@ -298,7 +332,7 @@ export function TaxCalculator() {
       if (a.id === "simples_iii" && b.id === "simples_v") return -1;
       return a.effectiveRate - b.effectiveRate;
     });
-  }, [annual, monthly, prolaboreValue, fatorR, inss, irrf, netProlabore, minProlaboreIII, manualRate, selectedCompany]);
+  }, [annual, monthly, prolaboreValue, fatorR, inss, irrf, netProlabore, minProlaboreIII, manualRate, selectedCompany, t]);
 
   const best = results.find((r) => !r.warning && r.effectiveRate > 0);
 
@@ -321,7 +355,7 @@ export function TaxCalculator() {
             </div>
             {selectedCompany && (
               <div className="pb-1 space-y-0.5">
-                <Badge variant="default">{selectedCompany.taxRegime === "simples" ? "Simples Nacional" : selectedCompany.taxRegime === "presumido" ? "Lucro Presumido" : "Alíquota manual"}</Badge>
+                <Badge variant="default">{selectedCompany.taxRegime === "simples" ? t("calculator.pages.taxes.regimeSimples") : selectedCompany.taxRegime === "presumido" ? t("calculator.pages.taxes.regimePresumido") : t("calculator.pages.taxes.regimeManual")}</Badge>
                 {selectedCompany.activityDescription && (
                   <p className="text-xs text-zinc-500">{selectedCompany.activityCode} · {selectedCompany.activityDescription}</p>
                 )}
@@ -330,12 +364,12 @@ export function TaxCalculator() {
             )}
             {isManualCompany && (
               <div className="space-y-1">
-                <Label>Alíquota manual (%)</Label>
+                <Label>{t("calculator.pages.taxes.manualRateLabel")}</Label>
                 <div className="w-28">
                   <NumberInput
                     value={manualRate}
                     onChange={(e) => setManualRate(e.target.value)}
-                    placeholder="Ex.: 15"
+                    placeholder={t("calculator.pages.taxes.manualRatePlaceholder")}
                   />
                 </div>
               </div>
@@ -344,7 +378,7 @@ export function TaxCalculator() {
 
           <div className="flex flex-wrap items-end gap-6">
             <div className="space-y-1">
-              <Label>Faturamento mensal bruto (R$)</Label>
+              <Label>{t("calculator.pages.taxes.revenueLabel")}</Label>
               <div className="w-44">
                 <NumberInput
                   value={monthlyRevenue}
@@ -354,12 +388,14 @@ export function TaxCalculator() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Pró-labore mensal (R$) <span className="text-zinc-400">— opcional</span></Label>
+              <Label>{t("calculator.pages.taxes.prolaboreLabel")} <span className="text-zinc-400">{t("calculator.pages.taxes.prolaboreOptional")}</span></Label>
               <div className="w-44">
                 <NumberInput
                   value={prolabore}
                   onChange={(e) => setProlabore(e.target.value)}
-                  placeholder={`Mín. ${formatMoney(minProlaboreIII, { currency: "BRL" })} p/ Anexo III`}
+                  placeholder={t("calculator.pages.taxes.prolaborePlaceholder", {
+                    amount: formatMoney(minProlaboreIII, { currency: "BRL" }),
+                  })}
                 />
               </div>
             </div>
@@ -447,8 +483,8 @@ export function TaxCalculator() {
                     </div>
                     <div className="flex flex-col items-end gap-0.5">
                       <Badge variant={regime.badgeVariant} className="text-[10px]">{regime.badge}</Badge>
-                      {isBest && !isDisabled && <Badge variant="success" className="text-[10px]">Menor imposto</Badge>}
-                      {isCompanyRegime && !isDisabled && <Badge variant="default" className="text-[10px]">Regime atual</Badge>}
+                      {isBest && !isDisabled && <Badge variant="success" className="text-[10px]">{t("calculator.pages.taxes.lowestTax")}</Badge>}
+                      {isCompanyRegime && !isDisabled && <Badge variant="default" className="text-[10px]">{t("calculator.pages.taxes.currentRegime")}</Badge>}
                     </div>
                   </div>
                 </CardHeader>
@@ -459,17 +495,17 @@ export function TaxCalculator() {
                     <>
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs">
-                          <span className="text-zinc-500">Imposto/mês</span>
+                          <span className="text-zinc-500">{t("calculator.pages.taxes.taxPerMonth")}</span>
                           <span className="font-medium text-red-600">
                             {formatMoney(regime.monthlyTax, { currency: "BRL" })}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs">
-                          <span className="text-zinc-500">Alíquota efetiva</span>
+                          <span className="text-zinc-500">{t("calculator.pages.taxes.effectiveRate")}</span>
                           <span className="font-medium">{pct(regime.effectiveRate)}</span>
                         </div>
                         <div className="flex justify-between border-t border-zinc-100 pt-1 text-sm dark:border-zinc-800">
-                          <span className="text-zinc-600">Líquido/mês</span>
+                          <span className="text-zinc-600">{t("calculator.pages.taxes.netPerMonth")}</span>
                           <Money value={regime.netMonthly} currency="BRL" />
                         </div>
                       </div>
@@ -507,12 +543,12 @@ export function TaxCalculator() {
           })}
         </div>
       ) : (
-        <p className="py-6 text-center text-sm text-zinc-500">Informe o faturamento para comparar os regimes.</p>
+        <p className="py-6 text-center text-sm text-zinc-500">{t("calculator.pages.taxes.enterRevenue")}</p>
       )}
 
       <Card>
         <CardContent className="pt-4">
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Sobre o Fator R e pró-labore</p>
+          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t("calculator.pages.taxes.fatorRInfoTitle")}</p>
           <ul className="mt-2 space-y-1 text-xs text-zinc-500">
             <li>
               • <strong>Fator R</strong> = folha de salários (pró-labore + funcionários) dos últimos 12 meses ÷ receita bruta dos últimos 12 meses.

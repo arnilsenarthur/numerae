@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    const emailResult = await sendVerificationCode(email, code);
+    const emailResult = await sendVerificationCode(email, code, request);
 
     if (!emailResult.sent) {
       return NextResponse.json({ error: emailResult.error }, { status: 503 });

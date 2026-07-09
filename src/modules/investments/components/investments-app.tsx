@@ -6,11 +6,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import {
   INVESTMENT_DEFAULT_TAB,
-  INVESTMENT_TAB_LABELS,
   INVESTMENT_TABS,
   type InvestmentTabSlug,
 } from "@/lib/app-routes";
 import { investmentPageHeader, investmentPositionPageHeader } from "@/lib/page-meta";
+import { useT } from "@/i18n/locale-provider";
 import { InvestmentPlansPanel } from "@/modules/investments/components/investment-plans-panel";
 import { PortfolioPanel } from "@/modules/investments/components/portfolio-panel";
 import { PositionsPanel } from "@/modules/investments/components/positions-panel";
@@ -25,6 +25,7 @@ export function InvestmentsApp({
   initialTab?: string | null;
   positionId?: string | null;
 }) {
+  const t = useT();
   const [detailPosition, setDetailPosition] = useState<SerializedInvestmentPosition | null>(
     null,
   );
@@ -37,8 +38,8 @@ export function InvestmentsApp({
 
   const page =
     positionId && detailPosition
-      ? investmentPositionPageHeader(detailPosition.name)
-      : investmentPageHeader(tab);
+      ? investmentPositionPageHeader(detailPosition.name, t)
+      : investmentPageHeader(tab, t);
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4">
@@ -52,7 +53,7 @@ export function InvestmentsApp({
           <TabsList>
           {VALID_TABS.map((id) => (
             <TabsTrigger key={id} value={id} className="text-xs">
-              {INVESTMENT_TAB_LABELS[id]}
+              {t(`section.investments.${id}.title`)}
             </TabsTrigger>
           ))}
         </TabsList>

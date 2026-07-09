@@ -22,6 +22,7 @@ import {
   registrationMetaForCountry,
   taxRegimeOptionsForCountry,
 } from "@/modules/companies/lib/registration";
+import { useT } from "@/i18n/locale-provider";
 import type { SavedCompany } from "@/types/user-company";
 
 type CompanyFormModalProps = {
@@ -82,6 +83,7 @@ export function CompanyFormModal({
   initial,
   onSaved,
 }: CompanyFormModalProps) {
+  const t = useT();
   const [form, setForm] = useState<FormState>(() => emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,13 +98,13 @@ export function CompanyFormModal({
   );
 
   const registrationMeta = useMemo(
-    () => registrationMetaForCountry(form.countryCode),
-    [form.countryCode],
+    () => registrationMetaForCountry(form.countryCode, t),
+    [form.countryCode, t],
   );
 
   const taxRegimeOptions = useMemo(
-    () => taxRegimeOptionsForCountry(form.countryCode),
-    [form.countryCode],
+    () => taxRegimeOptionsForCountry(form.countryCode, t),
+    [form.countryCode, t],
   );
 
   useEffect(() => {
@@ -141,7 +143,7 @@ export function CompanyFormModal({
 
       if (!response.ok) {
         setLookup(null);
-        setLookupError(data.error ?? "Não foi possível consultar o CNPJ.");
+        setLookupError(data.error ?? t("companies.ui.form.lookupError"));
         lastLookupRef.current = "";
         return;
       }
@@ -160,19 +162,19 @@ export function CompanyFormModal({
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [form.countryCode, form.registrationId]);
+  }, [form.countryCode, form.registrationId, t]);
 
   async function handleSubmit() {
     setError(null);
 
     const rate = Number(form.taxRate.replace(",", "."));
     if (Number.isNaN(rate) || rate < 0 || rate > 100) {
-      setError("Alíquota deve estar entre 0 e 100.");
+      setError(t("companies.ui.form.taxRateRange"));
       return;
     }
 
     if (!form.label.trim()) {
-      setError("Informe um nome para a empresa.");
+      setError(t("companies.ui.form.nameRequired"));
       return;
     }
 
@@ -203,7 +205,7 @@ export function CompanyFormModal({
     setSaving(false);
 
     if (!response.ok || !data?.company) {
-      setError(data?.error ?? "Erro ao salvar empresa.");
+      setError(data?.error ?? t("companies.ui.form.saveError"));
       return;
     }
 
@@ -215,15 +217,15 @@ export function CompanyFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={initial ? "Editar empresa" : "Nova empresa"}
-      description="Cadastre sua empresa em qualquer país para usar no mapa do dinheiro e na calculadora."
+      title={initial ? t("companies.ui.form.editTitle") : t("companies.ui.form.createTitle")}
+      description={t("companies.ui.form.description")}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancelar
+            {t("common.cancel")}
           </Button>
           <Button type="button" loading={saving} onClick={() => void handleSubmit()}>
-            {initial ? "Salvar" : "Cadastrar"}
+            {initial ? t("common.save") : t("companies.ui.form.register")}
           </Button>
         </>
       }
@@ -231,7 +233,7 @@ export function CompanyFormModal({
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>País</Label>
+            <Label>{t("companies.ui.form.countryLabel")}</Label>
             <Select
               options={countryOptions}
               value={form.countryCode}
@@ -245,20 +247,20 @@ export function CompanyFormModal({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Nome curto</Label>
+            <Label>{t("companies.ui.form.shortNameLabel")}</Label>
             <Input
               value={form.label}
-              placeholder="Ex: Minha LLC, Studio BR"
+              placeholder={t("companies.ui.form.shortNamePlaceholder")}
               onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))}
             />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <Label>Razão social (opcional)</Label>
+          <Label>{t("companies.ui.form.legalNameLabel")}</Label>
           <Input
             value={form.legalName}
-            placeholder="Nome legal completo"
+            placeholder={t("companies.ui.form.legalNamePlaceholder")}
             onChange={(event) => setForm((current) => ({ ...current, legalName: event.target.value }))}
           />
         </div>
@@ -300,7 +302,7 @@ export function CompanyFormModal({
               {lookup.tradeName || lookup.legalName}
             </p>
             <p className="mt-2 text-zinc-500">
-              CNAE {lookup.cnaeCode} — {lookup.cnaeDescription}
+              {t("companies.ui.form.cnaeLabel")} {lookup.cnaeCode} — {lookup.cnaeDescription}
             </p>
           </div>
         ) : null}
@@ -308,7 +310,7 @@ export function CompanyFormModal({
         {form.countryCode === "BR" ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>CNAE</Label>
+              <Label>{t("companies.ui.form.cnaeLabel")}</Label>
               <Input
                 value={form.activityCode}
                 onChange={(event) =>
@@ -317,7 +319,7 @@ export function CompanyFormModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Descrição CNAE</Label>
+              <Label>{t("companies.ui.form.cnaeDescriptionLabel")}</Label>
               <Input
                 value={form.activityDescription}
                 onChange={(event) =>
@@ -330,7 +332,7 @@ export function CompanyFormModal({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Regime tributário</Label>
+            <Label>{t("companies.ui.form.taxRegimeLabel")}</Label>
             <Select
               options={taxRegimeOptions}
               value={form.taxRegime}
@@ -338,7 +340,7 @@ export function CompanyFormModal({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Alíquota efetiva (%)</Label>
+            <Label>{t("companies.ui.form.effectiveRateLabel")}</Label>
             <NumberInput
               value={form.taxRate}
               min={0}
@@ -351,8 +353,8 @@ export function CompanyFormModal({
 
         <div className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
           <div>
-            <p className="text-sm font-medium">Empresa padrão</p>
-            <p className="text-xs text-zinc-500">Usada automaticamente em novos blocos de imposto.</p>
+            <p className="text-sm font-medium">{t("companies.ui.form.defaultCompanyTitle")}</p>
+            <p className="text-xs text-zinc-500">{t("companies.ui.form.defaultCompanyHint")}</p>
           </div>
           <Switch
             checked={form.isDefault}

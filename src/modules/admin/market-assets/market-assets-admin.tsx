@@ -13,13 +13,24 @@ import {
 } from "@/components/ui/smart-table";
 import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useUrlQueryFilter } from "@/hooks/use-url-query-state";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useT } from "@/i18n/locale-provider";
+import { translateMarketAssetKind } from "@/i18n/labels";
 import { DEFAULT_SPOILABLE_TTL_SECONDS } from "@/lib/spoilable-field";
 import {
-  MARKET_ASSET_KIND_LABELS,
   type MarketAssetKind,
   type SerializedMarketAsset,
 } from "@/types/market";
+
+const MARKET_ASSET_KINDS: MarketAssetKind[] = [
+  "STOCK",
+  "ETF",
+  "FII",
+  "CRYPTO",
+  "INDEX",
+  "COMMODITY",
+];
 
 type AssetForm = {
   symbol: string;
@@ -41,16 +52,23 @@ const emptyForm = (): AssetForm => ({
   active: true,
 });
 
-const KIND_OPTIONS = Object.entries(MARKET_ASSET_KIND_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
-
-const KIND_FILTER_OPTIONS = [{ value: "", label: "Todos os tipos" }, ...KIND_OPTIONS];
-
 export function MarketAssetsAdmin() {
+  const t = useT();
+  const kindOptions = useMemo(
+    () =>
+      MARKET_ASSET_KINDS.map((value) => ({
+        value,
+        label: translateMarketAssetKind(value, t),
+      })),
+    [t],
+  );
+  const kindFilterOptions = useMemo(
+    () => [{ value: "", label: t("admin.common.allTypes") }, ...kindOptions],
+    [kindOptions, t],
+  );
+
   const [assets, setAssets] = useState<SerializedMarketAsset[]>([]);
-  const [kindFilter, setKindFilter] = useState("");
+  const [kindFilter, setKindFilter] = useUrlQueryFilter({ key: "kind", defaultValue: "" });
   const [form, setForm] = useState<AssetForm>(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -69,15 +87,15 @@ export function MarketAssetsAdmin() {
         error?: string;
       }>(`/api/admin/market-assets${query}`);
       if (!response.ok || !data?.assets) {
-        throw new Error(data?.error ?? "Erro ao carregar ativos.");
+        throw new Error(data?.error ?? t("admin.marketAssets.errorLoad"));
       }
       setAssets(data.assets);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadAssets(kindFilter || undefined);
@@ -95,7 +113,7 @@ export function MarketAssetsAdmin() {
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        const message = data?.error ?? "Erro ao salvar.";
+        const message = data?.error ?? t("admin.common.error.save");
         setError(message);
         throw new Error(message);
       }
@@ -105,7 +123,7 @@ export function MarketAssetsAdmin() {
         await loadAssets(kindFilter || undefined);
       }
     },
-    [kindFilter, loadAssets],
+    [kindFilter, loadAssets, t],
   );
 
   function closeModal() {
@@ -154,11 +172,11 @@ export function MarketAssetsAdmin() {
           body: JSON.stringify(payload),
         },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao salvar.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.save"));
       closeModal();
       await loadAssets(kindFilter || undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.save"));
     } finally {
       setSaving(false);
     }
@@ -167,9 +185,9 @@ export function MarketAssetsAdmin() {
   async function remove() {
     if (!editingId) return;
     const ok = await confirm({
-      title: "Excluir ativo",
-      message: "Excluir este ativo? O histórico de cotações será apagado.",
-      confirmLabel: "Excluir",
+      title: t("admin.marketAssets.confirmDeleteTitle"),
+      message: t("admin.marketAssets.confirmDeleteMessage"),
+      confirmLabel: t("admin.common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -179,11 +197,11 @@ export function MarketAssetsAdmin() {
         `/api/admin/market-assets/${editingId}`,
         { method: "DELETE" },
       );
-      if (!response.ok) throw new Error(data?.error ?? "Erro ao excluir.");
+      if (!response.ok) throw new Error(data?.error ?? t("admin.common.error.delete"));
       closeModal();
       await loadAssets(kindFilter || undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao excluir.");
+      setError(err instanceof Error ? err.message : t("admin.common.error.delete"));
     } finally {
       setSaving(false);
     }
@@ -193,48 +211,48 @@ export function MarketAssetsAdmin() {
     () => [
       {
         id: "symbol",
-        header: "Símbolo",
+        header: t("admin.common.columns.symbol"),
         sortValue: (row) => row.symbol,
         field: {
           type: "text",
           scope: "both",
           formKey: "symbol",
           getValue: (row) => row.symbol,
-          placeholder: "PETR4, AAPL, BTC…",
+          placeholder: t("admin.marketAssets.placeholders.symbol"),
           onSave: (row, value) =>
             patchAsset(row.id, { symbol: String(value ?? "").toUpperCase() }),
         },
       },
       {
         id: "name",
-        header: "Nome",
+        header: t("admin.common.columns.name"),
         sortValue: (row) => row.name,
         field: {
           type: "text",
           scope: "both",
           formKey: "name",
           getValue: (row) => row.name,
-          placeholder: "Nome do ativo",
+          placeholder: t("admin.marketAssets.placeholders.name"),
           onSave: (row, value) => patchAsset(row.id, { name: String(value ?? "") }),
         },
       },
       {
         id: "kind",
-        header: "Tipo",
+        header: t("admin.common.columns.kind"),
         sortValue: (row) => row.kind,
         field: {
           type: "select",
           scope: "both",
           formKey: "kind",
-          modalLabel: "Tipo",
+          modalLabel: t("admin.common.columns.kind"),
           getValue: (row) => row.kind,
-          options: KIND_OPTIONS,
+          options: kindOptions,
           onSave: (row, value) => patchAsset(row.id, { kind: String(value) }),
         },
       },
       {
         id: "price",
-        header: "Preço",
+        header: t("admin.common.columns.price"),
         sortValue: (row) => row.price ?? 0,
         field: {
           type: "spoilable-number",
@@ -249,13 +267,13 @@ export function MarketAssetsAdmin() {
       },
       {
         id: "currency",
-        header: "Moeda",
+        header: t("admin.common.columns.currency"),
         sortValue: (row) => row.currencyCode,
         field: {
           type: "text",
           scope: "modal",
           formKey: "currencyCode",
-          modalLabel: "Moeda",
+          modalLabel: t("admin.common.columns.currency"),
           getValue: (row) => row.currencyCode,
           placeholder: "USD",
           onSave: (row, value) =>
@@ -264,27 +282,27 @@ export function MarketAssetsAdmin() {
       },
       {
         id: "exchange",
-        header: "Bolsa",
+        header: t("admin.common.columns.exchange"),
         field: {
           type: "text",
           scope: "modal",
           formKey: "exchange",
-          modalLabel: "Bolsa / exchange",
+          modalLabel: t("admin.marketAssets.exchangeLabel"),
           getValue: (row) => row.exchange,
-          placeholder: "B3, NASDAQ…",
+          placeholder: t("admin.marketAssets.placeholders.exchange"),
           onSave: (row, value) => patchAsset(row.id, { exchange: value ? String(value) : null }),
         },
       },
       {
         id: "country",
-        header: "País",
+        header: t("admin.common.columns.country"),
         field: {
           type: "text",
           scope: "modal",
           formKey: "countryCode",
-          modalLabel: "País (código, ex.: BR)",
+          modalLabel: t("admin.marketAssets.countryCode"),
           getValue: (row) => row.countryCode,
-          placeholder: "BR, US…",
+          placeholder: t("admin.marketAssets.placeholders.country"),
           onSave: (row, value) =>
             patchAsset(row.id, {
               countryCode: value ? String(value).toUpperCase() : null,
@@ -293,21 +311,21 @@ export function MarketAssetsAdmin() {
       },
       {
         id: "active",
-        header: "Ativo",
+        header: t("admin.common.active"),
         sortValue: (row) => (row.active ? 1 : 0),
         align: "center",
         field: {
           type: "boolean",
           scope: "both",
           formKey: "active",
-          modalLabel: "Ativo",
+          modalLabel: t("admin.common.active"),
           getValue: (row) => row.active,
-          hint: "Ativo",
+          hint: t("admin.common.active"),
           onSave: (row, value) => patchAsset(row.id, { active: Boolean(value) }),
         },
       },
     ],
-    [patchAsset],
+    [kindOptions, patchAsset, t],
   );
 
   const modalOpen = isCreating || !!editingId;
@@ -320,14 +338,11 @@ export function MarketAssetsAdmin() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-emerald-600">Admin</p>
+          <p className="text-sm text-emerald-600">{t("admin.common.kicker")}</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Ativos de mercado
+            {t("admin.marketAssets.title")}
           </h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Ações, ETFs, FIIs e cripto acompanhados pelo worker de cotações. Preço: amarelo =
-            ok, vermelho = expirado.
-          </p>
+          <p className="mt-1 text-sm text-zinc-500">{t("admin.marketAssets.subtitle")}</p>
         </div>
       </div>
 
@@ -339,34 +354,34 @@ export function MarketAssetsAdmin() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Cadastrados</CardTitle>
+          <CardTitle className="text-base">{t("admin.common.registered")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
           <div className="max-w-xs">
-            <Label>Filtrar por tipo</Label>
+            <Label>{t("admin.common.filterByType")}</Label>
             <Select
-              options={KIND_FILTER_OPTIONS}
+              options={kindFilterOptions}
               value={kindFilter}
               onChange={setKindFilter}
-              placeholder="Todos os tipos"
+              placeholder={t("admin.common.allTypes")}
             />
           </div>
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando...</p>
+            <p className="py-6 text-sm text-zinc-500">{t("admin.common.loading")}</p>
           ) : (
             <SmartTable
               data={assets}
               columns={columns}
               getRowKey={(row) => row.id}
               pageSize={10}
-              searchPlaceholder="Buscar ativos…"
+              searchPlaceholder={t("admin.marketAssets.search")}
               searchFilter={(row, query) =>
                 [row.symbol, row.name, row.exchange ?? "", row.kind].some((field) =>
                   field.toLowerCase().includes(query),
                 )
               }
               onCreate={startCreate}
-              createLabel="Novo ativo"
+              createLabel={t("admin.marketAssets.new")}
               onEdit={startEdit}
             />
           )}
@@ -376,13 +391,17 @@ export function MarketAssetsAdmin() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={isCreating ? "Novo ativo" : `Editar — ${form.symbol}`}
+        title={
+          isCreating
+            ? t("admin.marketAssets.new")
+            : t("admin.common.editTitle", { name: form.symbol })
+        }
         size="lg"
         className="max-w-md"
         footer={
           <>
             <Button type="button" variant="secondary" onClick={closeModal} disabled={saving}>
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             {!isCreating ? (
               <Button
@@ -392,11 +411,15 @@ export function MarketAssetsAdmin() {
                 disabled={saving}
               >
                 <IconTrash size="sm" />
-                Excluir
+                {t("admin.common.delete")}
               </Button>
             ) : null}
             <Button type="button" onClick={() => void save()} disabled={saving}>
-              {saving ? "Salvando..." : isCreating ? "Criar" : "Salvar"}
+              {saving
+                ? t("admin.common.saving")
+                : isCreating
+                  ? t("admin.common.create")
+                  : t("admin.common.save")}
             </Button>
           </>
         }

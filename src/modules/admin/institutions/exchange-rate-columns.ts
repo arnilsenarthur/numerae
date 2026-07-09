@@ -3,9 +3,11 @@ import type { SerializedExchangeRate } from "@/lib/institution-serializer";
 import { effectiveExchangeRate } from "@/lib/institutions";
 import { DEFAULT_EXCHANGE_RATE_TTL_SECONDS } from "@/lib/spoilable-field";
 import type { SmartTableColumn } from "@/components/ui/smart-table";
+import type { TranslateFn } from "@/i18n/translate";
+import type { AppLocale } from "@/i18n/locales";
 
-function formatRate(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
+function formatRate(value: number, locale: AppLocale) {
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 6,
   }).format(value);
@@ -118,13 +120,15 @@ export function editExchangeRatePayload(form: ExchangeRateForm) {
 }
 
 export function buildExchangeRateColumns(options: {
+  t: TranslateFn;
+  locale: AppLocale;
   patchRate: (
     rateId: string,
     body: Record<string, unknown>,
   ) => void | Promise<void>;
   currencyOptions: SelectOption[];
 }): SmartTableColumn<SerializedExchangeRate>[] {
-  const { patchRate, currencyOptions } = options;
+  const { t, locale, patchRate, currencyOptions } = options;
 
   return [
     {
@@ -207,7 +211,7 @@ export function buildExchangeRateColumns(options: {
         type: "readonly",
         scope: "table",
         getValue: (row) => effectiveExchangeRate(row.rate, row.spreadPercent),
-        formatReadonly: (_row, value) => formatRate(Number(value)),
+        formatReadonly: (_row, value) => formatRate(Number(value), locale),
       },
     },
     {
@@ -255,7 +259,7 @@ export function buildExchangeRateColumns(options: {
     },
     {
       id: "active",
-      header: "Ativa",
+      header: t("admin.common.activeFeminine"),
       align: "center",
       sortValue: (row) => (row.active ? 1 : 0),
       field: {
@@ -263,8 +267,8 @@ export function buildExchangeRateColumns(options: {
         scope: "both",
         formKey: "active",
         modalOrder: 8,
-        modalLabel: "Par ativo",
-        hint: "Ativa",
+        modalLabel: t("admin.common.activeFeminine"),
+        hint: t("admin.common.activeFeminine"),
         getValue: (row) => row.active,
         onSave: (row, value) => patchRate(row.id, { active: Boolean(value) }),
       },

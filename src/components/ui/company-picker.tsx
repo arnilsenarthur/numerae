@@ -10,6 +10,7 @@ import {
   buildCompanyPickerItems,
 } from "@/lib/company-picker-items";
 import type { SavedCompany } from "@/types/user-company";
+import { useT } from "@/i18n/locale-provider";
 
 type CompanyPickerProps = {
   companies: SavedCompany[];
@@ -28,12 +29,15 @@ export function CompanyPicker({
   loading,
   valueId,
   onSelect,
-  label = "Empresa",
-  placeholder = "Selecione a empresa…",
+  label,
+  placeholder,
   allowManual = true,
   className,
   menuZIndex,
 }: CompanyPickerProps) {
+  const t = useT();
+  const resolvedLabel = label ?? t("ui.pickers.company.label");
+  const resolvedPlaceholder = placeholder ?? t("ui.pickers.company.placeholder");
   const items = useMemo(() => buildCompanyPickerItems(companies), [companies]);
 
   function handleSelect(id: string) {
@@ -50,23 +54,23 @@ export function CompanyPicker({
 
   return (
     <RegistryPicker
-      label={label}
-      placeholder={placeholder}
+      label={resolvedLabel}
+      placeholder={resolvedPlaceholder}
       items={items}
       valueId={resolvedValueId}
       onSelect={handleSelect}
       loading={loading}
       className={className}
       menuZIndex={menuZIndex}
-      searchPlaceholder="Buscar empresa ou registro…"
-      emptyMessage="Nenhuma empresa cadastrada."
+      searchPlaceholder={t("ui.pickers.company.search")}
+      emptyMessage={t("ui.pickers.company.empty")}
       specialOptions={
         allowManual
           ? [
               {
                 id: MANUAL_COMPANY_ID,
-                label: "Inserir manualmente",
-                description: "Sem vincular a uma empresa cadastrada",
+                label: t("ui.pickers.company.manual"),
+                description: t("ui.pickers.company.manualDescription"),
                 icon: <IconPercent size="sm" />,
               },
             ]

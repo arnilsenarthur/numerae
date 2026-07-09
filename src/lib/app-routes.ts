@@ -8,6 +8,9 @@ export const FINANCE_TABS = {
   recurring: "recurring",
   accounts: "accounts",
   goals: "goals",
+  budgets: "budgets",
+  subscriptions: "subscriptions",
+  reports: "reports",
 } as const;
 
 export type FinanceTabSlug = (typeof FINANCE_TABS)[keyof typeof FINANCE_TABS];
@@ -43,13 +46,13 @@ export const MARKET_KIND_SLUG_TO_KIND: Record<MarketKindSlug, MarketAssetKind> =
   commodity: "COMMODITY",
 };
 
-export const MARKET_KIND_NAV: { slug: MarketKindSlug; label: string }[] = [
-  { slug: "share", label: "Ações" },
-  { slug: "etf", label: "ETF" },
-  { slug: "fii", label: "FII" },
-  { slug: "crypto", label: "Cripto" },
-  { slug: "indices", label: "Índices" },
-  { slug: "commodity", label: "Commodity" },
+export const MARKET_KIND_NAV: { slug: MarketKindSlug }[] = [
+  { slug: "share" },
+  { slug: "etf" },
+  { slug: "fii" },
+  { slug: "crypto" },
+  { slug: "indices" },
+  { slug: "commodity" },
 ];
 
 export const MARKET_DEFAULT_KIND_SLUG: MarketKindSlug = "share";
@@ -73,15 +76,11 @@ export function marketAssetPath(kind: MarketKindSlug, symbol: string) {
 export const FINANCE_LEDGER_TABS = {
   history: "transactions",
   recurring: "recurring",
+  subscriptions: "subscriptions",
 } as const;
 
 export type FinanceLedgerTabSlug =
   (typeof FINANCE_LEDGER_TABS)[keyof typeof FINANCE_LEDGER_TABS];
-
-export const FINANCE_LEDGER_TAB_LABELS: Record<FinanceLedgerTabSlug, string> = {
-  transactions: "Lançamentos",
-  recurring: "Recorrentes",
-};
 
 export const CALCULATOR_TABS = {
   exchange: "exchange",
@@ -99,6 +98,9 @@ const FINANCE_LEGACY: Record<string, FinanceTabSlug> = {
   recorrentes: "recurring",
   contas: "accounts",
   metas: "goals",
+  orcamentos: "budgets",
+  assinaturas: "subscriptions",
+  relatorios: "reports",
 };
 
 const INVESTMENT_LEGACY: Record<string, InvestmentTabSlug> = {
@@ -158,28 +160,6 @@ export function legacyTabRedirectPath(pathname: string): string | null {
   const suffix = rest.length > 0 ? `/${rest.join("/")}` : "";
   return `/${section}/${nextTab}${suffix}`;
 }
-
-export const FINANCE_TAB_LABELS: Record<FinanceTabSlug, string> = {
-  overview: "Resumo",
-  transactions: "Lançamentos",
-  recurring: "Recorrentes",
-  accounts: "Contas",
-  goals: "Metas",
-};
-
-export const INVESTMENT_TAB_LABELS: Record<InvestmentTabSlug, string> = {
-  positions: "Minhas posições",
-  allocation: "Alocação sugerida",
-  projection: "Projeção",
-};
-
-export const CALCULATOR_TAB_LABELS: Record<CalculatorTabSlug, string> = {
-  exchange: "Câmbio",
-  taxes: "Impostos PJ",
-  salary: "Salário exterior",
-  loan: "Financiamento",
-  fire: "Independência FIRE",
-};
 
 export const FINANCE_DEFAULT_TAB: FinanceTabSlug = "overview";
 export const INVESTMENT_DEFAULT_TAB: InvestmentTabSlug = "positions";

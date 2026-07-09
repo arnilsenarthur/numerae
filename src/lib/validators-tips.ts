@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveAppLocale } from "@/i18n/locales";
 import type { TipCategory } from "@/types/tips";
 
 const tipCategoryValues = [
@@ -27,6 +28,11 @@ export const tipSchema = z.object({
   quote: z.string().trim().min(8, "A dica deve ter pelo menos 8 caracteres.").max(500),
   author: z.string().trim().min(2, "Autor obrigatório.").max(120),
   category: tipCategory.optional(),
+  locale: z
+    .string()
+    .trim()
+    .transform((value) => resolveAppLocale(value))
+    .optional(),
   sourceUrl,
   sourceLabel,
   active: z.boolean().optional(),

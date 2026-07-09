@@ -531,6 +531,23 @@ export function IconRepair(props: IconProps) {
   );
 }
 
+export function IconWrench(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </Icon>
+  );
+}
+
+export function IconBarChart(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16v-5M12 16V8M17 16v-9" />
+    </Icon>
+  );
+}
+
 export function IconBitcoin(props: IconProps) {
   return (
     <Icon {...props}>
@@ -733,9 +750,19 @@ export const icons = {
   bicycle: IconBicycle,
 } as const;
 
-export const iconCategories = [
+export type IconCategoryKey =
+  | "incomeExpense"
+  | "goals"
+  | "consumption"
+  | "savings"
+  | "general";
+
+export const iconCategories: ReadonlyArray<{
+  categoryKey: IconCategoryKey;
+  keys: readonly (keyof typeof icons)[];
+}> = [
   {
-    label: "Despesas & receitas",
+    categoryKey: "incomeExpense",
     keys: [
       "receipt",
       "salary",
@@ -751,7 +778,7 @@ export const iconCategories = [
     ],
   },
   {
-    label: "Metas & objetivos",
+    categoryKey: "goals",
     keys: [
       "star",
       "house",
@@ -768,7 +795,7 @@ export const iconCategories = [
     ],
   },
   {
-    label: "Consumo & categorias",
+    categoryKey: "consumption",
     keys: [
       "food",
       "shopping",
@@ -782,7 +809,7 @@ export const iconCategories = [
     ],
   },
   {
-    label: "Economia & pagamentos",
+    categoryKey: "savings",
     keys: [
       "wallet",
       "creditCard",
@@ -797,7 +824,7 @@ export const iconCategories = [
     ],
   },
   {
-    label: "Geral & utilitários",
+    categoryKey: "general",
     keys: [
       "chart",
       "calendar",
@@ -822,3 +849,7 @@ export const iconCategories = [
     ],
   },
 ] as const;
+
+export function getIconCategoryLabel(categoryKey: IconCategoryKey, t: (key: string) => string) {
+  return t(`ui.iconPicker.categories.${categoryKey}`);
+}

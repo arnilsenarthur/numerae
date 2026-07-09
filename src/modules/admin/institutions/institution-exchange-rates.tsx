@@ -8,6 +8,7 @@ import { SmartTable, SmartTableModalFields } from "@/components/ui/smart-table";
 import { IconTrash } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import {
   buildCurrencySelectOptions,
   type SerializedCurrency,
@@ -30,6 +31,8 @@ export function InstitutionExchangeRates({
   institutionId: string;
   currencies: SerializedCurrency[];
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [rates, setRates] = useState<SerializedExchangeRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,16 +60,16 @@ export function InstitutionExchangeRates({
       }>(`/api/admin/institutions/${institutionId}/exchange-rates`);
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Erro ao carregar taxas.");
+        throw new Error(data?.error ?? t("admin.institutions.exchangeRates.errorLoad"));
       }
 
       setRates(data?.exchangeRates ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar taxas.");
+      setError(err instanceof Error ? err.message : t("admin.institutions.exchangeRates.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, [institutionId]);
+  }, [institutionId, t]);
 
   useEffect(() => {
     void loadRates();
@@ -85,7 +88,7 @@ export function InstitutionExchangeRates({
       });
 
       if (!response.ok) {
-        const message = data?.error ?? "Erro ao salvar taxa.";
+        const message = data?.error ?? t("admin.institutions.exchangeRates.errorSave");
         setError(message);
         throw new Error(message);
       }
@@ -98,12 +101,12 @@ export function InstitutionExchangeRates({
         await loadRates();
       }
     },
-    [institutionId, loadRates],
+    [institutionId, loadRates, t],
   );
 
   const columns = useMemo(
-    () => buildExchangeRateColumns({ patchRate, currencyOptions }),
-    [currencyOptions, patchRate],
+    () => buildExchangeRateColumns({ t, locale, patchRate, currencyOptions }),
+    [currencyOptions, locale, patchRate, t],
   );
 
   async function createRate() {
@@ -121,7 +124,7 @@ export function InstitutionExchangeRates({
       });
 
       if (!response.ok || !data?.exchangeRate) {
-        throw new Error(data?.error ?? "Erro ao criar taxa.");
+        throw new Error(data?.error ?? t("admin.institutions.exchangeRates.errorCreate"));
       }
 
       setRates((prev) =>
@@ -133,7 +136,7 @@ export function InstitutionExchangeRates({
       setCreateOpen(false);
       setCreateForm(emptyExchangeRateForm());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar taxa.");
+      setError(err instanceof Error ? err.message : t("admin.institutions.exchangeRates.errorCreate"));
     } finally {
       setCreating(false);
     }
@@ -158,9 +161,12 @@ export function InstitutionExchangeRates({
 
   async function deleteRate(rate: SerializedExchangeRate) {
     const ok = await confirm({
-      title: "Excluir par de câmbio",
-      message: `Excluir o par ${rate.fromCurrency} → ${rate.toCurrency}?`,
-      confirmLabel: "Excluir",
+      title: t("admin.institutions.exchangeRates.confirmDeleteTitle"),
+      message: t("admin.institutions.exchangeRates.confirmDeleteMessage", {
+        from: rate.fromCurrency,
+        to: rate.toCurrency,
+      }),
+      confirmLabel: t("admin.common.delete"),
       tone: "error",
     });
     if (!ok) return;
@@ -172,7 +178,7 @@ export function InstitutionExchangeRates({
     );
 
     if (!response.ok) {
-      setError(data?.error ?? "Erro ao excluir taxa.");
+      setError(data?.error ?? t("admin.institutions.exchangeRates.errorDelete"));
       return;
     }
 
@@ -191,21 +197,21 @@ export function InstitutionExchangeRates({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Pares de câmbio</CardTitle>
-          <p className="text-sm text-zinc-500">
-            Taxa efetiva = taxa × (1 − spread%). Taxa e spread expiram em 1 hora após salvar.
-          </p>
+          <CardTitle className="text-base">{t("admin.institutions.exchangeRates.title")}</CardTitle>
+          <p className="text-sm text-zinc-500">{t("admin.institutions.exchangeRates.subtitle")}</p>
         </CardHeader>
         <CardContent className="pt-0">
           {loading ? (
-            <p className="py-6 text-sm text-zinc-500">Carregando taxas...</p>
+            <p className="py-6 text-sm text-zinc-500">
+              {t("admin.institutions.exchangeRates.loading")}
+            </p>
           ) : (
             <SmartTable
               data={rates}
               columns={columns}
               getRowKey={(row) => row.id}
               pageSize={10}
-              searchPlaceholder="Buscar pares…"
+              searchPlaceholder={t("admin.institutions.exchangeRates.search")}
               searchFilter={(row, query) =>
                 [row.fromCurrency, row.toCurrency, row.notes ?? ""].some((field) =>
                   field.toLowerCase().includes(query),
@@ -215,7 +221,7 @@ export function InstitutionExchangeRates({
                 setCreateForm(emptyExchangeRateForm());
                 setCreateOpen(true);
               }}
-              createLabel="Novo par"
+              createLabel={t("admin.institutions.exchangeRates.new")}
               onEdit={(row) => {
                 setEditRate(row);
                 setEditForm(exchangeRateToForm(row));
@@ -228,7 +234,7 @@ export function InstitutionExchangeRates({
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Novo par de câmbio"
+        title={t("admin.institutions.exchangeRates.newTitle")}
         size="lg"
         className="max-w-md"
         footer={
@@ -239,14 +245,14 @@ export function InstitutionExchangeRates({
               onClick={() => setCreateOpen(false)}
               disabled={creating}
             >
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             <Button
               type="button"
               onClick={() => void createRate()}
               disabled={creating || !createForm.rate}
             >
-              {creating ? "Criando..." : "Criar par"}
+              {creating ? t("admin.common.creating") : t("admin.institutions.exchangeRates.createPair")}
             </Button>
           </>
         }
@@ -270,8 +276,10 @@ export function InstitutionExchangeRates({
         }}
         title={
           editRate
-            ? `Editar — ${editRate.fromCurrency} → ${editRate.toCurrency}`
-            : "Editar par"
+            ? t("admin.common.editTitle", {
+                name: `${editRate.fromCurrency} → ${editRate.toCurrency}`,
+              })
+            : t("admin.institutions.exchangeRates.edit")
         }
         size="lg"
         className="max-w-md"
@@ -286,7 +294,7 @@ export function InstitutionExchangeRates({
               }}
               disabled={savingEdit}
             >
-              Cancelar
+              {t("admin.common.cancel")}
             </Button>
             <Button
               type="button"
@@ -295,14 +303,14 @@ export function InstitutionExchangeRates({
               disabled={savingEdit}
             >
               <IconTrash size="sm" />
-              Excluir
+              {t("admin.common.delete")}
             </Button>
             <Button
               type="button"
               onClick={() => void saveEditRate()}
               disabled={savingEdit || !editForm?.rate}
             >
-              {savingEdit ? "Salvando..." : "Salvar"}
+              {savingEdit ? t("admin.common.saving") : t("admin.common.save")}
             </Button>
           </>
         }

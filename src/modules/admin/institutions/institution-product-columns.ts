@@ -6,6 +6,7 @@ import {
 } from "@/lib/product-serializer";
 import { slugifyInstitution } from "@/lib/institutions";
 import type { SmartTableColumn } from "@/components/ui/smart-table";
+import type { TranslateFn } from "@/i18n/translate";
 
 export type InstitutionProductForm = {
   name: string;
@@ -93,18 +94,19 @@ export function productFormPayload(form: InstitutionProductForm) {
 }
 
 export function buildInstitutionProductColumns(options: {
+  t: TranslateFn;
   patchProduct: (
     id: string,
     body: Record<string, unknown>,
   ) => void | Promise<void>;
   currencyOptions: SelectOption[];
 }): SmartTableColumn<SerializedInstitutionProduct>[] {
-  const { patchProduct, currencyOptions } = options;
+  const { t, patchProduct, currencyOptions } = options;
 
   return [
     {
       id: "name",
-      header: "Nome",
+      header: t("admin.common.columns.name"),
       sortValue: (row) => row.name,
       field: {
         type: "text",
@@ -118,7 +120,7 @@ export function buildInstitutionProductColumns(options: {
     },
     {
       id: "slug",
-      header: "Slug",
+      header: t("admin.common.columns.slug"),
       sortValue: (row) => row.slug,
       field: {
         type: "text",
@@ -133,7 +135,7 @@ export function buildInstitutionProductColumns(options: {
     },
     {
       id: "kind",
-      header: "Tipo",
+      header: t("admin.common.columns.kind"),
       sortValue: (row) => institutionProductKindLabel(row.kind),
       field: {
         type: "select",
@@ -147,14 +149,14 @@ export function buildInstitutionProductColumns(options: {
     },
     {
       id: "currencyCode",
-      header: "Moeda",
+      header: t("admin.common.columns.currency"),
       sortValue: (row) => row.currencyCode ?? "",
       field: {
         type: "select",
         scope: "both",
         formKey: "currencyCode",
         modalOrder: 4,
-        modalLabel: "Moeda (opcional)",
+        modalLabel: t("admin.common.columns.currency"),
         getValue: (row) => row.currencyCode ?? "",
         options: [{ key: "currency-any", value: "", label: "Qualquer" }, ...currencyOptions],
         onSave: (row, value) =>
@@ -163,7 +165,7 @@ export function buildInstitutionProductColumns(options: {
     },
     {
       id: "description",
-      header: "Descrição",
+      header: t("admin.common.columns.description"),
       hidden: true,
       field: {
         type: "textarea",
@@ -176,7 +178,7 @@ export function buildInstitutionProductColumns(options: {
     },
     {
       id: "active",
-      header: "Ativo",
+      header: t("admin.common.active"),
       align: "center",
       sortValue: (row) => (row.active ? 1 : 0),
       field: {
@@ -184,8 +186,8 @@ export function buildInstitutionProductColumns(options: {
         scope: "both",
         formKey: "active",
         modalOrder: 6,
-        modalLabel: "Ativo",
-        hint: "Ativo",
+        modalLabel: t("admin.common.active"),
+        hint: t("admin.common.active"),
         getValue: (row) => row.active,
         onSave: (row, value) => patchProduct(row.id, { active: Boolean(value) }),
       },

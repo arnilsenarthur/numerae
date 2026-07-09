@@ -1,3 +1,5 @@
+import type { TranslateFn } from "@/i18n/translate";
+
 export type SerializedWorkerRun = {
   id: string;
   workerId: string;
@@ -97,13 +99,14 @@ export function formatWorkerNextRunLabel(
     "enabled" | "lastRunAt" | "intervalSeconds" | "nextRunAt" | "isDue" | "isRunning"
   >,
   formatWhen: (iso: string | null) => string,
+  t: TranslateFn,
 ) {
   if (!worker.enabled) {
-    return "Automático desligado";
+    return t("admin.workers.schedule.disabled");
   }
 
   if (worker.isRunning) {
-    return "Executando agora…";
+    return t("admin.workers.schedule.runningNow");
   }
 
   if (worker.isDue) {
@@ -111,9 +114,11 @@ export function formatWorkerNextRunLabel(
       const expectedAt = new Date(
         new Date(worker.lastRunAt).getTime() + worker.intervalSeconds * 1000,
       );
-      return `Pendente · previsto ${formatWhen(expectedAt.toISOString())}`;
+      return t("admin.workers.schedule.pendingExpected", {
+        when: formatWhen(expectedAt.toISOString()),
+      });
     }
-    return "Pendente · aguardando cron";
+    return t("admin.workers.schedule.pendingCron");
   }
 
   if (worker.nextRunAt) {

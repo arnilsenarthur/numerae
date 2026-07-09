@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { useT } from "@/i18n/locale-provider";
 
 export type ConfirmOptions = {
   title: string;
@@ -18,6 +19,7 @@ type ConfirmState = ConfirmOptions & {
 };
 
 export function useConfirm() {
+  const t = useT();
   const [state, setState] = useState<ConfirmState | null>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
@@ -47,7 +49,7 @@ export function useConfirm() {
             onClick={() => handleClose(false)}
             disabled={state.loading}
           >
-            {state.cancelLabel ?? "Cancelar"}
+            {state.cancelLabel ?? t("common.cancel")}
           </Button>
           <Button
             type="button"
@@ -55,7 +57,7 @@ export function useConfirm() {
             onClick={() => handleClose(true)}
             loading={state.loading}
           >
-            {state.confirmLabel ?? "Confirmar"}
+            {state.confirmLabel ?? t("common.confirm")}
           </Button>
         </>
       }

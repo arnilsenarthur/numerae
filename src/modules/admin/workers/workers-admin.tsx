@@ -10,23 +10,18 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { IconCheck, IconAlertTriangle, IconX } from "@/components/ui/icons";
 import { fetchJson } from "@/lib/fetch-json";
+import { useLocale, useT } from "@/i18n/locale-provider";
+import {
+  translateWorkerRunStatus,
+  translateWorkerRunTrigger,
+} from "@/i18n/labels";
 import { WORKER_PROVIDER_OPTIONS } from "@/lib/workers/registry";
 import {
-  WORKER_RUN_STATUS_LABEL,
-  WORKER_RUN_TRIGGER_LABEL,
   formatWorkerNextRunLabel,
   getWorkerScheduleMeta,
   type SerializedWorker,
   type SerializedWorkerRun,
 } from "@/lib/workers/workers.shared";
-
-function formatWhen(iso: string | null) {
-  if (!iso) return "Nunca";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso));
-}
 
 function formatDuration(ms: number | null) {
   if (ms === null) return "—";
@@ -38,8 +33,6 @@ function formatInterval(seconds: number) {
   if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
   return `${Math.round(seconds / 3600)} h`;
 }
-
-const STATUS_LABEL = WORKER_RUN_STATUS_LABEL;
 
 function statusVariant(status: string | null): "default" | "success" | "warning" | "error" {
   switch (status) {
@@ -66,8 +59,22 @@ function providerOptionsForWorker(worker: SerializedWorker) {
 }
 
 function RunHistory({ runs }: { runs: SerializedWorkerRun[] }) {
+  const t = useT();
+  const { locale } = useLocale();
+
+  const formatWhen = useCallback(
+    (iso: string | null) => {
+      if (!iso) return t("admin.workers.never");
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(iso));
+    },
+    [locale, t],
+  );
+
   if (runs.length === 0) {
-    return <p className="text-sm text-zinc-500">Nenhuma execução registrada.</p>;
+    return <p className="text-sm text-zinc-500">{t("admin.workers.noRuns")}</p>;
   }
 
   return (
@@ -79,12 +86,14 @@ function RunHistory({ runs }: { runs: SerializedWorkerRun[] }) {
         >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <Badge variant={statusVariant(run.status)}>{STATUS_LABEL[run.status] ?? run.status}</Badge>
+              <Badge variant={statusVariant(run.status)}>
+                {translateWorkerRunStatus(run.status, t)}
+              </Badge>
               <span className="text-zinc-600 dark:text-zinc-300">{formatWhen(run.createdAt)}</span>
               <span className="text-xs text-zinc-400">
-                {WORKER_RUN_TRIGGER_LABEL[run.trigger] ?? run.trigger}
+                {translateWorkerRunTrigger(run.trigger, t)}
                 {run.provider ? ` · ${run.provider}` : ""}
-                {run.fallbackUsed ? " · fallback" : ""}
+                {run.fallbackUsed ? ` · ${t("admin.workers.fallback")}` : ""}
                 {run.durationMs !== null ? ` · ${formatDuration(run.durationMs)}` : ""}
               </span>
             </div>
@@ -95,7 +104,7 @@ function RunHistory({ runs }: { runs: SerializedWorkerRun[] }) {
             ) : null}
             {run.attemptedProviders?.length ? (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-zinc-500">Provedores tentados</p>
+                <p className="text-xs font-medium text-zinc-500">{t("admin.workers.attemptedProviders")}</p>
                 <ul className="space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
                   {run.attemptedProviders.map((attempt) => (
                     <li key={`${run.id}-${attempt.provider}`} className="flex items-center gap-2">
@@ -132,6 +141,8 @@ function WorkerCard({
   worker: SerializedWorker;
   onChange: (worker: SerializedWorker) => void;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +153,17 @@ function WorkerCard({
     worker.historyLookbackDays ? String(worker.historyLookbackDays) : "",
   );
   const [now, setNow] = useState(() => Date.now());
+
+  const formatWhen = useCallback(
+    (iso: string | null) => {
+      if (!iso) return t("admin.workers.never");
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(iso));
+    },
+    [locale, t],
+  );
 
   useEffect(() => {
     setIntervalSeconds(String(worker.intervalSeconds));
@@ -182,15 +204,19 @@ function WorkerCard({
           isRunning: worker.isRunning,
         },
         formatWhen,
+        t,
       ),
-    [worker, schedule.isDue, schedule.nextRunAt],
+    [worker, schedule.isDue, schedule.nextRunAt, formatWhen, t],
   );
 
   const providerOptions = useMemo(() => providerOptionsForWorker(worker), [worker]);
 
   const secondaryOptions = useMemo(
-    () => [{ value: "", label: "Nenhum", description: "Sem fallback" }, ...providerOptions],
-    [providerOptions],
+    () => [
+      { value: "", label: t("admin.workers.none"), description: t("admin.workers.noFallback") },
+      ...providerOptions,
+    ],
+    [providerOptions, t],
   );
 
   async function patchWorker(body: Record<string, unknown>) {
@@ -208,12 +234,12 @@ function WorkerCard({
       );
 
       if (!response.ok || !data?.worker) {
-        throw new Error(data?.error ?? "Erro ao salvar worker.");
+        throw new Error(data?.error ?? t("admin.workers.errorSave"));
       }
 
       onChange(data.worker);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setError(err instanceof Error ? err.message : t("admin.workers.errorSave"));
     } finally {
       setSaving(false);
     }
@@ -231,13 +257,13 @@ function WorkerCard({
       }>(`/api/admin/workers/${worker.id}/run`, { method: "POST" });
 
       if (!response.ok || !data?.worker || !data?.run) {
-        throw new Error(data?.error ?? "Erro ao executar worker.");
+        throw new Error(data?.error ?? t("admin.workers.errorRun"));
       }
 
       onChange(data.worker);
       setRuns((prev) => [data.run!, ...prev].slice(0, 20));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao executar.");
+      setError(err instanceof Error ? err.message : t("admin.workers.errorRun"));
     } finally {
       setRunning(false);
     }
@@ -252,11 +278,11 @@ function WorkerCard({
         { method: "POST" },
       );
       if (!response.ok || !data?.worker) {
-        throw new Error(data?.error ?? "Erro ao liberar trava.");
+        throw new Error(data?.error ?? t("admin.workers.errorUnlock"));
       }
       onChange(data.worker);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao liberar trava.");
+      setError(err instanceof Error ? err.message : t("admin.workers.errorUnlock"));
     } finally {
       setSaving(false);
     }
@@ -273,7 +299,7 @@ function WorkerCard({
   async function saveInterval() {
     const parsed = Number(intervalSeconds);
     if (!Number.isFinite(parsed) || parsed < 300 || parsed > 86400) {
-      setError("Intervalo deve ser entre 300 e 86400 segundos.");
+      setError(t("admin.workers.validation.interval"));
       setIntervalSeconds(String(worker.intervalSeconds));
       return;
     }
@@ -286,13 +312,15 @@ function WorkerCard({
     if (worker.id !== "market_quotes") return;
     const parsed = Number(historyLookbackDays);
     if (!Number.isFinite(parsed) || parsed < 30 || parsed > 2000) {
-      setError("Retroatividade deve ser entre 30 e 2000 dias.");
+      setError(t("admin.workers.validation.lookback"));
       setHistoryLookbackDays(worker.historyLookbackDays ? String(worker.historyLookbackDays) : "400");
       return;
     }
     if (parsed === worker.historyLookbackDays) return;
     await patchWorker({ historyLookbackDays: Math.round(parsed) });
   }
+
+  const intervalLabel = formatInterval(worker.intervalSeconds);
 
   return (
     <Card>
@@ -302,11 +330,11 @@ function WorkerCard({
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-base">{worker.name}</CardTitle>
               <Badge variant={worker.enabled ? "success" : "default"}>
-                {worker.enabled ? "Automático" : "Manual"}
+                {worker.enabled ? t("admin.workers.automatic") : t("admin.workers.manual")}
               </Badge>
               {worker.lastRunStatus ? (
                 <Badge variant={statusVariant(worker.lastRunStatus)}>
-                  {STATUS_LABEL[worker.lastRunStatus] ?? worker.lastRunStatus}
+                  {translateWorkerRunStatus(worker.lastRunStatus, t)}
                 </Badge>
               ) : null}
             </div>
@@ -325,7 +353,7 @@ function WorkerCard({
                 disabled={saving}
                 onClick={() => void unlockWorker()}
               >
-                {saving ? "Liberando..." : "Liberar trava"}
+                {saving ? t("admin.workers.unlocking") : t("admin.workers.unlock")}
               </Button>
             ) : (
               <Button
@@ -335,7 +363,7 @@ function WorkerCard({
                 disabled={running || saving}
                 onClick={() => void runNow()}
               >
-                {running ? "Executando..." : "Executar agora"}
+                {running ? t("admin.workers.running") : t("admin.workers.runNow")}
               </Button>
             )}
           </div>
@@ -351,11 +379,11 @@ function WorkerCard({
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
-            <p className="text-xs text-zinc-500">Última execução</p>
+            <p className="text-xs text-zinc-500">{t("admin.workers.lastRun")}</p>
             <p className="text-sm font-medium">{formatWhen(worker.lastRunAt)}</p>
           </div>
           <div className="space-y-1 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
-            <p className="text-xs text-zinc-500">Próxima execução</p>
+            <p className="text-xs text-zinc-500">{t("admin.workers.nextRun")}</p>
             <p
               className={
                 schedule.isDue && worker.enabled
@@ -367,11 +395,11 @@ function WorkerCard({
             </p>
           </div>
           <div className="space-y-1 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
-            <p className="text-xs text-zinc-500">Provedor usado</p>
+            <p className="text-xs text-zinc-500">{t("admin.workers.providerUsed")}</p>
             <p className="text-sm font-medium">{worker.lastRunProvider ?? "—"}</p>
           </div>
           <div className="space-y-1 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
-            <p className="text-xs text-zinc-500">Último erro</p>
+            <p className="text-xs text-zinc-500">{t("admin.workers.lastError")}</p>
             <p className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
               {worker.lastRunError ?? "—"}
             </p>
@@ -381,19 +409,18 @@ function WorkerCard({
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-1">
             <Switch
-              label="Worker automático"
+              label={t("admin.workers.autoWorker")}
               checked={worker.enabled}
               disabled={saving}
               onChange={(event) => void patchWorker({ enabled: event.target.checked })}
             />
             <p className="text-xs text-zinc-500">
-              Ligado: o cron executa a cada {formatInterval(worker.intervalSeconds)} após a última
-              execução. Desligado: só via &quot;Executar agora&quot;.
+              {t("admin.workers.autoWorkerHint", { interval: intervalLabel })}
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor={`interval-${worker.id}`}>Intervalo automático (segundos)</Label>
+            <Label htmlFor={`interval-${worker.id}`}>{t("admin.workers.intervalSeconds")}</Label>
             <NumberInput
               id={`interval-${worker.id}`}
               value={intervalSeconds}
@@ -406,14 +433,17 @@ function WorkerCard({
             />
             <p className="text-xs text-zinc-500">
               {worker.enabled
-                ? `Próximo ciclo: ${nextRunLabel} · ${formatInterval(worker.intervalSeconds)} · 300–86400s`
-                : "Ative o automático para usar o intervalo · 300–86400s"}
+                ? t("admin.workers.intervalHintEnabled", {
+                    nextRun: nextRunLabel,
+                    interval: intervalLabel,
+                  })
+                : t("admin.workers.intervalHintDisabled")}
             </p>
           </div>
 
           {worker.id === "market_quotes" ? (
             <div className="space-y-1.5">
-              <Label htmlFor={`lookback-${worker.id}`}>Retroatividade de histórico (dias)</Label>
+              <Label htmlFor={`lookback-${worker.id}`}>{t("admin.workers.lookbackDays")}</Label>
               <NumberInput
                 id={`lookback-${worker.id}`}
                 value={historyLookbackDays}
@@ -424,14 +454,12 @@ function WorkerCard({
                 onChange={(event) => setHistoryLookbackDays(event.target.value)}
                 onBlur={() => void saveLookbackDays()}
               />
-              <p className="text-xs text-zinc-500">
-                Mantém apenas essa janela no banco, preenche lacunas e remove dados mais antigos.
-              </p>
+              <p className="text-xs text-zinc-500">{t("admin.workers.lookbackHint")}</p>
             </div>
           ) : null}
 
           <div className="space-y-1.5">
-            <Label>Provedor primário</Label>
+            <Label>{t("admin.workers.primaryProvider")}</Label>
             <Select
               options={providerOptions}
               value={worker.primaryProvider}
@@ -441,7 +469,7 @@ function WorkerCard({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Provedor secundário (fallback)</Label>
+            <Label>{t("admin.workers.secondaryProvider")}</Label>
             <Select
               options={secondaryOptions}
               value={worker.secondaryProvider ?? ""}
@@ -456,11 +484,11 @@ function WorkerCard({
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Histórico de execuções
+              {t("admin.workers.runHistory")}
             </p>
             {!expanded ? (
               <Button type="button" variant="ghost" size="sm" onClick={() => void loadMoreRuns()}>
-                Ver histórico completo
+                {t("admin.workers.viewFullHistory")}
               </Button>
             ) : null}
           </div>
@@ -472,6 +500,7 @@ function WorkerCard({
 }
 
 export function WorkersAdmin() {
+  const t = useT();
   const [workers, setWorkers] = useState<SerializedWorker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -487,16 +516,16 @@ export function WorkersAdmin() {
       );
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Erro ao carregar workers.");
+        throw new Error(data?.error ?? t("admin.workers.errorLoad"));
       }
 
       setWorkers(data?.workers ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar workers.");
+      setError(err instanceof Error ? err.message : t("admin.workers.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadWorkers();
@@ -527,24 +556,23 @@ export function WorkersAdmin() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div>
-        <p className="text-sm text-emerald-600">Admin</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Workers / Crons</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Workers automáticos rodam no intervalo configurado. Com usuários logados, o app
-          também dispara workers pendentes a cada poucos minutos — além do cron da Vercel.
-        </p>
+        <p className="text-sm text-emerald-600">{t("admin.common.kicker")}</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+          {t("admin.workers.title")}
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">{t("admin.workers.subtitle")}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="py-4">
-            <p className="text-xs text-zinc-500">Workers</p>
+            <p className="text-xs text-zinc-500">{t("admin.workers.stats.total")}</p>
             <p className="text-2xl font-semibold">{stats.total}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="py-4">
-            <p className="text-xs text-zinc-500">Automáticos</p>
+            <p className="text-xs text-zinc-500">{t("admin.workers.stats.automatic")}</p>
             <p className="text-2xl font-semibold text-emerald-600">{stats.enabled}</p>
           </CardContent>
         </Card>
@@ -552,7 +580,7 @@ export function WorkersAdmin() {
           <CardContent className="py-4">
             <p className="flex items-center gap-1 text-xs text-zinc-500">
               {stats.failed > 0 ? <IconAlertTriangle size="sm" className="text-amber-500" /> : null}
-              Com falha recente
+              {t("admin.workers.stats.recentFailure")}
             </p>
             <p className="text-2xl font-semibold">{stats.failed}</p>
           </CardContent>
@@ -561,20 +589,11 @@ export function WorkersAdmin() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Cron automático</CardTitle>
+          <CardTitle className="text-base">{t("admin.workers.cron.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 pt-0 text-sm text-zinc-600 dark:text-zinc-300">
-          <p>
-            Configure <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-900">CRON_SECRET</code>{" "}
-            e agende <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-900">POST /api/cron/workers</code>{" "}
-            a cada 20 min (ou menor, se preferir). Cada worker automático roda quando{" "}
-            <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-900">última execução + intervalo</code>{" "}
-            já passou.
-          </p>
-          <p className="text-xs text-zinc-500">
-            Header: <code>Authorization: Bearer CRON_SECRET</code> ou{" "}
-            <code>x-cron-secret</code>. Use <code>?force=true</code> para forçar todos os automáticos.
-          </p>
+          <p>{t("admin.workers.cron.p1")}</p>
+          <p className="text-xs text-zinc-500">{t("admin.workers.cron.p2")}</p>
         </CardContent>
       </Card>
 
@@ -585,7 +604,7 @@ export function WorkersAdmin() {
       ) : null}
 
       {loading ? (
-        <p className="py-8 text-sm text-zinc-500">Carregando workers...</p>
+        <p className="py-8 text-sm text-zinc-500">{t("admin.workers.loading")}</p>
       ) : (
         <div className="space-y-4">
           {workers.map((worker) => (

@@ -74,7 +74,7 @@ export async function GET(request: Request) {
           ...(includeArchived ? {} : { archived: false }),
         },
         include: { institution: { select: INSTITUTION_ACCOUNT_SELECT } },
-        orderBy: [{ archived: "asc" }, { name: "asc" }],
+        orderBy: [{ archived: "asc" }, { isDefault: "desc" }, { name: "asc" }],
       }),
       loadBalances(session.user.id),
     ]);
@@ -115,6 +115,17 @@ export async function POST(request: Request) {
       );
     }
 
+    const existingCount = await prisma.financialAccount.count({
+      where: { userId: session.user.id, archived: false },
+    });
+
+    if (parsed.data.isDefault) {
+      await prisma.financialAccount.updateMany({
+        where: { userId: session.user.id },
+        data: { isDefault: false },
+      });
+    }
+
     const record = await prisma.financialAccount.create({
       data: {
         userId: session.user.id,
@@ -124,8 +135,10 @@ export async function POST(request: Request) {
         countryCode: parsed.data.countryCode,
         institutionId: parsed.data.institutionId || null,
         initialBalance: parsed.data.initialBalance,
+        creditLimit: parsed.data.creditLimit ?? null,
         color: parsed.data.color ?? null,
         icon: parsed.data.icon ?? null,
+        isDefault: parsed.data.isDefault ?? existingCount === 0,
       },
       include: { institution: { select: INSTITUTION_ACCOUNT_SELECT } },
     });

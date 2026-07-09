@@ -82,6 +82,22 @@ const STROKE = {
 
 const DEFAULT_PATH_LENGTH = 500;
 
+function isLiteralColor(color: string) {
+  return color.startsWith("#") || color.startsWith("rgb");
+}
+
+function resolveChartColor(color: string | undefined, fallback: string) {
+  if (!color) return { className: fallback };
+  if (isLiteralColor(color)) return { style: { fill: color } };
+  return { className: color };
+}
+
+function resolveBarColor(color: string | undefined, fallback: string) {
+  if (!color) return { className: fallback };
+  if (isLiteralColor(color)) return { style: { backgroundColor: color } };
+  return { className: color };
+}
+
 function ChartFrame({
   children,
   className,
@@ -512,6 +528,10 @@ function BarChartView({
                   >
                     {segmentBlocks.map((block) => {
                       const isActive = activeKey === block.key;
+                      const colorProps = resolveBarColor(
+                        block.color,
+                        palette.bar[(rowIndex + block.segmentIndex) % palette.bar.length],
+                      );
 
                       return (
                         <div
@@ -519,17 +539,14 @@ function BarChartView({
                           role="presentation"
                           className={cn(
                             "h-full cursor-pointer transition-opacity duration-150",
-                            block.color ??
-                              palette.bar[
-                                (rowIndex + block.segmentIndex) % palette.bar.length
-                              ],
+                            colorProps.className,
                             isActive
                               ? "brightness-110"
                               : hasHover
                                 ? "opacity-40"
                                 : "opacity-90",
                           )}
-                          style={{ width: `${block.width}%` }}
+                          style={{ width: `${block.width}%`, ...colorProps.style }}
                           onMouseEnter={() => setActiveKey(block.key)}
                         />
                       );
@@ -700,6 +717,10 @@ function ColumnChartView({
             {column.segments.map((segment) => {
               const isSegmentActive =
                 isColumnActive && activeSegmentIndex === segment.segmentIndex;
+              const colorProps = resolveChartColor(
+                segment.color,
+                palette.column[(column.index + segment.segmentIndex) % palette.column.length],
+              );
 
               return (
                 <rect
@@ -711,17 +732,17 @@ function ColumnChartView({
                   rx={2}
                   className={cn(
                     "animate-chart-column cursor-pointer transition-all duration-200",
-                    segment.color ??
-                      palette.column[
-                        (column.index + segment.segmentIndex) % palette.column.length
-                      ],
+                    colorProps.className,
                     isSegmentActive
                       ? "opacity-100 brightness-110"
                       : hasHover
                         ? "opacity-35"
                         : "opacity-90",
                   )}
-                  style={{ animationDelay: `${column.index * 70 + segment.segmentIndex * 35}ms` }}
+                  style={{
+                    animationDelay: `${column.index * 70 + segment.segmentIndex * 35}ms`,
+                    ...colorProps.style,
+                  }}
                   onMouseEnter={() => {
                     setActiveIndex(column.index);
                     setActiveSegmentIndex(segment.segmentIndex);

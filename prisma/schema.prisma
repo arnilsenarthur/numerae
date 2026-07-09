@@ -68,6 +68,8 @@ model User {
   investmentPositions InvestmentPosition[]
   recurringTransactions RecurringTransaction[]
   goals         FinancialGoal[]
+  budgets       Budget[]
+  preference    UserPreference?
 }
 
 model FinancialGoal {
@@ -314,9 +316,11 @@ model FinancialAccount {
   currencyCode  String               @db.VarChar(8)
   countryCode   String               @default("BR") @db.Char(2)
   initialBalance Decimal             @default(0) @db.Decimal(18, 2)
+  creditLimit   Decimal?             @db.Decimal(18, 2)
   color         String?
   icon          String?
   archived      Boolean              @default(false)
+  isDefault     Boolean              @default(false)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   transactions  Transaction[]
@@ -506,6 +510,35 @@ model InvestmentPlan {
   @@index([userId, active])
 }
 
+// ── Orçamentos mensais ────────────────────────────────────────────────
+
+model Budget {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     String
+  amount       Decimal  @db.Decimal(18, 2)
+  currencyCode String   @db.VarChar(8)
+  month        Int
+  year         Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, category, currencyCode, month, year])
+  @@index([userId, year, month])
+}
+
+// ── Preferências de usuário ───────────────────────────────────────────
+
+model UserPreference {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  showDailyTip    Boolean  @default(true)
+  defaultCurrency String   @default("BRL") @db.VarChar(8)
+  language        String   @default("pt-BR") @db.VarChar(10)
+  updatedAt       DateTime @updatedAt
+}
+
 // ── Dicas financeiras (conteúdo editorial) ───────────────────────────
 
 model Tip {
@@ -513,6 +546,7 @@ model Tip {
   quote       String
   author      String
   category    String   @default("general")
+  locale      String   @default("pt-BR") @db.VarChar(10)
   sourceUrl   String?
   sourceLabel String?
   active      Boolean  @default(true)
@@ -520,5 +554,5 @@ model Tip {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([active, sortOrder])
+  @@index([active, locale, sortOrder])
 }
