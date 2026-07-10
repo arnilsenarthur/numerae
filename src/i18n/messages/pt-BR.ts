@@ -294,6 +294,8 @@ export const ptBR = {
       backToLogin: "Voltar para login",
       verifiedSigningIn: "Conta verificada. Entrando…",
       errorVerify: "Erro ao verificar código.",
+      errorRateLimit: "Muitas tentativas incorretas. Aguarde {seconds}s e tente novamente.",
+      waitToVerify: "Aguarde {seconds}s para tentar verificar novamente.",
       errorResend: "Erro ao reenviar código.",
       missingSubtitle: "Precisamos do seu e-mail para enviar o código de verificação.",
       missingWarning: "Volte ao cadastro ou faça login para continuar a verificação.",

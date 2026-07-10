@@ -15,9 +15,12 @@ export function useResendCooldown(seconds = 60) {
     return () => window.clearInterval(timer);
   }, [cooldown]);
 
-  const startCooldown = useCallback(() => {
-    setCooldown(seconds);
-  }, [seconds]);
+  const startCooldown = useCallback(
+    (overrideSeconds?: number) => {
+      setCooldown(overrideSeconds ?? seconds);
+    },
+    [seconds],
+  );
 
   return { cooldown, startCooldown, canResend: cooldown === 0 };
 }

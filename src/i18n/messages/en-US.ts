@@ -287,6 +287,8 @@ export const enUS = {
       backToLogin: "Back to sign in",
       verifiedSigningIn: "Account verified. Signing in…",
       errorVerify: "Could not verify code.",
+      errorRateLimit: "Too many failed attempts. Wait {seconds}s and try again.",
+      waitToVerify: "Wait {seconds}s before trying to verify again.",
       errorResend: "Could not resend code.",
       missingSubtitle: "We need your email to send the verification code.",
       missingWarning: "Go back to sign up or sign in to continue verification.",

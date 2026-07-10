@@ -1,5 +1,4 @@
 import nodemailer from "nodemailer";
-import { Resend } from "resend";
 import { createTranslator } from "@/i18n/translate";
 import { resolveLocaleFromRequest } from "@/i18n/request-locale";
 import { resolveAppLocale, type AppLocale } from "@/i18n/locales";
@@ -7,7 +6,7 @@ import { SITE_NAME } from "@/lib/site";
 
 type SendResult =
   | { sent: true }
-  | { sent: false; error: string; code?: "domain_not_verified" | "not_configured" };
+  | { sent: false; error: string; code?: "not_configured" };
 
 type EmailTemplateOptions = {
   heading: string;
@@ -44,71 +43,48 @@ function resolveSmtpHost(user: string | undefined): string {
   return "smtp.gmail.com";
 }
 
-const smtpHost = resolveSmtpHost(smtpUser);
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
-
-const useSmtp = Boolean(smtpUser && smtpPass);
-const resend = !useSmtp && process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
-
-const EMAIL_MODE = (process.env.EMAIL_MODE ?? "test").trim().toLowerCase();
-const isResendTestMode = EMAIL_MODE !== "production";
-
-const resendFromAddress = isResendTestMode
-  ? "Numerae <onboarding@resend.dev>"
-  : emailFrom && !emailFrom.includes("resend.dev")
-    ? emailFrom
-    : null;
-
-const smtpFromAddress = emailFrom ?? (smtpUser ? `Numerae <${smtpUser}>` : null);
-
-const smtpTransport = useSmtp
-  ? nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: { user: smtpUser!, pass: smtpPass! },
-      requireTLS: smtpPort === 587,
-    })
-  : null;
-
-if (!useSmtp && !resend) {
-  console.warn(
-    "[Numerae] E-mail não configurado. Defina SMTP_USER/SMTP_PASS (Gmail) ou RESEND_API_KEY.",
-  );
+function extractEmailAddress(value: string): string {
+  const match = value.match(/<([^>]+)>/);
+  return (match?.[1] ?? value).trim().toLowerCase();
 }
 
-function mapResendError(
-  error: { message?: string | null; name?: string; statusCode?: number | null },
-  options: { testMode: boolean },
-  t: ReturnType<typeof createTranslator>,
-): SendResult {
-  const message = error.message ?? "";
+function resolveSmtpFromAddress(): string | null {
+  if (!smtpUser) return null;
 
-  if (
-    message.includes("only send testing emails") ||
-    message.includes("verify a domain")
-  ) {
-    if (options.testMode) {
-      return {
-        sent: false,
-        code: "domain_not_verified",
-        error: t("errors.email.testMode"),
-      };
-    }
-
-    return {
-      sent: false,
-      code: "domain_not_verified",
-      error: t("errors.email.domainNotVerified"),
-    };
+  if (!emailFrom) {
+    return `${SITE_NAME} <${smtpUser}>`;
   }
 
-  return {
-    sent: false,
-    error: t("errors.email.sendFailed"),
-  };
+  const fromEmail = extractEmailAddress(emailFrom);
+  if (fromEmail !== smtpUser.toLowerCase()) {
+    console.warn(
+      "[Numerae] EMAIL_FROM difere de SMTP_USER. Usando SMTP_USER para melhor entrega no Gmail.",
+    );
+    return `${SITE_NAME} <${smtpUser}>`;
+  }
+
+  return emailFrom;
+}
+
+const smtpHost = resolveSmtpHost(smtpUser);
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
+const smtpFromAddress = resolveSmtpFromAddress();
+
+const smtpTransport =
+  smtpUser && smtpPass
+    ? nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+        requireTLS: smtpPort === 587,
+      })
+    : null;
+
+if (!smtpTransport) {
+  console.warn(
+    "[Numerae] E-mail não configurado. Defina SMTP_USER e SMTP_PASS (Gmail).",
+  );
 }
 
 function buildEmailHtml({
@@ -151,42 +127,36 @@ function buildEmailHtml({
   `;
 }
 
+function buildEmailText({
+  heading,
+  paragraphs,
+  code,
+  codeLabel,
+  footer,
+  footerReason,
+}: EmailTemplateOptions) {
+  return [
+    heading,
+    "",
+    ...paragraphs,
+    "",
+    `${codeLabel}: ${code}`,
+    "",
+    footer,
+    "",
+    footerReason,
+  ].join("\n");
+}
+
 async function sendEmail(
   to: string,
   subject: string,
-  html: string,
+  template: EmailTemplateOptions,
   locale: AppLocale,
 ): Promise<SendResult> {
   const t = createTranslator(locale);
 
-  if (useSmtp) {
-    if (!smtpFromAddress) {
-      return {
-        sent: false,
-        code: "not_configured",
-        error: t("errors.email.smtpFromMissing"),
-      };
-    }
-
-    try {
-      await smtpTransport!.sendMail({
-        from: smtpFromAddress,
-        to,
-        subject,
-        html,
-      });
-      return { sent: true };
-    } catch (error) {
-      console.error("[Numerae] Erro ao enviar e-mail via SMTP:", error);
-      const message =
-        error instanceof Error && /auth|credentials|535|534/i.test(error.message)
-          ? t("errors.email.smtpAuth")
-          : t("errors.email.smtpFailed");
-      return { sent: false, error: message };
-    }
-  }
-
-  if (!resend) {
+  if (!smtpTransport || !smtpFromAddress || !smtpUser) {
     return {
       sent: false,
       code: "not_configured",
@@ -194,27 +164,31 @@ async function sendEmail(
     };
   }
 
-  if (!resendFromAddress) {
-    return {
-      sent: false,
-      code: "not_configured",
-      error: t("errors.email.resendFromMissing"),
-    };
+  const html = buildEmailHtml(template);
+  const text = buildEmailText(template);
+
+  try {
+    await smtpTransport.sendMail({
+      from: smtpFromAddress,
+      to,
+      replyTo: smtpUser,
+      subject,
+      text,
+      html,
+      headers: {
+        "Auto-Submitted": "auto-generated",
+        "X-Auto-Response-Suppress": "All",
+      },
+    });
+    return { sent: true };
+  } catch (error) {
+    console.error("[Numerae] Erro ao enviar e-mail via SMTP:", error);
+    const message =
+      error instanceof Error && /auth|credentials|535|534/i.test(error.message)
+        ? t("errors.email.smtpAuth")
+        : t("errors.email.smtpFailed");
+    return { sent: false, error: message };
   }
-
-  const { error } = await resend.emails.send({
-    from: resendFromAddress,
-    to,
-    subject,
-    html,
-  });
-
-  if (error) {
-    console.error("[Numerae] Erro ao enviar e-mail:", error);
-    return mapResendError(error, { testMode: isResendTestMode }, t);
-  }
-
-  return { sent: true };
 }
 
 export async function sendVerificationCode(
@@ -231,14 +205,14 @@ export async function sendVerificationCode(
   return sendEmail(
     email,
     t("email.verification.subject", { siteName: SITE_NAME }),
-    buildEmailHtml({
+    {
       heading: t("email.verification.heading"),
       paragraphs: [t("email.verification.p1"), t("email.verification.p2")],
       codeLabel: t("email.verification.codeLabel"),
       code,
       footer: t("email.verification.footer"),
       footerReason: t("email.footerReason", { siteName: SITE_NAME }),
-    }),
+    },
     locale,
   );
 }
@@ -257,14 +231,14 @@ export async function sendPasswordResetCode(
   return sendEmail(
     email,
     t("email.reset.subject", { siteName: SITE_NAME }),
-    buildEmailHtml({
+    {
       heading: t("email.reset.heading"),
       paragraphs: [t("email.reset.p1"), t("email.reset.p2")],
       codeLabel: t("email.reset.codeLabel"),
       code,
       footer: t("email.reset.footer"),
       footerReason: t("email.footerReason", { siteName: SITE_NAME }),
-    }),
+    },
     locale,
   );
 }

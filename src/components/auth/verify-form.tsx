@@ -51,7 +51,16 @@ export function VerifyForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const { cooldown, startCooldown, canResend } = useResendCooldown(60);
+  const {
+    cooldown: resendCooldown,
+    startCooldown: startResendCooldown,
+    canResend,
+  } = useResendCooldown(60);
+  const {
+    cooldown: verifyCooldown,
+    startCooldown: startVerifyCooldown,
+    canResend: canVerify,
+  } = useResendCooldown(0);
   const submitLock = useRef(false);
   const lastSubmittedCode = useRef<string | null>(null);
 
@@ -60,6 +69,7 @@ export function VerifyForm() {
       if (
         !email ||
         nextCode.length !== 6 ||
+        !canVerify ||
         submitLock.current ||
         lastSubmittedCode.current === nextCode
       ) {
@@ -92,6 +102,13 @@ export function VerifyForm() {
             return;
           }
 
+          if (response.status === 429) {
+            const seconds = data.retryAfterSeconds ?? 120;
+            startVerifyCooldown(seconds);
+            setError(t("auth.verify.errorRateLimit", { seconds }));
+            return;
+          }
+
           setError(data.error ?? t("auth.verify.errorVerify"));
           return;
         }
@@ -120,14 +137,18 @@ export function VerifyForm() {
         submitLock.current = false;
       }
     },
-    [email, router, t],
+    [canVerify, email, router, startVerifyCooldown, t],
   );
 
   useEffect(() => {
-    if (code.length === 6 && !loading && !resending) {
+    if (code.length !== 6 || loading || resending || !canVerify) return;
+
+    const timer = window.setTimeout(() => {
       void verifyCode(code);
-    }
-  }, [code, loading, resending, verifyCode]);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [canVerify, code, loading, resending, verifyCode]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,7 +179,7 @@ export function VerifyForm() {
 
     if (!response.ok) {
       setError(data.error ?? t("auth.verify.errorResend"));
-      if (response.status === 429) startCooldown();
+      if (response.status === 429) startResendCooldown();
       return;
     }
 
@@ -166,7 +187,7 @@ export function VerifyForm() {
     setCode("");
     setCodeError(null);
     lastSubmittedCode.current = null;
-    startCooldown();
+    startResendCooldown();
   }
 
   if (!email) {
@@ -202,7 +223,7 @@ export function VerifyForm() {
                   setCode(next);
                   if (codeError) setCodeError(null);
                 }}
-                disabled={loading}
+                disabled={loading || !canVerify}
               />
             </div>
           </Field>
@@ -210,6 +231,11 @@ export function VerifyForm() {
 
         <p className="text-center text-xs text-zinc-500">{t("auth.verify.codeExpiry")}</p>
 
+        {verifyCooldown > 0 ? (
+          <Alert variant="warning">
+            {t("auth.verify.waitToVerify", { seconds: verifyCooldown })}
+          </Alert>
+        ) : null}
         {error ? <Alert variant="error">{error}</Alert> : null}
         {message ? <Alert variant="success">{message}</Alert> : null}
 
@@ -218,7 +244,7 @@ export function VerifyForm() {
             type="submit"
             className="w-full"
             loading={loading}
-            disabled={code.length !== 6}
+            disabled={code.length !== 6 || !canVerify}
           >
             {t("auth.verify.submit")}
           </Button>
@@ -235,7 +261,7 @@ export function VerifyForm() {
           >
             {canResend
               ? t("auth.verify.resend")
-              : t("auth.verify.resendIn", { seconds: cooldown })}
+              : t("auth.verify.resendIn", { seconds: resendCooldown })}
           </Button>
         </FormField>
       </form>

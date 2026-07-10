@@ -1,7 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getRequestIp } from "@/lib/request-ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifySchema } from "@/lib/validators";
+
+function rateLimitResponse(retryAfterMs: number | undefined) {
+  const retryAfterSeconds = Math.max(1, Math.ceil((retryAfterMs ?? 60_000) / 1000));
+
+  return NextResponse.json(
+    {
+      error: "Muitas tentativas. Aguarde alguns minutos.",
+      retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    },
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -15,19 +31,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      "unknown";
-    const limit = rateLimit(`verify:${ip}`, 10, 15 * 60 * 1000);
-
-    if (!limit.success) {
-      return NextResponse.json(
-        { error: "Muitas tentativas. Aguarde alguns minutos." },
-        { status: 429 },
-      );
-    }
-
+    const ip = getRequestIp(request);
     const { email, code } = parsed.data;
+
+    const ipLimit = rateLimit(`verify-ip:${ip}`, 40, 15 * 60 * 1000);
+    if (!ipLimit.success) {
+      return rateLimitResponse(ipLimit.retryAfterMs);
+    }
 
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -62,6 +72,11 @@ export async function POST(request: Request) {
     });
 
     if (!verification) {
+      const failLimit = rateLimit(`verify-fail:${email}`, 15, 15 * 60 * 1000);
+      if (!failLimit.success) {
+        return rateLimitResponse(failLimit.retryAfterMs);
+      }
+
       return NextResponse.json(
         { error: "Código inválido ou expirado." },
         { status: 400 },
